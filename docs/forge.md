@@ -2,6 +2,23 @@
 
 SupportFlow AI is a single-tenant Laravel 13 app. Use Forge (not Laravel Cloud).
 
+GitHub: [trr-code/supportflow-ai](https://github.com/trr-code/supportflow-ai). Deploy branch `main`.
+
+## Site checklist (existing CareerForge server)
+
+1. Install **PHP 8.5** on the server if it is not already present. Select PHP 8.5 for this site and for the queue worker.
+2. Create a new site pointed at `trr-code/supportflow-ai`, branch `main`.
+3. Create logical database **`supportflow_ai`** on the existing PostgreSQL instance. Do not put SupportFlow tables in CareerForge’s database.
+4. Install `postgresql-XX-pgvector` if needed (server-wide). Then in `supportflow_ai` only: `CREATE EXTENSION vector;`
+5. Set environment variables below. Prefer `SESSION_ENCRYPT=true` in production.
+6. Paste the deploy script, enable SSL, and deploy.
+7. Queue worker: `--queue=ai,default --timeout=90` using PHP 8.5.
+8. Scheduler: `php artisan schedule:run` every minute.
+9. After first deploy: `php artisan db:seed --force` once.
+10. Confirm `/up` over HTTPS. Return screenshots of the site URL, PHP version, worker, scheduler, database list, `/up`, and first-deploy logs.
+
+Shared ~1 GB VM: queue storms and k6 compete with CareerForge. Run k6 off-peak; pause `schedule:run` for long k6 runs.
+
 ## PostgreSQL + pgvector
 
 See [pgvector.md](pgvector.md). Install `postgresql-XX-pgvector` and enable `CREATE EXTENSION vector` **before** migrating. SupportFlow AI stores embeddings as native `vector(1536)` and retrieves with `whereVectorSimilarTo`.
@@ -20,6 +37,7 @@ Set at least:
 - `OPENAI_REPLY_MODEL=gpt-5.6-terra`
 - `OPENAI_CHAT_MODEL=gpt-5.6-luna`
 - `OPENAI_EMBEDDINGS_MODEL=text-embedding-3-small`
+- `SESSION_ENCRYPT=true` (production)
 - `DEMO_STALE_MINUTES=45`
 - `SUPPORTFLOW_MIN_SIMILARITY=0.45`
 
