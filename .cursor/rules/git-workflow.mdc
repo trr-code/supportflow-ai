@@ -1,0 +1,20 @@
+---
+description: Conventional commit messages with lowercase type and Capitalized imperative
+alwaysApply: true
+---
+
+# Git workflow
+
+- Initial history lives on `main`. After GitHub and Forge track `main`, use GitHub Flow: short-lived branches, PR into `main`, merge, delete the branch.
+- Never `git init` outside this project folder.
+- Do not backdate commits.
+
+## Commit messages
+
+Use Conventional Commits with this house style:
+
+- Lowercase type (`feat`, `fix`, `chore`, `ci`, `docs`, `test`, `refactor`)
+- Capitalized imperative description
+- No trailing period
+
+Examples: `feat: Add grounded knowledge assistant`, `test: Add workflow, security, and AI coverage`.

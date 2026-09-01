@@ -1,0 +1,21 @@
+{
+    "agents": [
+        "cursor"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "sail": false,
+    "skills": [
+        "infer-conventions",
+        "ai-sdk-development",
+        "fortify-development",
+        "laravel-best-practices",
+        "testing-best-practices",
+        "fluxui-development",
+        "livewire-development",
+        "pest-testing",
+        "tailwindcss-development"
+    ]
+}

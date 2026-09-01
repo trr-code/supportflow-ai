@@ -1,0 +1,20 @@
+---
+description: Require stable unique wire:key on Livewire loops and verify keys reach the DOM
+globs: resources/views/**/*.blade.php
+alwaysApply: false
+---
+
+# Livewire loop keys
+
+Every `@foreach` / `@forelse` that renders Livewire-updated DOM must put a **stable unique** `wire:key` on the loop’s first real DOM element.
+
+* Prefer a model or business id (e.g. `wire:key="passkey-{{ $passkey['id'] }}"`).
+* Prefix keys when multiple loops share a component so ids cannot collide.
+* When keying a Blade or Flux component in a loop, pass `wire:key` and **verify** the component root merges `$attributes` so the key reaches the DOM. Canonical pattern: `resources/views/components/job-card.blade.php`.
+* Prefer identity keys over `$loop->index`. For string lists without DB ids (e.g. recovery codes), key from a hash of the value — `wire:key="recovery-code-{{ hash('sha256', $code) }}"` — not the index and not the raw secret in the attribute.
+* Enum / option loops are not exempt (e.g. `@foreach (WorkplaceType::cases() as $type)` over `flux:select.option`). Still pass a prefixed `wire:key` (e.g. `workplace-{{ $type->value }}`), matching filter checkboxes on the jobs index. Note: Flux’s default `select.option` variant also emits `wire:key="{{ $value }}"` after `$attributes`; keep the explicit prefixed key in our Blade for consistency and collision-safe intent across multiple selects.
+* Also key the first element of each `@switch` / `@case` branch when the active branch can change across Livewire requests.
+* Nested `<livewire:*>` inside a loop still needs its own `:wire:key`, even when the wrapper already has `wire:key`.
+* For `<livewire:dynamic-component>` / `<livewire:is>`, use a `:wire:key` that changes with the active component (or whenever you intentionally remount a child).
+* On dependent selects (options rebuild from another field), put `wire:key` on the dependent `<select>` so the bound value remounts/resets cleanly.
+* Plain `@if` / `@else` that only toggles visibility of stable markup does not require `wire:key`; key when swapping distinct Livewire children in the same slot.

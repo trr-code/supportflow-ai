@@ -1,0 +1,42 @@
+---
+description: Closed slashes, closed em dashes, and spaced workflow arrows in user-facing copy
+alwaysApply: true
+---
+
+# Copy style
+
+User-facing copy uses **closed slashes**, **closed em dashes**, and **spaced workflow arrows**. Do not use spaced slashes, spaced em dashes, or closed arrows.
+
+```
+✅ Harbor & Co/SupportFlow
+✅ Laravel/Livewire
+✅ PostgreSQL/pgvector
+✅ live models—not canned scripts
+✅ High (88%)—model-estimated
+✅ (similarity 0.31)—measured
+✅ Warranty claim—snapped trekking pole
+✅ Customer → submit a fictional ticket → keep the status page open.
+
+Hi Jamie,
+
+Reply text...
+
+Best,
+Alex Rivera
+Harbor & Co Support
+
+❌ Harbor & Co / SupportFlow
+❌ Laravel / Livewire
+❌ live models — not canned scripts
+❌ High (88%) — model-estimated
+❌ Hi Jamie—unused items can be returned
+❌ Hi Jamie — unused items can be returned
+❌ Customer→submit
+```
+
+- Compound product, stack, and policy names take a closed slash (`Shipping/returns`, `Tokens in/out`).
+- An em dash joins words with no spaces (`word—word`). Do not put a newline that collapses to a space before or after the dash in HTML.
+- Customer-facing suggested replies put exactly one personalized greeting on its own line (`Hi Jamie,`), then a blank line, then the body, then a blank line, then this three-line closing: `Best,` / `Alex Rivera` / `Harbor & Co Support`. Do not join the greeting to the body with an em dash. Do not emit a second `Hi,` greeting.
+- Workflow steps keep a space on both sides of `→`.
+- Do not replace these with hyphens, en dashes, or pipes in UI copy.
+- Leave code, URLs, arithmetic, and standalone placeholder dashes alone (`1 / ($k + $rank)`, `Missing usage shows as —.`).
