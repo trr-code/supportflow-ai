@@ -18,6 +18,14 @@ class TicketCreate extends Component
 {
     use HeartbeatsDemoSession;
 
+    public const array DRAFT_SESSION_KEYS = [
+        'supportflow.ticket.customer_name',
+        'supportflow.ticket.customer_email',
+        'supportflow.ticket.subject',
+        'supportflow.ticket.product',
+        'supportflow.ticket.description',
+    ];
+
     #[LivewireSession(key: 'supportflow.ticket.customer_name')]
     #[Validate('required|string|max:80')]
     public string $customer_name = '';
@@ -40,20 +48,11 @@ class TicketCreate extends Component
 
     public ?string $capMessage = null;
 
-    public bool $draftRestored = false;
-
     public function mount(): void
     {
-        $hadDraft = $this->hasDraftContent();
-
         if ($prefill = request()->string('subject')->toString()) {
             $this->subject = $prefill;
-            $this->draftRestored = false;
-
-            return;
         }
-
-        $this->draftRestored = $hadDraft;
     }
 
     public function fillSample(DemoScenarioService $scenarios): void
@@ -101,7 +100,6 @@ class TicketCreate extends Component
             'subject',
             'description',
             'product',
-            'draftRestored',
             'capMessage',
         ]);
         $this->forgetTicketDraft();
@@ -115,25 +113,8 @@ class TicketCreate extends Component
             ->layout('components.layouts.public', ['title' => 'New ticket']);
     }
 
-    protected function hasDraftContent(): bool
-    {
-        return collect([
-            $this->customer_name,
-            $this->customer_email,
-            $this->subject,
-            $this->product,
-            $this->description,
-        ])->contains(fn (string $value): bool => trim($value) !== '');
-    }
-
     protected function forgetTicketDraft(): void
     {
-        Session::forget([
-            'supportflow.ticket.customer_name',
-            'supportflow.ticket.customer_email',
-            'supportflow.ticket.subject',
-            'supportflow.ticket.product',
-            'supportflow.ticket.description',
-        ]);
+        Session::forget(self::DRAFT_SESSION_KEYS);
     }
 }

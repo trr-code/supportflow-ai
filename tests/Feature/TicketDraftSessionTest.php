@@ -12,13 +12,20 @@ test('ticket drafts restore from session after a later visit', function () {
         ->set('product', 'Harbor Trail Pack')
         ->set('description', 'I bought a Harbor Trail Pack 18 days ago. It is unused with tags.');
 
+    $this->get(route('tickets.create'))
+        ->assertOk()
+        ->assertSee('Maya Chen')
+        ->assertSee('maya.chen@example.test')
+        ->assertSee('Can I still return the Harbor Trail Pack?')
+        ->assertDontSee('Draft restored.');
+
     Livewire::test(TicketCreate::class)
         ->assertSet('customer_name', 'Maya Chen')
         ->assertSet('customer_email', 'maya.chen@example.test')
         ->assertSet('subject', 'Can I still return the Harbor Trail Pack?')
         ->assertSet('product', 'Harbor Trail Pack')
         ->assertSet('description', 'I bought a Harbor Trail Pack 18 days ago. It is unused with tags.')
-        ->assertSee('Draft restored.');
+        ->assertDontSee('Draft restored.');
 });
 
 test('subject query wins over a stored draft and does not show restored copy', function () {
@@ -37,6 +44,25 @@ test('subject query wins over a stored draft and does not show restored copy', f
 test('empty session drafts do not show restored copy', function () {
     Livewire::test(TicketCreate::class)
         ->assertSet('customer_name', '')
+        ->assertDontSee('Draft restored.');
+});
+
+test('leaving the ticket form clears the stored draft', function () {
+    Livewire::test(TicketCreate::class)
+        ->set('customer_name', 'Maya Chen')
+        ->set('customer_email', 'maya.chen@example.test')
+        ->set('subject', 'Can I still return the Harbor Trail Pack?')
+        ->set('product', 'Harbor Trail Pack')
+        ->set('description', 'I bought a Harbor Trail Pack 18 days ago. It is unused with tags.');
+
+    $this->get(route('home'))->assertOk();
+
+    Livewire::test(TicketCreate::class)
+        ->assertSet('customer_name', '')
+        ->assertSet('customer_email', '')
+        ->assertSet('subject', '')
+        ->assertSet('product', '')
+        ->assertSet('description', '')
         ->assertDontSee('Draft restored.');
 });
 

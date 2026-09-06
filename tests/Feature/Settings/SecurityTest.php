@@ -34,4 +34,22 @@ class SecurityTest extends TestCase
         $this->post('/user/two-factor-authentication')->assertNotFound();
         $this->get('/user/two-factor-recovery-codes')->assertNotFound();
     }
+
+    public function test_appearance_settings_are_not_found(): void
+    {
+        $user = User::factory()->create();
+
+        $this->get('/settings/appearance')->assertNotFound();
+
+        $this->actingAs($user)
+            ->get('/settings/appearance')
+            ->assertNotFound();
+
+        $this->actingAs($user)
+            ->get(route('profile.edit'))
+            ->assertOk()
+            ->assertDontSee('Appearance');
+
+        $this->assertFalse(array_key_exists('appearance.edit', app('router')->getRoutes()->getRoutesByName()));
+    }
 }

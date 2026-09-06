@@ -29,8 +29,8 @@
     @focusout.window="fieldFocused = false"
 >
     @if ($open)
-        <div class="mb-3 overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl">
-            <div class="flex items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
+        <div class="mb-3 flex h-[min(32rem,calc(100dvh-8rem))] flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl sm:h-[min(42rem,calc(100dvh-5.5rem))]">
+            <div class="flex shrink-0 items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
                 <p class="text-sm font-medium text-harbor-ink">Harbor &amp; Co knowledge assistant</p>
                 <div class="flex shrink-0 items-center gap-3">
                     @if ($messages->isNotEmpty() && ! $streaming)
@@ -41,7 +41,7 @@
                     <button type="button" wire:click="$set('open', false)" class="text-sm text-zinc-500 hover:text-harbor-ink">Close</button>
                 </div>
             </div>
-            <div class="max-h-80 space-y-3 overflow-y-auto p-4 text-sm" aria-live="polite">
+            <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm" aria-live="polite">
                 @forelse ($messages as $message)
                     <div wire:key="chat-{{ $message->id }}">
                         @if ($message->role === 'user')
@@ -96,7 +96,7 @@
                     </div>
                 @endif
             </div>
-            <form wire:submit="send" class="border-t border-harbor-sand-deep p-3">
+            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3">
                 <flux:input
                     id="chat-question"
                     wire:model="question"

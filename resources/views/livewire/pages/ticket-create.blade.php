@@ -9,10 +9,6 @@
         <p class="mt-2 text-sm text-zinc-500">Prefills a supported return question. You still submit.</p>
     </div>
 
-    @if ($draftRestored)
-        <p class="rounded-md bg-harbor-ocean/10 p-3 text-sm text-harbor-ocean" role="status">Draft restored.</p>
-    @endif
-
     @if ($capMessage)
         <div class="rounded-md bg-red-50 p-3 text-sm text-red-900" role="alert">{{ $capMessage }}</div>
     @endif

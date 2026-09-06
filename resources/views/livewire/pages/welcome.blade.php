@@ -20,7 +20,9 @@
                     Open Agent Dashboard
                 </flux:button>
             </form>
-            <a href="{{ route('knowledge.index') }}" wire:navigate class="text-sm text-harbor-pine underline-offset-2 hover:underline">Browse policies</a>
+            <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="justify-center">
+                Browse policies
+            </flux:button>
         </div>
         <ul class="grid gap-3 sm:grid-cols-3">
             <li wire:key="proof-rag" class="rounded-xl border border-harbor-sand-deep bg-white px-4 py-3 text-sm text-zinc-700">

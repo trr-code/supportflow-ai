@@ -48,10 +48,17 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->not->toContain('Harbor &amp; Co <span class="font-normal text-zinc-400">/</span> SupportFlow')
         ->and($widget)
         ->toContain('fixed bottom-4 end-4 z-40 w-full max-w-sm')
+        ->toContain('h-[min(32rem,calc(100dvh-8rem))]')
+        ->toContain('sm:h-[min(42rem,calc(100dvh-5.5rem))]')
+        ->toContain('min-h-0 flex-1')
+        ->toContain('overflow-y-auto')
         ->toContain('<div class="text-end">')
         ->toContain('<p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $message->body }}</p>')
         ->not->toContain("role === 'user' ? 'text-end'")
         ->not->toContain('pointer-events-none')
+        ->not->toContain('max-h-80')
+        ->not->toContain('max-h-[min(32rem,calc(100dvh-8rem))]')
+        ->not->toContain('sm:max-h-[min(42rem,calc(100dvh-5.5rem))]')
         ->not->toContain('w-[min(24rem,calc(100vw-2rem))]');
 });
 
@@ -79,6 +86,42 @@ test('the landing page states that a human support agent sends customer-visible 
         ->assertDontSee('not spoken AI')
         ->assertDontSee('until an agent approves it')
         ->assertDontSee('ring-inset ring-harbor-pine/15', false);
+});
+
+test('harbor layouts force a light color scheme and do not apply system appearance', function () {
+    $home = $this->get(route('home'))->assertOk()->getContent();
+    $create = $this->get(route('tickets.create'))->assertOk()->getContent();
+    $head = file_get_contents(resource_path('views/partials/head.blade.php'));
+    $public = file_get_contents(resource_path('views/components/layouts/public.blade.php'));
+    $agent = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
+
+    expect($head)
+        ->toContain('color-scheme: only light')
+        ->not->toContain('@fluxAppearance')
+        ->and($home)
+        ->toContain('color-scheme: only light')
+        ->not->toContain("localStorage.getItem('flux.appearance') || 'system'")
+        ->and($create)
+        ->toContain('color-scheme: only light')
+        ->not->toContain("localStorage.getItem('flux.appearance') || 'system'")
+        ->and($public)
+        ->not->toContain('class="dark"')
+        ->and($agent)
+        ->not->toContain('class="dark"');
+});
+
+test('the landing hero styles Browse policies as an outlined button and leaves the footer as a text link', function () {
+    $home = $this->get(route('home'))->assertOk()->getContent();
+    $welcome = file_get_contents(resource_path('views/livewire/pages/welcome.blade.php'));
+    $layout = file_get_contents(resource_path('views/components/layouts/public.blade.php'));
+
+    expect($welcome)
+        ->toContain('flux:button variant="outline" :href="route(\'knowledge.index\')"')
+        ->and($layout)
+        ->toContain('<a href="{{ route(\'knowledge.index\') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>')
+        ->and($home)
+        ->toContain('Browse policies')
+        ->toContain('data-flux-button');
 });
 
 test('the customer status page says a human support agent must send the reply', function () {
