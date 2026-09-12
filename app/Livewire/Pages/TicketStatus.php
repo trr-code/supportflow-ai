@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Pages;
 
+use App\Enums\MessageAuthorType;
 use App\Enums\TicketStatus as TicketStatusEnum;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\Ticket;
@@ -33,6 +34,7 @@ class TicketStatus extends Component
 
         return ! $this->ticket->messages()
             ->where('visibility', 'public')
+            ->where('author_type', MessageAuthorType::Agent)
             ->whereNotNull('approved_at')
             ->exists();
     }

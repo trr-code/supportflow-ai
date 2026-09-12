@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Pages;
 
+use App\Enums\AiRunFeature;
 use App\Enums\SuggestedReplyStatus;
 use App\Enums\TicketCategory;
 use App\Enums\TicketDepartment;
+use App\Enums\TicketEventType;
 use App\Enums\TicketPriority;
 use App\Enums\TicketSentiment;
 use App\Enums\TicketStatus;
@@ -13,6 +15,7 @@ use App\Jobs\ProcessTicketIntake;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\SuggestedReply;
 use App\Models\Ticket;
+use App\Services\AiUsageRecorder;
 use App\Services\SuggestedReplyService;
 use App\Services\TicketIntakeService;
 use App\Services\TicketService;
@@ -28,6 +31,14 @@ class TicketShow extends Component
 {
     use HeartbeatsDemoSession;
 
+    /** @var list<string> */
+    private const PROCESSING_FLASHES = [
+        'Regenerating a grounded draft…',
+        'Retrying AI intake…',
+    ];
+
+    private const UNCHANGED_REGENERATE_FLASH = 'The regenerated draft matched the previous one. The current draft was kept.';
+
     public Ticket $ticket;
 
     public string $note = '';
@@ -35,6 +46,8 @@ class TicketShow extends Component
     public string $customReply = '';
 
     public string $draftBody = '';
+
+    public ?int $draftReplyId = null;
 
     public bool $showTechnical = false;
 
@@ -120,7 +133,7 @@ class TicketShow extends Component
         $this->syncDraft();
     }
 
-    public function regenerate(): void
+    public function regenerate(AiUsageRecorder $recorder): void
     {
         $this->authorize('update', $this->ticket);
 
@@ -138,20 +151,35 @@ class TicketShow extends Component
 
         RateLimiter::hit($key, $decay);
         $from = $this->pendingReply()?->id;
+        $recorder->queue(
+            AiRunFeature::SuggestedReply,
+            $this->ticket,
+            (string) config('supportflow.models.reply'),
+        );
         GenerateSuggestedReply::dispatch($this->ticket->id, true, $from);
         $this->flash = 'Regenerating a grounded draft…';
     }
 
-    public function retryAi(): void
+    public function retryAi(AiUsageRecorder $recorder): void
     {
         $this->authorize('update', $this->ticket);
+        $recorder->queue(
+            AiRunFeature::Triage,
+            $this->ticket,
+            (string) config('supportflow.models.triage'),
+        );
         ProcessTicketIntake::dispatch($this->ticket->id, true);
         $this->flash = 'Retrying AI intake…';
     }
 
     public function shouldPoll(): bool
     {
-        return in_array($this->ticket->status, [TicketStatus::Submitted, TicketStatus::Triaging], true);
+        $this->ticket->refresh();
+        $this->promotePendingDraftToAwaitingReview();
+        $this->clearProcessingFlashWhenSettled();
+        $this->applyUnchangedRegenerateNotice();
+
+        return $this->aiWorkInFlight();
     }
 
     public function addNote(TicketService $tickets): void
@@ -183,6 +211,9 @@ class TicketShow extends Component
     public function render(): View
     {
         $this->ticket->refresh();
+        $this->promotePendingDraftToAwaitingReview();
+        $this->clearProcessingFlashWhenSettled();
+        $this->applyUnchangedRegenerateNotice();
         $this->syncDraft();
 
         $events = $this->ticket->events()->with('aiRun')->latest()->get();
@@ -222,6 +253,60 @@ class TicketShow extends Component
             ->first();
     }
 
+    protected function promotePendingDraftToAwaitingReview(): void
+    {
+        if ($this->ticket->status !== TicketStatus::Triaging) {
+            return;
+        }
+
+        if ($this->pendingReply() === null) {
+            return;
+        }
+
+        $this->ticket->forceFill(['status' => TicketStatus::AwaitingReview])->save();
+    }
+
+    protected function aiWorkInFlight(): bool
+    {
+        if (in_array($this->ticket->status, [TicketStatus::Submitted, TicketStatus::Triaging], true)) {
+            return true;
+        }
+
+        return SuggestedReplyPanelState::running($this->ticket);
+    }
+
+    protected function clearProcessingFlashWhenSettled(): void
+    {
+        if (! in_array($this->flash, self::PROCESSING_FLASHES, true)) {
+            return;
+        }
+
+        if ($this->aiWorkInFlight()) {
+            return;
+        }
+
+        $this->flash = null;
+    }
+
+    protected function applyUnchangedRegenerateNotice(): void
+    {
+        if ($this->flash !== null) {
+            return;
+        }
+
+        $event = $this->ticket->events()->latest('id')->first();
+
+        if ($event === null || $event->type !== TicketEventType::SuggestionRegenerated) {
+            return;
+        }
+
+        if (($event->payload['unchanged'] ?? false) !== true) {
+            return;
+        }
+
+        $this->flash = self::UNCHANGED_REGENERATE_FLASH;
+    }
+
     protected function syncDraft(): void
     {
         $this->category = $this->ticket->category?->value;
@@ -231,8 +316,13 @@ class TicketShow extends Component
 
         $pending = $this->pendingReply();
 
-        if ($pending && $this->draftBody === '') {
+        if ($pending === null) {
+            return;
+        }
+
+        if ($this->draftBody === '' || $this->draftReplyId !== $pending->id) {
             $this->draftBody = $pending->body;
+            $this->draftReplyId = $pending->id;
         }
     }
 }

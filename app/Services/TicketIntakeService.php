@@ -6,6 +6,8 @@ use App\Ai\Agents\TicketTriageAgent;
 use App\Enums\AiRunFeature;
 use App\Enums\AiRunStatus;
 use App\Enums\TicketEventType;
+use App\Enums\TicketPriority;
+use App\Enums\TicketSentiment;
 use App\Enums\TicketStatus;
 use App\Jobs\GenerateSuggestedReply;
 use App\Models\AiRun;
@@ -36,6 +38,8 @@ class TicketIntakeService
             ->first();
 
         if ($existing && ! $force) {
+            $this->recorder->discardQueued(AiRunFeature::Triage, $ticket);
+
             return;
         }
 
@@ -59,6 +63,24 @@ class TicketIntakeService
                 return;
             }
 
+            if ($ticket->sentiment === TicketSentiment::Angry) {
+                if ($ticket->priority !== TicketPriority::Urgent) {
+                    $ticket->forceFill([
+                        'priority' => TicketPriority::High,
+                        'ai_priority' => $ticket->ai_priority ?? TicketPriority::High,
+                    ])->save();
+                }
+
+                $this->escalate($ticket, 'angry_customer');
+
+                return;
+            }
+
+            $this->recorder->queue(
+                AiRunFeature::SuggestedReply,
+                $ticket,
+                (string) config('supportflow.models.reply'),
+            );
             GenerateSuggestedReply::dispatch($ticket->id);
         } catch (Throwable $exception) {
             $this->recorder->fail($run, $exception->getMessage());
@@ -180,6 +202,8 @@ PROMPT.UntrustedContent::wrap('customer_ticket', $ticket->description);
 
     protected function escalate(Ticket $ticket, string $reason): void
     {
+        $this->recorder->discardQueued(AiRunFeature::SuggestedReply, $ticket);
+
         $ticket->forceFill([
             'status' => TicketStatus::Escalated,
             'needs_human' => true,

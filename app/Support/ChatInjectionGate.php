@@ -37,4 +37,22 @@ class ChatInjectionGate
 
         return false;
     }
+
+    public static function isRefusal(string $body): bool
+    {
+        $normalized = mb_strtolower(trim($body));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        if ($normalized === mb_strtolower(self::REFUSAL)) {
+            return true;
+        }
+
+        return str_contains($normalized, 'disclose or override internal instructions')
+            || str_contains($normalized, 'cannot override internal instructions')
+            || str_contains($normalized, "can't disclose")
+            || str_contains($normalized, 'can’t disclose');
+    }
 }

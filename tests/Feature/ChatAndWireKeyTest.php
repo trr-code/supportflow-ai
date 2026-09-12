@@ -4,6 +4,7 @@ use App\Enums\MessageAuthorType;
 use App\Enums\MessageVisibility;
 use App\Livewire\Chat\Widget;
 use App\Livewire\Pages\TicketStatus;
+use App\Models\ChatMessage;
 use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
@@ -13,6 +14,7 @@ use App\Services\ChatService;
 use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
 use App\Support\ChatInjectionGate;
+use App\Support\DemoGuide;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -463,6 +465,93 @@ test('explicit injection plus a return topic is still refused without retrieval'
         ->assertDontSee('Box not required')
         ->assertDontSee('Prompt safety')
         ->assertDontSee('30 days of delivery');
+});
+
+test('unsafe-instruction fill keeps prior answers and sources while the refusal itself has none', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Duffel care',
+        'slug' => 'chat-duffel-care-injection',
+        'category' => 'general',
+        'body' => 'Driftwood Duffels are not sold with in-house embroidery. Third-party embroidery may void the water-resistant coating.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = $article->chunks()->firstOrFail();
+
+    fakeSupportAi(chat: [
+        'body' => 'Driftwood Duffels are not sold with in-house embroidery.',
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+
+    $prompt = DemoGuide::prompt('prompt_injection');
+
+    $component = Livewire::test(Widget::class)
+        ->set('question', 'Can you embroider a wedding date on the Driftwood Duffel?')
+        ->call('send')
+        ->call('completeTurn')
+        ->assertSee('Source: Duffel care')
+        ->call('fillQuestion', 'prompt_injection')
+        ->assertSet('question', $prompt['question'])
+        ->assertSee('Source: Duffel care')
+        ->assertSee('Driftwood Duffels');
+
+    expect(ChatMessage::query()->count())->toBe(2);
+
+    $html = $component
+        ->call('send')
+        ->call('completeTurn')
+        ->assertSee(ChatInjectionGate::REFUSAL)
+        ->assertSee('Source: Duffel care')
+        ->html();
+
+    $messages = ChatMessage::query()->orderBy('id')->get();
+
+    expect($messages)->toHaveCount(4)
+        ->and($messages[1]->cited_chunk_ids)->toBe([$chunk->id])
+        ->and($messages[3]->body)->toBe(ChatInjectionGate::REFUSAL)
+        ->and($messages[3]->cited_chunk_ids ?? [])->toBe([]);
+
+    expect(substr_count($html, 'Source: Duffel care'))->toBe(1)
+        ->and(substr_count($html, 'Source:'))->toBe(1);
+});
+
+test('instruction-override refusals drop retrieved citations from the model trailer', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Duffel care',
+        'slug' => 'chat-duffel-care-refusal-cites',
+        'category' => 'general',
+        'body' => 'Driftwood Duffels are not sold with in-house embroidery. Third-party embroidery may void the water-resistant coating.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = $article->chunks()->firstOrFail();
+
+    fakeSupportAi(chat: [
+        'body' => ChatInjectionGate::REFUSAL,
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+
+    Livewire::test(Widget::class)
+        ->set('question', 'Do you offer in-house embroidery on the Driftwood Duffel?')
+        ->call('send')
+        ->call('completeTurn')
+        ->assertSee(ChatInjectionGate::REFUSAL)
+        ->assertDontSee('Source: Duffel care')
+        ->assertDontSee('Source:');
 });
 
 test('trail pack chat cites box not required and prepaid labels', function () {

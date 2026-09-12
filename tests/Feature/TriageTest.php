@@ -2,17 +2,23 @@
 
 use App\Ai\Agents\TicketTriageAgent;
 use App\Enums\AiRunFeature;
+use App\Enums\AiRunStatus;
 use App\Enums\SuggestedReplyStatus;
 use App\Enums\TicketCategory;
 use App\Enums\TicketPriority;
+use App\Enums\TicketSentiment;
 use App\Enums\TicketStatus;
+use App\Jobs\GenerateSuggestedReply;
+use App\Models\AiRun;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
 use App\Models\Ticket;
+use App\Services\AiUsageRecorder;
 use App\Services\CostEstimator;
 use App\Services\KnowledgeIndexService;
 use App\Services\TicketIntakeService;
 use App\Support\TriageResult;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
 test('cost estimator uses versioned model rates and stays null without usage', function () {
@@ -138,6 +144,88 @@ test('injection suspected escalates and skips a suggested draft', function () {
         ->and($ticket->suggestedReplies()->count())->toBe(0);
 });
 
+test('angry sentiment escalates at high priority without a suggested draft', function () {
+    fakeSupportAi(fakeTriagePayload([
+        'sentiment' => TicketSentiment::Angry->value,
+        'priority' => TicketPriority::Medium->value,
+        'needs_human' => false,
+        'category' => TicketCategory::Billing->value,
+    ]));
+
+    $ticket = Ticket::factory()->create([
+        'subject' => 'This is the third time you charged me',
+        'description' => 'I am furious. You billed my card three times for the same rain shell. Fix this today.',
+    ]);
+
+    Queue::fake([GenerateSuggestedReply::class]);
+
+    app(TicketIntakeService::class)->process($ticket);
+
+    $ticket->refresh();
+
+    expect($ticket->status)->toBe(TicketStatus::Escalated)
+        ->and($ticket->sentiment)->toBe(TicketSentiment::Angry)
+        ->and($ticket->priority)->toBe(TicketPriority::High)
+        ->and($ticket->needs_human)->toBeTrue()
+        ->and($ticket->suggestedReplies()->count())->toBe(0);
+
+    Queue::assertNotPushed(GenerateSuggestedReply::class);
+});
+
+test('preset angry sentiment still escalates without a suggested draft when classification is calmer', function () {
+    fakeSupportAi(fakeTriagePayload([
+        'sentiment' => TicketSentiment::Neutral->value,
+        'priority' => TicketPriority::Medium->value,
+        'needs_human' => false,
+    ]));
+
+    $ticket = Ticket::factory()->create([
+        'subject' => 'This is the third time you charged me',
+        'description' => 'I am furious. You billed my card three times for the same rain shell.',
+        'sentiment' => TicketSentiment::Angry,
+        'priority' => TicketPriority::High,
+    ]);
+
+    Queue::fake([GenerateSuggestedReply::class]);
+
+    app(TicketIntakeService::class)->process($ticket);
+
+    $ticket->refresh();
+
+    expect($ticket->status)->toBe(TicketStatus::Escalated)
+        ->and($ticket->sentiment)->toBe(TicketSentiment::Angry)
+        ->and($ticket->priority)->toBe(TicketPriority::High)
+        ->and($ticket->suggestedReplies()->count())->toBe(0);
+
+    Queue::assertNotPushed(GenerateSuggestedReply::class);
+});
+
+test('angry urgent tickets stay urgent when escalated without a draft', function () {
+    fakeSupportAi(fakeTriagePayload([
+        'sentiment' => TicketSentiment::Angry->value,
+        'priority' => TicketPriority::Urgent->value,
+        'needs_human' => false,
+    ]));
+
+    $ticket = Ticket::factory()->create([
+        'subject' => 'This is the third time you charged me',
+        'description' => 'I am furious. You billed my card three times.',
+        'priority' => TicketPriority::Urgent,
+    ]);
+
+    Queue::fake([GenerateSuggestedReply::class]);
+
+    app(TicketIntakeService::class)->process($ticket);
+
+    $ticket->refresh();
+
+    expect($ticket->status)->toBe(TicketStatus::Escalated)
+        ->and($ticket->priority)->toBe(TicketPriority::Urgent)
+        ->and($ticket->suggestedReplies()->count())->toBe(0);
+
+    Queue::assertNotPushed(GenerateSuggestedReply::class);
+});
+
 test('invalid triage output fails closed after a repair attempt', function () {
     TicketTriageAgent::fake([
         ['not' => 'valid'],
@@ -152,4 +240,20 @@ test('invalid triage output fails closed after a repair attempt', function () {
     $ticket->refresh();
     expect($ticket->status)->toBe(TicketStatus::AiFailed)
         ->and($ticket->needs_human)->toBeTrue();
+});
+
+test('completing an ai run discards leftover queued runs for the same work', function () {
+    $ticket = Ticket::factory()->create();
+    $recorder = app(AiUsageRecorder::class);
+
+    $running = $recorder->start(AiRunFeature::Triage, $ticket, 'gpt-test');
+    $leftover = $recorder->queue(AiRunFeature::Triage, $ticket, 'gpt-test');
+
+    expect($leftover->id)->not->toBe($running->id)
+        ->and($leftover->status)->toBe(AiRunStatus::Queued);
+
+    $recorder->complete($running);
+
+    expect(AiRun::query()->find($leftover->id))->toBeNull()
+        ->and($running->fresh()->status)->toBe(AiRunStatus::Completed);
 });

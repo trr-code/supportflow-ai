@@ -1,10 +1,15 @@
 <?php
 
+use App\Ai\Agents\SuggestedReplyAgent;
+use App\Enums\AiRunFeature;
+use App\Enums\AiRunStatus;
 use App\Enums\KnowledgeMatchLevel;
 use App\Enums\SuggestedReplyPanelKind;
 use App\Enums\SuggestedReplyStatus;
 use App\Enums\TicketEventType;
 use App\Enums\TicketStatus;
+use App\Jobs\GenerateSuggestedReply;
+use App\Jobs\ProcessTicketIntake;
 use App\Livewire\Pages\TicketShow;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
@@ -18,6 +23,8 @@ use App\Support\CitedSources;
 use App\Support\RetrievalQuery;
 use App\Support\SuggestedReplyPanelState;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Livewire\Livewire;
 
 test('cited sources group repeated passages under one article and keep headings', function () {
@@ -587,6 +594,116 @@ test('agent ticket show polls while submitted or ai reviewing', function () {
         ->not->toContain('Refresh status');
 });
 
+test('agent ticket show polls while regenerate or retry ai is queued and stops when that work settles', function () {
+    Queue::fake([GenerateSuggestedReply::class, ProcessTicketIntake::class]);
+
+    $agent = User::factory()->create();
+    $awaiting = Ticket::factory()->create([
+        'status' => TicketStatus::AwaitingReview,
+    ]);
+    SuggestedReply::query()->create([
+        'ticket_id' => $awaiting->id,
+        'body' => 'Pending grounded draft',
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [],
+    ]);
+    $failed = Ticket::factory()->create([
+        'status' => TicketStatus::AiFailed,
+        'needs_human' => true,
+    ]);
+
+    $this->actingAs($agent);
+
+    $regenerating = Livewire::test(TicketShow::class, ['ticket' => $awaiting])
+        ->assertDontSeeHtml('wire:poll.5s.visible')
+        ->call('regenerate')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertSee('Regenerating a grounded draft…');
+
+    $queuedReply = $awaiting->aiRuns()
+        ->where('feature', AiRunFeature::SuggestedReply)
+        ->where('status', AiRunStatus::Queued)
+        ->first();
+
+    expect($queuedReply)->not->toBeNull();
+
+    $queuedReply->forceFill([
+        'status' => AiRunStatus::Completed,
+        'completed_at' => now(),
+    ])->save();
+
+    $regenerating->call('$refresh')
+        ->assertDontSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('Regenerating a grounded draft…')
+        ->assertSee('Awaiting review');
+
+    $retrying = Livewire::test(TicketShow::class, ['ticket' => $failed])
+        ->assertDontSeeHtml('wire:poll.5s.visible')
+        ->call('retryAi')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertSee('Retrying AI intake…');
+
+    $queuedTriage = $failed->aiRuns()
+        ->where('feature', AiRunFeature::Triage)
+        ->where('status', AiRunStatus::Queued)
+        ->first();
+
+    expect($queuedTriage)->not->toBeNull();
+
+    $queuedTriage->forceFill([
+        'status' => AiRunStatus::Failed,
+        'completed_at' => now(),
+    ])->save();
+
+    $retrying->call('$refresh')
+        ->assertDontSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('Retrying AI intake…');
+});
+
+test('a pending suggested reply while the ticket is still ai reviewing shows awaiting review', function () {
+    $agent = User::factory()->create();
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::Triaging,
+    ]);
+    SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => 'Grounded draft ready for review',
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [],
+    ]);
+
+    $this->actingAs($agent);
+
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSee('Awaiting review')
+        ->assertSet('draftBody', 'Grounded draft ready for review')
+        ->assertDontSee('AI is still reviewing this ticket.')
+        ->assertDontSeeHtml('wire:poll.5s.visible');
+
+    expect($ticket->fresh()->status)->toBe(TicketStatus::AwaitingReview);
+});
+
+test('unsafe ticket instructions use client language and skip a draft', function () {
+    $agent = User::factory()->create();
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::Escalated,
+        'needs_human' => true,
+        'injection_suspected' => true,
+    ]);
+
+    $this->actingAs($agent);
+
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSee('Unsafe instructions detected. No AI reply was created. Please respond manually.')
+        ->assertDontSee('Prompt-injection')
+        ->assertDontSee('Draft skipped');
+
+    expect(SuggestedReplyPanelKind::PromptInjection->message())
+        ->toBe('Unsafe instructions detected. No AI reply was created. Please respond manually.');
+});
+
 test('rejecting a grounded draft does not claim knowledge was insufficient', function () {
     $agent = User::factory()->create();
     $ticket = Ticket::factory()->create([
@@ -710,4 +827,174 @@ test('prepaid-label ticket that mentions the original box retrieves return-windo
         ->and($headings)->toContain('Box not required')
         ->and($headings)->toContain('Prepaid labels')
         ->and($bodies)->toContain('30 days');
+});
+
+test('regenerate includes the previous draft and keeps a different rewrite with the same sources', function () {
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'regenerate-rewrite-case',
+        'category' => 'returns',
+        'body' => "## Box not required\nThe original shipping box is helpful but not required. A sturdy carton is fine.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = KnowledgeChunk::query()->where('knowledge_article_id', $article->id)->firstOrFail();
+    $original = "Hi Jamie,\n\nThe original shipping box is helpful but not required. A sturdy carton is fine.\n\nBest,\nAlex Rivera\nHarbor & Co Support";
+    $ticket = Ticket::factory()->create([
+        'customer_name' => 'Jamie Cole',
+        'status' => TicketStatus::AwaitingReview,
+        'subject' => 'Trail Pack too small',
+        'description' => 'My Trail Pack arrived too small. I want a larger size and a prepaid return label, and I no longer have the original box.',
+    ]);
+    $previous = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => $original,
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [$chunk->id],
+    ]);
+
+    SuggestedReplyAgent::fake([
+        [
+            'body' => 'You do not need the original shipping box. A sturdy carton is fine for this unused return.',
+            'cited_chunk_ids' => [$chunk->id],
+            'grounded' => true,
+            'refusal_reason' => '',
+        ],
+    ])->preventStrayPrompts();
+
+    $reply = app(SuggestedReplyService::class)->generate($ticket, true, $previous->id);
+
+    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt) use ($original): bool {
+        return $prompt->contains('previous_draft')
+            && $prompt->contains('not identical')
+            && $prompt->contains($original);
+    });
+    SuggestedReplyAgent::assertPromptedTimes(1);
+
+    expect($reply)->not->toBeNull()
+        ->and($reply->id)->not->toBe($previous->id)
+        ->and($reply->regenerated_from_id)->toBe($previous->id)
+        ->and($reply->status)->toBe(SuggestedReplyStatus::Pending)
+        ->and($reply->cited_chunk_ids)->toBe([$chunk->id])
+        ->and($reply->body)->toContain('You do not need the original shipping box')
+        ->and($reply->body)->not->toBe($original)
+        ->and($previous->fresh()->status)->toBe(SuggestedReplyStatus::Superseded)
+        ->and($ticket->fresh()->status)->toBe(TicketStatus::AwaitingReview)
+        ->and($ticket->suggestedReplies()->count())->toBe(2);
+});
+
+test('an identical regenerate retries once then keeps the current draft and tells the agent', function () {
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'regenerate-identical-case',
+        'category' => 'returns',
+        'body' => "## Box not required\nThe original shipping box is helpful but not required. A sturdy carton is fine.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = KnowledgeChunk::query()->where('knowledge_article_id', $article->id)->firstOrFail();
+    $inner = 'The original shipping box is helpful but not required. A sturdy carton is fine.';
+    $original = "Hi Jamie,\n\n{$inner}\n\nBest,\nAlex Rivera\nHarbor & Co Support";
+    $payload = [
+        'body' => $inner,
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+        'refusal_reason' => '',
+    ];
+    $ticket = Ticket::factory()->create([
+        'customer_name' => 'Jamie Cole',
+        'status' => TicketStatus::AwaitingReview,
+        'subject' => 'Trail Pack too small',
+        'description' => 'My Trail Pack arrived too small. I want a larger size and a prepaid return label, and I no longer have the original box.',
+    ]);
+    $previous = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => $original,
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [$chunk->id],
+    ]);
+    $agent = User::factory()->create();
+
+    SuggestedReplyAgent::fake([$payload, $payload])->preventStrayPrompts();
+
+    $this->actingAs($agent);
+
+    $component = Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSet('draftBody', $original);
+
+    $reply = app(SuggestedReplyService::class)->generate($ticket, true, $previous->id);
+
+    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt) use ($original): bool {
+        return $prompt->contains('previous_draft') && $prompt->contains($original);
+    });
+    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt): bool {
+        return $prompt->contains('matched the existing draft exactly');
+    });
+    SuggestedReplyAgent::assertPromptedTimes(2);
+
+    expect($reply?->id)->toBe($previous->id)
+        ->and($previous->fresh()->status)->toBe(SuggestedReplyStatus::Pending)
+        ->and($previous->fresh()->body)->toBe($original)
+        ->and($ticket->suggestedReplies()->count())->toBe(1)
+        ->and($ticket->events()->where('type', TicketEventType::SuggestionGenerated)->count())->toBe(0)
+        ->and($ticket->fresh()->status)->toBe(TicketStatus::AwaitingReview);
+
+    $event = $ticket->events()
+        ->where('type', TicketEventType::SuggestionRegenerated)
+        ->latest('id')
+        ->first();
+
+    expect($event?->payload)->toMatchArray([
+        'unchanged' => true,
+        'suggested_reply_id' => $previous->id,
+    ]);
+
+    $component->call('$refresh')
+        ->assertSet('draftBody', $original)
+        ->assertSee('The regenerated draft matched the previous one. The current draft was kept.')
+        ->assertDontSee('Regenerating a grounded draft…');
+});
+
+test('the agent editor loads a new pending draft after regenerate replaces it', function () {
+    $agent = User::factory()->create();
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::AwaitingReview,
+    ]);
+    $first = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => "Hi Jamie,\n\nThe original box is not required.\n\nBest,\nAlex Rivera\nHarbor & Co Support",
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [12],
+    ]);
+
+    $this->actingAs($agent);
+
+    $component = Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSet('draftBody', $first->body)
+        ->assertSet('draftReplyId', $first->id);
+
+    $first->forceFill(['status' => SuggestedReplyStatus::Superseded])->save();
+    $second = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => "Hi Jamie,\n\nYou do not need the original shipping box for this unused return.\n\nBest,\nAlex Rivera\nHarbor & Co Support",
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [12],
+        'regenerated_from_id' => $first->id,
+    ]);
+
+    $component->call('$refresh')
+        ->assertSet('draftReplyId', $second->id)
+        ->assertSet('draftBody', $second->body);
 });

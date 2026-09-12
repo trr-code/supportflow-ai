@@ -80,7 +80,7 @@ class SuggestedReplyPanelState
     public static function running(Ticket $ticket): bool
     {
         return $ticket->aiRuns()
-            ->where('status', AiRunStatus::Running)
+            ->whereIn('status', [AiRunStatus::Queued, AiRunStatus::Running])
             ->whereIn('feature', [AiRunFeature::Triage, AiRunFeature::SuggestedReply])
             ->exists();
     }

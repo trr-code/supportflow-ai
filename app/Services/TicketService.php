@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AiRunFeature;
 use App\Enums\MessageAuthorType;
 use App\Enums\MessageVisibility;
 use App\Enums\TicketEventType;
@@ -15,7 +16,10 @@ use App\Models\TicketMessage;
 
 class TicketService
 {
-    public function __construct(private TicketTimeline $timeline) {}
+    public function __construct(
+        private TicketTimeline $timeline,
+        private AiUsageRecorder $recorder,
+    ) {}
 
     /**
      * @param  array{customer_name: string, customer_email: string, subject: string, description: string, product?: string|null}  $data
@@ -42,6 +46,11 @@ class TicketService
 
         $this->timeline->record($ticket, TicketEventType::Created, actor: $data['customer_name']);
 
+        $this->recorder->queue(
+            AiRunFeature::Triage,
+            $ticket,
+            (string) config('supportflow.models.triage'),
+        );
         ProcessTicketIntake::dispatch($ticket->id);
 
         return $ticket;

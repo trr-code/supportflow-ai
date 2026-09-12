@@ -208,12 +208,27 @@ class ChatService
         $body = ChatAnswerCopy::normalize($body);
         $refusalPrefix = 'I don’t have a documented answer';
 
+        if (ChatInjectionGate::isRefusal($body)) {
+            $this->recorder->complete($run, $streamed, ['grounded' => false], $chunkIds);
+
+            return $conversation->messages()->create([
+                'role' => 'assistant',
+                'body' => $body !== '' ? $body : ChatInjectionGate::REFUSAL,
+                'cited_chunk_ids' => [],
+            ]);
+        }
+
         if (! str_starts_with($body, $refusalPrefix)) {
             $body = SupportingPassages::includeAskedFacets($body, $question, $matches);
         }
 
-        $cited = CitedChunkIds::onlyAllowed($citedRaw, $chunkIds);
-        $cited = CitedChunkIds::usedInBody($body, $matches, $cited);
+        $cited = str_starts_with($body, $refusalPrefix)
+            ? []
+            : CitedChunkIds::usedInBody(
+                $body,
+                $matches,
+                CitedChunkIds::onlyAllowed($citedRaw, $chunkIds),
+            );
         $grounded = $cited !== [] && $body !== '';
 
         if (! $grounded) {
