@@ -16,6 +16,12 @@ class EnterDemoAgentController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        if ($request->string('next')->toString() === 'scenarios') {
+            return redirect()
+                ->route('agent.tickets.index', ['scenarios' => 1])
+                ->withFragment('agent-scenarios');
+        }
+
         return redirect()->route('dashboard');
     }
 }

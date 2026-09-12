@@ -51,7 +51,7 @@ test('the landing page and ticket form do not use a positive tabindex', function
     $create = $this->get(route('tickets.create'))->assertOk()->getContent();
 
     expect($home)
-        ->toContain('Test a knowledge gap')
+        ->toContain('Try a prepared question')
         ->not->toMatch('/\btabindex="[1-9]\d*"/')
         ->and($create)
         ->toContain('Use a sample return')

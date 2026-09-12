@@ -17,7 +17,7 @@
                     <a href="{{ route('home') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Demo home</a>
                     <a href="{{ route('tickets.create') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Submit a ticket</a>
                     <a href="{{ route('knowledge.index') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>
-                    <span>Demo environment</span>
+                    <a href="{{ route('demo.environment') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Demo environment</a>
                 </nav>
             </div>
         </footer>

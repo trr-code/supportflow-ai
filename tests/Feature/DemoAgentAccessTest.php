@@ -10,7 +10,8 @@ test('one-click demo agent login authenticates without a login form', function (
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Open Agent Dashboard')
+        ->assertSee('Agent')
+        ->assertDontSee('Open agent view')
         ->assertDontSee('name="password"', false)
         ->assertDontSee('Log in to your account');
 
@@ -20,6 +21,38 @@ test('one-click demo agent login authenticates without a login form', function (
     $this->assertAuthenticated();
     expect(auth()->user()?->role)->toBe(UserRole::DemoAgent);
     expect(auth()->user()?->email)->toBe(config('supportflow.brand.agent_email'));
+});
+
+test('demo agent login can open the visible scenario list', function () {
+    $this->seed(UserSeeder::class);
+
+    $this->post(route('demo.enter-agent'), ['next' => 'scenarios'])
+        ->assertRedirect(route('agent.tickets.index', ['scenarios' => 1]).'#agent-scenarios');
+
+    $this->get(route('agent.tickets.index', ['scenarios' => 1]))
+        ->assertOk()
+        ->assertSee('id="agent-scenarios"', false)
+        ->assertSee('Choose a prepared ticket to test.')
+        ->assertSee('A shopper bought a Harbor Trail Pack 18 days ago.')
+        ->assertSee('The ticket shows AI unavailable and a Retry AI button.');
+});
+
+test('an unknown next destination after demo agent login stays on the dashboard', function () {
+    $this->seed(UserSeeder::class);
+
+    $this->post(route('demo.enter-agent'), ['next' => 'https://evil.example'])
+        ->assertRedirect(route('dashboard'));
+});
+
+test('signed-in agents open the visible scenario list from the safety page', function () {
+    $agent = User::factory()->create(['role' => UserRole::DemoAgent]);
+
+    $this->actingAs($agent)
+        ->get(route('demo.safety'))
+        ->assertOk()
+        ->assertSee('Open Agent scenarios')
+        ->assertSee(route('agent.tickets.index', ['scenarios' => 1]).'#agent-scenarios', false)
+        ->assertDontSee('name="next"', false);
 });
 
 test('guests cannot open the agent dashboard or queue', function () {

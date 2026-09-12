@@ -48,8 +48,14 @@ class TicketCreate extends Component
 
     public ?string $capMessage = null;
 
-    public function mount(): void
+    public function mount(DemoScenarioService $scenarios): void
     {
+        if (request()->boolean('sample')) {
+            $this->fillSample($scenarios);
+
+            return;
+        }
+
         if ($prefill = request()->string('subject')->toString()) {
             $this->subject = $prefill;
         }

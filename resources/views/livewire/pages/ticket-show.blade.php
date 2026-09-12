@@ -57,7 +57,7 @@
                 @endif
 
                 @if ($ticket->injection_suspected)
-                    <p class="mt-3 rounded-md bg-harbor-coral/10 p-2 text-sm text-red-950">Prompt-injection suspected. Draft skipped; a human should reply.</p>
+                    <p class="mt-3 rounded-md bg-harbor-coral/10 p-2 text-sm text-red-950">Unsafe instructions detected. No AI reply was created. Please respond manually.</p>
                 @endif
 
                 <form wire:submit="saveOverrides" class="mt-4 grid gap-3 sm:grid-cols-2">

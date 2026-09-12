@@ -25,6 +25,10 @@ class TicketIndex extends Component
     public function mount(): void
     {
         $this->authorize('viewAny', Ticket::class);
+
+        if (request()->boolean('scenarios')) {
+            $this->showScenarios = true;
+        }
     }
 
     public function updatedFilter(): void

@@ -3,6 +3,9 @@
 use App\Http\Controllers\EnterDemoAgentController;
 use App\Http\Controllers\StartDictationSessionController;
 use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\DemoEnvironment;
+use App\Livewire\Pages\DemoSafety;
+use App\Livewire\Pages\DemoWorkflow;
 use App\Livewire\Pages\KnowledgeIndex;
 use App\Livewire\Pages\KnowledgeShow;
 use App\Livewire\Pages\TicketCreate;
@@ -15,6 +18,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', Welcome::class)->name('home');
+Route::get('/demo/workflow', DemoWorkflow::class)->name('demo.workflow');
+Route::get('/demo/safety', DemoSafety::class)->name('demo.safety');
+Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment');
 
 Route::get('/knowledge', KnowledgeIndex::class)->name('knowledge.index');
 Route::get('/knowledge/{slug}', KnowledgeShow::class)->name('knowledge.show');

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AiRunFeature;
 use App\Enums\MessageAuthorType;
 use App\Enums\MessageVisibility;
 use App\Enums\TicketCategory;
@@ -19,56 +20,67 @@ use InvalidArgumentException;
 
 class DemoScenarioService
 {
+    public function __construct(private AiUsageRecorder $recorder) {}
+
     /**
-     * @return array<string, array{label: string, description: string, observe: string}>
+     * @return array<string, array{label: string, situation: string, ai: string, expect: string}>
      */
     public function catalog(): array
     {
         return [
             'supported_answer' => [
-                'label' => 'Supported answer',
-                'description' => 'Return window question the knowledge base can ground.',
-                'observe' => 'Look for Knowledge match, Return window sources, and a pending draft.',
+                'label' => 'Unused pack return',
+                'situation' => 'A shopper bought a Harbor Trail Pack 18 days ago. It is unused with tags, and they do not have the original box.',
+                'ai' => 'Write a suggested reply from the store return policy, including the 30-day window and that the original box is not required.',
+                'expect' => 'The ticket lists Return window as a source, and a suggested reply is waiting for you to send.',
             ],
             'urgent' => [
                 'label' => 'Urgent shipping',
-                'description' => 'Trip leaves tomorrow; missing tent poles.',
-                'observe' => 'Look for urgent priority and missing-parts retrieval.',
+                'situation' => 'A Ridgeline tent arrived without poles, and the customer leaves for a trip tomorrow morning.',
+                'ai' => 'Mark the ticket as urgent. Suggest overnight replacements if store policy covers them, and list documented pickup locations as options that still need inventory confirmation. Do not treat a store as nearby unless the policy says so.',
+                'expect' => 'Priority is Urgent. The suggested reply covers missing poles and lists documented pickup locations as options that require inventory confirmation.',
             ],
             'angry' => [
                 'label' => 'Angry customer',
-                'description' => 'Frustrated billing tone for sentiment triage.',
-                'observe' => 'Look for angry sentiment in triage.',
+                'situation' => 'A shopper says they were billed three times for the same rain shell and wants it fixed today.',
+                'ai' => 'Detect angry tone, mark high priority, send to a human without an AI reply.',
+                'expect' => 'The ticket marks the customer’s tone as angry, sets high priority, and is handed to a human with no suggested reply.',
             ],
             'billing' => [
                 'label' => 'Billing dispute',
-                'description' => 'Duplicate charge on a gift card order.',
-                'observe' => 'Look for gift-card capture-first and duplicate-charge sources.',
+                'situation' => 'A shopper paid with a Harbor gift card and a credit card, but both were charged for the same order.',
+                'ai' => 'Write a suggested reply from the gift-card and duplicate-charge policies.',
+                'expect' => 'The ticket is in Billing. Sources mention a gift card or duplicate charge, and a suggested reply is waiting.',
             ],
             'technical' => [
-                'label' => 'Technical',
-                'description' => 'Order-tracking app will not refresh.',
-                'observe' => 'Look for technical category and tracking-app guidance.',
+                'label' => 'Tracking app problem',
+                'situation' => 'The Harbor app still shows “label created,” even though the carrier site shows the package in Kent.',
+                'ai' => 'Mark this as a technical issue and suggest next steps from the tracking-app policy.',
+                'expect' => 'The ticket is marked Technical. The suggested reply talks about the app and tracking.',
             ],
             'shipping_returns' => [
                 'label' => 'Shipping/returns',
-                'description' => 'Wrong size trail pack, wants a prepaid label.',
-                'observe' => 'Look for a size-exchange draft and prepaid-label policy.',
+                'situation' => 'A Trail Pack arrived too small. The customer wants a larger size and a prepaid return label.',
+                'ai' => 'Write a suggested reply for a size exchange and a prepaid label from the shipping/returns policy.',
+                'expect' => 'The suggested reply covers the exchange and a prepaid return label.',
             ],
             'insufficient_knowledge' => [
-                'label' => 'Not enough knowledge',
-                'description' => 'Custom embroidery details not fully in the KB—escalate.',
-                'observe' => 'Look for escalation and no grounded send.',
+                'label' => 'Missing store policy',
+                'situation' => 'A shopper wants a wedding date embroidered on a Driftwood Duffel and asks which thread colors are available.',
+                'ai' => 'Recognize that the store policy does not list available thread colors, then send the ticket to a human without making up an answer.',
+                'expect' => 'The ticket is handed to a human. There is no suggested customer reply ready to send.',
             ],
             'prompt_injection' => [
-                'label' => 'Prompt injection',
-                'description' => 'Ticket text tries to override the agent.',
-                'observe' => 'Look for the skip-draft banner; write a human reply.',
+                'label' => 'Unsafe ticket request',
+                'situation' => 'The message tries to make the assistant ignore its rules and reveal hidden information, then asks where an order is.',
+                'ai' => 'Detect the attempt to change the assistant’s rules, block AI reply generation, and send the ticket to a human.',
+                'expect' => 'A warning that the message tried to change the assistant’s rules. There is no AI draft. Write the reply yourself.',
             ],
             'ai_timeout' => [
-                'label' => 'AI timeout',
-                'description' => 'Synthetic model failure so retry UI is visible.',
-                'observe' => 'Look for AI unavailable, then Retry AI.',
+                'label' => 'When AI cannot finish',
+                'situation' => 'A shopper asks about warranty on a snapped trekking pole.',
+                'ai' => 'This example stops the assistant on purpose so you can see the backup steps.',
+                'expect' => 'The ticket shows AI unavailable and a Retry AI button.',
             ],
         ];
     }
@@ -117,6 +129,11 @@ class DemoScenarioService
         if ($key === 'ai_timeout') {
             RecordSyntheticAiFailure::dispatch($ticket->id);
         } else {
+            $this->recorder->queue(
+                AiRunFeature::Triage,
+                $ticket,
+                (string) config('supportflow.models.triage'),
+            );
             ProcessTicketIntake::dispatch($ticket->id);
         }
 
@@ -153,6 +170,7 @@ class DemoScenarioService
                 'description' => 'I am furious. You billed my card three times for the same rain shell. I have called twice. Fix this today or I am disputing the charges.',
                 'product' => 'Gale Rain Shell',
                 'status' => TicketStatus::Submitted,
+                'priority' => TicketPriority::High,
                 'sentiment' => TicketSentiment::Angry,
             ],
             'billing' => [

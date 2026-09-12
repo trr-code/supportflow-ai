@@ -33,11 +33,11 @@
         @endforeach
     </div>
 
-    <section class="rounded-xl border border-harbor-sand-deep bg-white p-4">
+    <section id="agent-scenarios" class="scroll-mt-24 rounded-xl border border-harbor-sand-deep bg-white p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
-                <h2 class="font-medium">One-click scenarios</h2>
-                <p class="mt-1 text-sm text-zinc-500">Clones a fixture into the queue. Seeded showcase tickets are not mutated.</p>
+                <h2 class="font-medium">Choose a prepared ticket to test.</h2>
+                <p class="mt-1 text-sm text-zinc-500">Select a scenario below. The system creates a new demo ticket and opens it for you to review. Existing examples remain unchanged.</p>
             </div>
             <flux:button size="sm" variant="ghost" wire:click="$toggle('showScenarios')">
                 {{ $showScenarios ? 'Hide scenarios' : 'Load a scenario' }}
@@ -50,8 +50,20 @@
                         <flux:button size="sm" wire:click="launch('{{ $key }}')">
                             {{ $scenario['label'] }}
                         </flux:button>
-                        <p class="mt-2 text-sm text-zinc-600">{{ $scenario['description'] }}</p>
-                        <p class="mt-1 text-xs text-zinc-500">{{ $scenario['observe'] }}</p>
+                        <dl class="mt-2 space-y-2 text-sm">
+                            <div>
+                                <dt class="font-medium text-harbor-ink">Customer</dt>
+                                <dd class="mt-0.5 text-zinc-600">{{ $scenario['situation'] }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-harbor-ink">What the AI should do</dt>
+                                <dd class="mt-0.5 text-zinc-600">{{ $scenario['ai'] }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-harbor-ink">Expected result</dt>
+                                <dd class="mt-0.5 text-zinc-600">{{ $scenario['expect'] }}</dd>
+                            </div>
+                        </dl>
                     </li>
                 @endforeach
             </ul>

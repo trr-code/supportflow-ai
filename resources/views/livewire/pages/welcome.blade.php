@@ -2,122 +2,89 @@
     <x-demo-banner />
 
     <section class="space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-harbor-pine">SupportFlow AI · Harbor Outfitters</p>
         <h1 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">
-            See grounded AI answers—then see how a human support agent reviews and sends the reply.
+            This is a working customer-support copilot built for potential clients to test.
         </h1>
         <p class="max-w-2xl text-base leading-relaxed text-zinc-600 sm:text-lg">
-            A Harbor &amp; Co outdoor-shop copilot. OpenAI retrieves Harbor Outfitters policies and drafts replies.
-            <strong class="font-medium text-harbor-ink">Nothing reaches the customer until a human support agent sends it.</strong>
+            Ask prepared questions or quiz it with your own questions, review the business sources behind each answer, and see how uncertain or unsafe requests are handed to a human.
         </p>
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <flux:button variant="primary" :href="route('tickets.create')" wire:navigate class="justify-center">
-                Try as Customer
-            </flux:button>
-            <form method="POST" action="{{ route('demo.enter-agent') }}">
-                @csrf
-                <flux:button variant="filled" type="submit" class="w-full justify-center sm:w-auto">
-                    Open Agent Dashboard
-                </flux:button>
-            </form>
-            <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="justify-center">
-                Browse policies
-            </flux:button>
+        <p class="max-w-2xl text-sm leading-relaxed text-zinc-500">
+            Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.
+        </p>
+    </section>
+
+    <section class="space-y-4" aria-labelledby="paths-heading">
+        <h2 id="paths-heading" class="text-lg font-semibold text-harbor-ink">Choose how you want to test it</h2>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">About 1 minute</p>
+                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Quick AI answer</h3>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
+                    Open the chat, choose a prepared question, or ask your own question about any Harbor policy.
+                </p>
+                <div class="mt-4">
+                    <flux:button type="button" variant="primary" wire:click="openChat" class="w-full justify-center">
+                        Try a prepared question
+                    </flux:button>
+                </div>
+            </article>
+
+            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">About 3 minutes</p>
+                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Complete support workflow</h3>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
+                    Submit a prepared or custom ticket, inspect the AI triage, and send a human-approved reply.
+                </p>
+                <div class="mt-4">
+                    <flux:button variant="outline" :href="route('demo.workflow')" wire:navigate class="w-full justify-center">
+                        Test the full workflow
+                    </flux:button>
+                </div>
+            </article>
+
+            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Explore freely</p>
+                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Business knowledge</h3>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
+                    Browse the policies that ground the AI’s answers, then quiz the assistant with your own questions.
+                </p>
+                <div class="mt-4">
+                    <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="w-full justify-center">
+                        Browse policies
+                    </flux:button>
+                </div>
+            </article>
+
+            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Optional</p>
+                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Advanced safety tests</h3>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
+                    Try refusals, missing knowledge, and Agent examples.
+                </p>
+                <div class="mt-4">
+                    <flux:button variant="outline" :href="route('demo.safety')" wire:navigate class="w-full justify-center">
+                        Try advanced tests
+                    </flux:button>
+                </div>
+            </article>
         </div>
-        <ul class="grid gap-3 sm:grid-cols-3">
-            <li wire:key="proof-rag" class="rounded-xl border border-harbor-sand-deep bg-white px-4 py-3 text-sm text-zinc-700">
-                <p class="font-semibold text-harbor-pine">Grounded RAG</p>
-                <p class="mt-1">Native PostgreSQL/pgvector retrieval with visible sources.</p>
+    </section>
+
+    <section class="space-y-4" aria-labelledby="demonstrates-heading">
+        <h2 id="demonstrates-heading" class="text-lg font-semibold text-harbor-ink">What this demonstrates</h2>
+        <ul class="grid gap-4 sm:grid-cols-3">
+            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
+                <p class="font-semibold text-harbor-ink">Answers backed by your business information</p>
+                <p class="mt-1.5 text-sm text-zinc-700">Each reply cites the Harbor policies it used, so you can check the source.</p>
             </li>
-            <li wire:key="proof-approval" class="rounded-xl border border-harbor-sand-deep bg-white px-4 py-3 text-sm text-zinc-700">
-                <p class="font-semibold text-harbor-pine">Human approval</p>
-                <p class="mt-1">Suggested replies stay internal until a human support agent sends them.</p>
+            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
+                <p class="font-semibold text-harbor-ink">Uncertain or unsafe requests go to a person</p>
+                <p class="mt-1.5 text-sm text-zinc-700">When knowledge is missing or a request is unsafe, the assistant hands the work to a human instead of guessing.</p>
             </li>
-            <li wire:key="proof-openai" class="rounded-xl border border-harbor-sand-deep bg-white px-4 py-3 text-sm text-zinc-700">
-                <p class="font-semibold text-harbor-pine">Real OpenAI</p>
-                <p class="mt-1">Triage, drafts, and chat use live models—not canned scripts.</p>
+            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
+                <p class="font-semibold text-harbor-ink">A person sends every customer reply</p>
+                <p class="mt-1.5 text-sm text-zinc-700">AI drafts stay internal until a support agent chooses to send them.</p>
             </li>
         </ul>
-    </section>
-
-    <section class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6" aria-labelledby="chat-demo-heading">
-        <h2 id="chat-demo-heading" class="text-lg font-semibold text-harbor-ink">Ask the knowledge assistant</h2>
-        <p class="mt-3 text-zinc-700">
-            Suggested questions fill the chat box—they are not sent until you press Send.
-        </p>
-        <p id="chat-fill-hint" class="sr-only">Suggested questions fill the chat box. Press Send to ask.</p>
-        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap" role="group" aria-label="Suggested questions" aria-describedby="chat-fill-hint">
-            @foreach ($primaryPrompts as $key => $prompt)
-                <div wire:key="landing-prompt-{{ $key }}" class="sm:max-w-xs">
-                    <flux:button type="button" variant="filled" wire:click="fillChat('{{ $key }}')" class="w-full justify-center sm:w-auto" aria-describedby="chat-fill-hint prompt-observe-{{ $key }}">
-                        {{ $prompt['label'] }}
-                    </flux:button>
-                    <p id="prompt-observe-{{ $key }}" class="mt-1.5 text-sm text-zinc-600">{{ $prompt['observe'] }}</p>
-                </div>
-            @endforeach
-        </div>
-    </section>
-
-    <section class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6" aria-labelledby="workflow-heading">
-        <h2 id="workflow-heading" class="text-lg font-semibold text-harbor-ink">Try the copilot</h2>
-        <p class="mt-3 text-zinc-700">Submit a demo ticket, then open Agent in another window to approve the draft.</p>
-        <ol class="mt-4 space-y-2.5 text-zinc-700">
-            <li wire:key="step-1"><strong>1.</strong> Customer → submit a demo ticket → keep the status page open.</li>
-            <li wire:key="step-2"><strong>2.</strong> Agent → Tickets → filter Live demo → review the AI draft.</li>
-            <li wire:key="step-3"><strong>3.</strong> Approve and send. The customer page updates when the reply is sent.</li>
-        </ol>
-        <p class="mt-4 text-sm text-zinc-600">
-            On a ticket, compare AI classification confidence—model-estimated—with Knowledge match—measured.
-        </p>
-        <div class="mt-4">
-            <flux:button variant="primary" :href="route('tickets.create')" wire:navigate class="justify-center">
-                Try as Customer
-            </flux:button>
-        </div>
-    </section>
-
-    <details class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-        <summary class="cursor-pointer text-lg font-semibold text-harbor-ink">
-            Optional deeper tests
-        </summary>
-        <p class="mt-2 text-sm text-zinc-500">Safety, escalation, and failure paths</p>
-        <p class="mt-3 text-zinc-700">Skip this on a first visit. These use the live product—they are not a second script.</p>
-        <div class="mt-4 space-y-3 text-sm text-zinc-700">
-            <p>Start a new conversation if you already used the three questions.</p>
-            @foreach ($advancedPrompts as $key => $prompt)
-                <div wire:key="landing-advanced-{{ $key }}">
-                    <flux:button type="button" size="sm" variant="filled" wire:click="fillChat('{{ $key }}')">
-                        {{ $prompt['label'] }}
-                    </flux:button>
-                    <p class="mt-1.5">{{ $prompt['observe'] }}</p>
-                </div>
-            @endforeach
-            <p><span class="font-medium text-harbor-ink">Chat: demo limit.</span> A sixth question in the same thread hits the demo cap.</p>
-            <p>
-                Tickets → Load a scenario. Each button clones a fixture. Seeded showcase tickets are not mutated. Read the short description before you launch. Do not expect those buttons on this page.
-            </p>
-        </div>
-    </details>
-
-    <section class="grid gap-4 sm:grid-cols-2" aria-labelledby="scope-heading">
-        <h2 id="scope-heading" class="sr-only">What this demo shows and does not show</h2>
-        <div wire:key="what-this-shows" class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
-            <h3 class="font-semibold text-harbor-ink">What this shows</h3>
-            <ul class="mt-3 list-disc space-y-1.5 ps-5 text-sm text-zinc-700">
-                <li>Grounded PostgreSQL/pgvector RAG with visible sources</li>
-                <li>Human approval before a customer-visible reply is sent</li>
-                <li>Live OpenAI triage, drafts, and chat</li>
-                <li>Speech-to-text dictation</li>
-                <li>Safety refusals and human escalation when knowledge is missing</li>
-            </ul>
-        </div>
-        <div wire:key="what-this-is-not" class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
-            <h3 class="font-semibold text-harbor-ink">What this is not</h3>
-            <ul class="mt-3 list-disc space-y-1.5 ps-5 text-sm text-zinc-700">
-                <li>A full help desk</li>
-                <li>A spoken two-way AI assistant</li>
-                <li>Real orders or email</li>
-            </ul>
-        </div>
     </section>
 </div>
