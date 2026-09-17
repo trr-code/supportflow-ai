@@ -52,7 +52,7 @@ return [
         'stale_minutes' => (int) env('DEMO_STALE_MINUTES', 45),
         'max_tickets_per_session' => 5,
         'max_visitor_tickets' => 50,
-        'chat_turn_cap' => 5,
+        'chat_turn_cap' => 10,
     ],
 
     'rate_limits' => [

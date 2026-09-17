@@ -3,6 +3,7 @@ paths:
   - app/Services/DemoScenarioService.php
   - app/Services/TicketIntakeService.php
   - app/Services/SuggestedReplyService.php
+  - app/Services/ChatService.php
   - app/Services/KnowledgeIndexService.php
 ---
 
@@ -20,5 +21,11 @@ Create the pending suggested reply and set ticket status to Awaiting review in o
 ## Regenerate must differ or keep the draft
 Regenerate must pass the previous pending draft into the prompt, require different wording or structure, keep the same grounded facts and sources, and add no unsupported information. If the formatted body is identical, retry once on the same AiRun. If it is still identical, keep the current pending draft, complete the run with unchanged true, and record SuggestionRegenerated instead of creating a duplicate.
 
+## Anaphora retrieval fallback skips injection turns
+If current-question search is empty, retry RetrievalService::search() with the previous non-gated user turn plus the current question. Never prefix anaphora search with a ChatInjectionGate-blocked turn. Stream via SupportChatStreamAgent::make(conversation: $conversation).
+
 ## Queued embeddings must not also embed synchronously
 syncArticle embeds synchronously XOR dispatches EmbedKnowledgeChunk. When queueEmbeddings is true, persist null embeddings and let the job fill them. Never embed in both places. Seeding stays queueEmbeddings: false.
+
+## Contextual follow-ups reuse previous subjects
+Contextual follow-ups such as “Which one is longer?” must retrieve with the previous non-gated user turn plus the current question even when the follow-up alone returns hits. New topical questions stay current-query only. Never prefix retrieval with a ChatInjectionGate-blocked turn. Citations still come only from the current turn’s allowed chunk IDs.

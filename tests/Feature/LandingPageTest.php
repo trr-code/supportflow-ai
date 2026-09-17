@@ -207,7 +207,7 @@ test('the safety page explains advanced tests without jargon', function () {
         ->assertSee('Try a question with missing knowledge')
         ->assertSee('Open Agent scenarios')
         ->assertSee('Nine prepared ticket examples')
-        ->assertDontSee('Five-question conversation limit')
+        ->assertDontSee('Ten-question conversation limit')
         ->assertDontSee('the conversation limit')
         ->assertDontSee('Load a scenario')
         ->assertDontSee('prompt injection')

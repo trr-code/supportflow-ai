@@ -10,6 +10,7 @@ class ChatAnswerHtml
      */
     public static function render(string $text): string
     {
+        $text = ChatCitationTrailer::visible($text);
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         $text = trim($text);
 

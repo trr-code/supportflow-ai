@@ -1,11 +1,17 @@
 <?php
 
+use App\Ai\Agents\SupportChatStreamAgent;
 use App\Livewire\Chat\Widget;
+use App\Models\ChatMessage;
+use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
+use App\Services\ChatService;
 use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Mockery\MockInterface;
 
 test('missing poles chat includes overnight replacement and store pickup with genuine sources', function () {
     fakeMatchingKnowledgeEmbeddings();
@@ -224,4 +230,294 @@ test('order lookup chat states the demo cannot access real order records', funct
         ->assertDontSee('Pull to refresh')
         ->assertSee('Source: Order tracking')
         ->assertSee('Source: Privacy');
+});
+
+test('anaphoric follow-ups retrieve using the previous user turn when the follow-up alone misses', function () {
+    $firstQuestion = 'How long do I have to return an unused pack with tags?';
+    $followUp = 'How long is that window?';
+    $answer = 'Unused returns are accepted within 30 days with tags attached.';
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'chat-anaphora-returns',
+        'category' => 'returns',
+        'body' => "## Window\nHarbor Outfitters accepts unused returns within 30 days of delivery with tags attached.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $chunk = $article->chunks()->create([
+        'heading' => 'Window',
+        'body' => 'Harbor Outfitters accepts unused returns within 30 days of delivery with tags attached.',
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $chunk->load('article');
+    $hits = collect([['chunk' => $chunk, 'similarity' => 0.91]]);
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($firstQuestion, $followUp, $hits): void {
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $firstQuestion)
+            ->andReturn($hits);
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $firstQuestion."\n".$followUp)
+            ->andReturn($hits);
+    });
+
+    fakeSupportAi(chat: [
+        'body' => $answer,
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+    SupportChatStreamAgent::fake([
+        $answer."\nCITES: {$chunk->id}",
+        $answer."\nCITES: {$chunk->id}",
+    ])->preventStrayPrompts();
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $chat = app(ChatService::class);
+
+    $chat->ask($session, $firstQuestion);
+    $second = $chat->ask($session, $followUp);
+
+    expect($second->cited_chunk_ids)->toBe([$chunk->id])
+        ->and($second->body)->toContain('30 days');
+});
+
+test('follow-up answers cite only currently retrieved passages', function () {
+    $returnQuestion = 'How long do I have to return an unused pack with tags?';
+    $shippingQuestion = 'How many days does standard ground shipping take?';
+    $returnBody = 'Harbor Outfitters accepts unused returns within 30 days of delivery with tags attached.';
+    $shippingBody = 'Standard ground shipping is 3 to 6 business days inside the contiguous US.';
+
+    $returns = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'chat-current-cites-returns',
+        'category' => 'returns',
+        'body' => "## Window\n{$returnBody}",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $shipping = KnowledgeArticle::query()->create([
+        'title' => 'Shipping times',
+        'slug' => 'chat-current-cites-shipping',
+        'category' => 'shipping',
+        'body' => "## Ground\n{$shippingBody}",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $returnChunk = $returns->chunks()->create([
+        'heading' => 'Window',
+        'body' => $returnBody,
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $shippingChunk = $shipping->chunks()->create([
+        'heading' => 'Ground',
+        'body' => $shippingBody,
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $returnChunk->load('article');
+    $shippingChunk->load('article');
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($returnQuestion, $shippingQuestion, $returnChunk, $shippingChunk): void {
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $returnQuestion)
+            ->andReturn(collect([['chunk' => $returnChunk, 'similarity' => 0.92]]));
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $shippingQuestion)
+            ->andReturn(collect([['chunk' => $shippingChunk, 'similarity' => 0.93]]));
+    });
+
+    $prompts = [];
+
+    fakeSupportAi(chat: [
+        'body' => $returnBody,
+        'cited_chunk_ids' => [$returnChunk->id],
+        'grounded' => true,
+    ]);
+    SupportChatStreamAgent::fake(function (string $prompt) use (&$prompts, $returnBody, $shippingBody, $returnChunk): string {
+        $prompts[] = $prompt;
+
+        if (count($prompts) === 1) {
+            return $returnBody."\nCITES: {$returnChunk->id}";
+        }
+
+        return $shippingBody."\nCITES: {$returnChunk->id}";
+    })->preventStrayPrompts();
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $chat = app(ChatService::class);
+
+    $first = $chat->ask($session, $returnQuestion);
+    $second = $chat->ask($session, $shippingQuestion);
+
+    expect($first->cited_chunk_ids)->toBe([$returnChunk->id])
+        ->and($second->cited_chunk_ids)->toBe([$shippingChunk->id])
+        ->and($prompts[1])->toContain("knowledge_chunk:{$shippingChunk->id}")
+        ->and($prompts[1])->not->toContain("knowledge_chunk:{$returnChunk->id}")
+        ->and($prompts[1])->toContain('CITES IDs must be a subset of: '.$shippingChunk->id);
+});
+
+test('a comparison follow-up retrieves both policies from the previous safe turn', function () {
+    $comparison = 'Compare the return period for an unused Harbor Trail Pack with the warranty period for a Summit trekking pole.';
+    $followUp = 'Which one is longer?';
+    $returnBody = 'Harbor Outfitters accepts unused returns within 30 days of delivery with tags attached.';
+    $warrantyBody = 'Harbor hardgoods carry a 2-year manufacturing warranty against seam and hardware failure in normal use.';
+    $comparisonAnswer = 'An unused Harbor Trail Pack may be returned within 30 days of delivery, with tags attached. A Summit trekking pole has a 2-year manufacturing warranty for covered failures in normal use.';
+    $followUpAnswer = 'The 2-year manufacturing warranty for a Summit trekking pole is longer than the 30-day unused return window.';
+
+    $returns = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'chat-compare-follow-up-returns',
+        'category' => 'returns',
+        'body' => "## Window\n{$returnBody}",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $warranty = KnowledgeArticle::query()->create([
+        'title' => 'Warranty',
+        'slug' => 'chat-compare-follow-up-warranty',
+        'category' => 'general',
+        'body' => "## Coverage\n{$warrantyBody}",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $returnChunk = $returns->chunks()->create([
+        'heading' => 'Window',
+        'body' => $returnBody,
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $warrantyChunk = $warranty->chunks()->create([
+        'heading' => 'Coverage',
+        'body' => $warrantyBody,
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $returnChunk->load('article');
+    $warrantyChunk->load('article');
+    $hits = collect([
+        ['chunk' => $returnChunk, 'similarity' => 0.92],
+        ['chunk' => $warrantyChunk, 'similarity' => 0.91],
+    ]);
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($comparison, $followUp, $hits): void {
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $comparison)
+            ->andReturn($hits);
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === $comparison."\n".$followUp)
+            ->andReturn($hits);
+    });
+
+    $prompts = [];
+
+    fakeSupportAi(chat: [
+        'body' => $comparisonAnswer,
+        'cited_chunk_ids' => [$returnChunk->id, $warrantyChunk->id],
+        'grounded' => true,
+    ]);
+    SupportChatStreamAgent::fake(function (string $prompt) use (&$prompts, $comparisonAnswer, $followUpAnswer, $returnChunk, $warrantyChunk): string {
+        $prompts[] = $prompt;
+
+        if (count($prompts) === 1) {
+            return $comparisonAnswer."\nCITES: {$returnChunk->id}, {$warrantyChunk->id}";
+        }
+
+        return $followUpAnswer."\nCITES: {$warrantyChunk->id}, {$returnChunk->id}";
+    })->preventStrayPrompts();
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $chat = app(ChatService::class);
+
+    $first = $chat->ask($session, $comparison);
+    $second = $chat->ask($session, $followUp);
+
+    expect($first->cited_chunk_ids)->toBe([$returnChunk->id, $warrantyChunk->id])
+        ->and($second->body)->toContain('2-year')
+        ->and($second->body)->toContain('longer')
+        ->and($second->body)->not->toContain('I don’t have a documented answer')
+        ->and($second->cited_chunk_ids)->toBe([$warrantyChunk->id, $returnChunk->id])
+        ->and($prompts[1])->toContain($followUp)
+        ->and($prompts[1])->toContain("knowledge_chunk:{$returnChunk->id}")
+        ->and($prompts[1])->toContain("knowledge_chunk:{$warrantyChunk->id}")
+        ->and($prompts[1])->toContain('CITES IDs must be a subset of: '.$returnChunk->id.', '.$warrantyChunk->id);
+});
+
+test('chat hides same-line citation markers from streamed and stored answers', function () {
+    $answer = 'Unused Harbor Trail Packs can be returned within 30 days of delivery, with tags attached.';
+    $question = 'What is the return window for an unused Harbor Trail Pack?';
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'chat-cites-leak-returns',
+        'category' => 'returns',
+        'body' => "## Window\nHarbor Outfitters accepts unused returns within 30 days of delivery with tags attached.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $chunk = $article->chunks()->create([
+        'heading' => 'Window',
+        'body' => 'Harbor Outfitters accepts unused returns within 30 days of delivery with tags attached.',
+        'token_count' => 12,
+        'embedding' => null,
+    ]);
+    $chunk->load('article');
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($chunk): void {
+        $mock->shouldReceive('search')
+            ->andReturn(collect([['chunk' => $chunk, 'similarity' => 0.91]]));
+    });
+
+    fakeSupportAi(chat: [
+        'body' => $answer,
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+    SupportChatStreamAgent::fake([
+        $answer.' CITES: '.$chunk->id,
+        $answer.' CITES: '.$chunk->id,
+    ])->preventStrayPrompts();
+
+    $streamed = [];
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $message = app(ChatService::class)->ask($session, $question, function (string $visible) use (&$streamed): void {
+        $streamed[] = $visible;
+    });
+
+    expect($streamed)->not->toBeEmpty()
+        ->and($streamed)->each->not->toContain('CITES')
+        ->and($message->body)->toBe($answer)
+        ->and($message->cited_chunk_ids)->toBe([$chunk->id]);
+
+    Livewire::test(Widget::class)
+        ->set('question', $question)
+        ->call('send')
+        ->call('completeTurn')
+        ->assertSee('Unused Harbor Trail Packs')
+        ->assertSee('Source: Return window')
+        ->assertDontSee('CITES:')
+        ->assertDontSee('CITES: '.$chunk->id);
+
+    expect(ChatMessage::query()->where('role', 'assistant')->pluck('body'))
+        ->each->not->toContain('CITES');
 });

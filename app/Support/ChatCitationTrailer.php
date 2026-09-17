@@ -9,12 +9,14 @@ class ChatCitationTrailer
      */
     public static function split(string $text): array
     {
-        if (preg_match('/(?:\A|\R)CITES:\s*([^\r\n]+)\s*\z/', $text, $matches) !== 1) {
-            return [trim($text), []];
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        if (preg_match('/(?:^|\s)CITES:\s*([^\n]*)(?:\n[\s\S]*)?\s*\z/', $text, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            return [self::hideIncompleteTrailer($text), []];
         }
 
-        $body = trim((string) preg_replace('/(?:\A|\R)CITES:\s*[^\r\n]+\s*\z/', '', $text));
-        $raw = strtolower(trim($matches[1]));
+        $body = trim(substr($text, 0, (int) $matches[0][1]));
+        $raw = strtolower(trim($matches[1][0]));
 
         if ($raw === '' || $raw === 'none') {
             return [$body, []];
@@ -22,7 +24,9 @@ class ChatCitationTrailer
 
         $ids = [];
 
-        foreach (preg_split('/\s*,\s*/', $matches[1]) ?: [] as $part) {
+        foreach (preg_split('/\s*,\s*/', $matches[1][0]) ?: [] as $part) {
+            $part = trim($part, " \t.");
+
             if (is_numeric($part)) {
                 $ids[] = (int) $part;
             }
@@ -33,8 +37,15 @@ class ChatCitationTrailer
 
     public static function visible(string $text): string
     {
-        $cut = preg_split('/(?:\A|\R)CITES:\s*/', $text, 2);
+        [$body] = self::split($text);
 
-        return trim((string) ($cut[0] ?? $text));
+        return $body;
+    }
+
+    private static function hideIncompleteTrailer(string $text): string
+    {
+        $stripped = preg_replace('/(?:^|\s)CI(?:T(?:E(?:S(?::[^\n]*)?)?)?)?\s*\z/', '', $text);
+
+        return trim((string) ($stripped ?? $text));
     }
 }

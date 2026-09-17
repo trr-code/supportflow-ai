@@ -118,25 +118,28 @@ test('empty chat validation stays distinct from the rate-limit message', functio
         ->assertDontSee('capped at');
 });
 
-test('five-question chat cap stays distinct from the rate-limit message', function () {
-    RateLimiter::clear('chat|'.request()->ip());
+test('ten-question chat cap stays distinct from the rate-limit message', function () {
+    $key = 'chat|'.request()->ip();
+    RateLimiter::clear($key);
     fakeSupportAi();
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class);
 
-    for ($i = 0; $i < 5; $i++) {
+    for ($i = 0; $i < 10; $i++) {
         $component->set('question', $question)->call('send')->call('completeTurn');
     }
+
+    RateLimiter::clear($key);
 
     $component->set('question', $question)
         ->call('send')
         ->assertHasNoErrors()
         ->call('completeTurn')
-        ->assertSee('capped at 5 questions')
+        ->assertSee('capped at 10 questions')
         ->assertDontSee('Chat limit reached');
 
-    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(6);
+    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(11);
 });
 
 test('a new conversation does not bypass the visitor chat rate limit', function () {
