@@ -1,10 +1,98 @@
 <div
     class="fixed bottom-4 end-4 z-40 w-full max-w-sm"
-    x-data="{ fieldFocused: false }"
+    x-data="{
+        fieldFocused: false,
+        pinToBottom: true,
+        ignoreScroll: false,
+        userScrolling: false,
+        transcriptEl() {
+            return this.$el.querySelector('[data-chat-transcript]')
+        },
+        pinNewest() {
+            this.pinToBottom = true
+            this.observeTranscript()
+            this.scrollTranscript()
+            this.$nextTick(() => {
+                this.observeTranscript()
+                this.scrollTranscript()
+            })
+        },
+        scrollTranscript() {
+            const el = this.transcriptEl()
+            if (! el || ! this.pinToBottom) {
+                return
+            }
+            this.ignoreScroll = true
+            el.scrollTop = el.scrollHeight
+            requestAnimationFrame(() => {
+                el.scrollTop = el.scrollHeight
+                requestAnimationFrame(() => {
+                    el.scrollTop = el.scrollHeight
+                    this.ignoreScroll = false
+                })
+            })
+        },
+        onUserScrollIntent(event) {
+            if (event && typeof event.deltaY === 'number' && event.deltaY > 0 && this.pinToBottom) {
+                return
+            }
+            this.userScrolling = true
+        },
+        onTranscriptScroll() {
+            if (this.ignoreScroll) {
+                return
+            }
+            const el = this.transcriptEl()
+            if (! el) {
+                return
+            }
+            const awayFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 24
+            if (this.userScrolling && awayFromBottom) {
+                this.pinToBottom = false
+            } else if (this.pinToBottom && awayFromBottom) {
+                this.scrollTranscript()
+            }
+            this.userScrolling = false
+        },
+        observeTranscript() {
+            const el = this.transcriptEl()
+            if (! el) {
+                return
+            }
+            if (this._transcriptEl === el) {
+                return
+            }
+            this._transcriptObserver?.disconnect()
+            this._transcriptResizeObserver?.disconnect()
+            this._transcriptEl = el
+            this._transcriptObserver = new MutationObserver(() => this.scrollTranscript())
+            this._transcriptObserver.observe(el, { childList: true, subtree: true, characterData: true })
+            this._transcriptResizeObserver = new ResizeObserver(() => this.scrollTranscript())
+            this._transcriptResizeObserver.observe(el)
+        },
+    }"
     x-init="
         let abortMessage = () => {}
         let abortRequest = () => {}
-        $wire.interceptMessage('completeTurn', ({ cancel }) => { abortMessage = cancel })
+        const afterMorph = (hooks) => {
+            pinNewest()
+            if (hooks && typeof hooks === 'object') {
+                hooks.onMorphed?.(() => pinNewest())
+                hooks.onRender?.(() => pinNewest())
+            }
+        }
+        $wire.interceptMessage('completeTurn', ({ cancel, onFinish, onSuccess, onStream }) => {
+            abortMessage = cancel
+            onStream?.(() => scrollTranscript())
+            onSuccess?.(afterMorph)
+            onFinish?.(() => pinNewest())
+        })
+        $wire.interceptMessage('send', ({ onSend, onFinish, onSuccess }) => {
+            pinToBottom = true
+            onSend?.(() => pinNewest())
+            onSuccess?.(afterMorph)
+            onFinish?.(() => pinNewest())
+        })
         $wire.interceptRequest('completeTurn', ({ request }) => { abortRequest = () => request.cancel() })
         $wire.$js.stop = () => { abortMessage(); abortRequest(); $wire.stopGenerating() }
         const focusChatQuestion = () => {
@@ -15,7 +103,24 @@
                 : root.querySelector('input, textarea')
             input?.focus()
         }
-        $watch('$wire.open', value => { if (value) $nextTick(focusChatQuestion) })
+        $watch('$wire.open', value => {
+            if (value) {
+                $nextTick(() => {
+                    focusChatQuestion()
+                    pinNewest()
+                })
+            }
+        })
+        $watch('$wire.streaming', value => {
+            if (value) {
+                pinToBottom = true
+            }
+            $nextTick(() => {
+                observeTranscript()
+                scrollTranscript()
+            })
+        })
+        $watch('$wire.streamText', () => $nextTick(() => scrollTranscript()))
     "
     @demo-chat-focus.window="$nextTick(() => {
         const root = document.getElementById('chat-question')
@@ -41,7 +146,15 @@
                     <button type="button" wire:click="$set('open', false)" class="text-sm text-zinc-500 hover:text-harbor-ink">Close</button>
                 </div>
             </div>
-            <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm" aria-live="polite">
+            <div
+                class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm [overflow-anchor:none]"
+                aria-live="polite"
+                data-chat-transcript
+                x-on:scroll="onTranscriptScroll()"
+                x-on:wheel="onUserScrollIntent($event)"
+                x-on:touchmove="onUserScrollIntent($event)"
+                x-on:pointerdown="onUserScrollIntent($event)"
+            >
                 @forelse ($messages as $message)
                     <div wire:key="chat-{{ $message->id }}">
                         @if ($message->role === 'user')
@@ -96,7 +209,7 @@
                     </div>
                 @endif
             </div>
-            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3">
+            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3" x-on:submit="pinNewest()">
                 <flux:input
                     id="chat-question"
                     wire:model="question"

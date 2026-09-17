@@ -294,6 +294,51 @@ test('chat empty-state prompt chips use wrapping wire keys', function () {
         ->toContain('<div wire:key="chat-prompt-{{ $key }}">');
 });
 
+test('chat transcript pins to the newest message until the visitor scrolls up', function () {
+    $view = file_get_contents(resource_path('views/livewire/chat/widget.blade.php'));
+
+    expect($view)
+        ->toContain('data-chat-transcript')
+        ->toContain("querySelector('[data-chat-transcript]')")
+        ->toContain('el.scrollTop = el.scrollHeight')
+        ->toContain('x-on:submit="pinNewest()"')
+        ->toContain('onUserScrollIntent')
+        ->toContain('userScrolling')
+        ->toContain('x-on:wheel="onUserScrollIntent($event)"')
+        ->toContain('x-on:touchmove="onUserScrollIntent($event)"')
+        ->toContain('x-on:pointerdown="onUserScrollIntent($event)"')
+        ->toContain('this.userScrolling && awayFromBottom')
+        ->toContain('this.pinToBottom && awayFromBottom')
+        ->toContain("\$watch('\$wire.streaming'")
+        ->toContain("\$watch('\$wire.streamText'")
+        ->toContain("interceptMessage('completeTurn'")
+        ->toContain("interceptMessage('send'")
+        ->toContain('onSend?.(() => pinNewest())')
+        ->toContain('onStream?.(() => scrollTranscript())')
+        ->toContain('hooks.onMorphed?.(() => pinNewest())')
+        ->toContain('hooks.onRender?.(() => pinNewest())')
+        ->toContain('onFinish?.(() => pinNewest())')
+        ->toContain('if (value) {')
+        ->toContain('pinToBottom = true')
+        ->toContain('onTranscriptScroll()')
+        ->toContain('ignoreScroll')
+        ->toContain('MutationObserver')
+        ->toContain('ResizeObserver')
+        ->not->toContain('x-ref="transcript"')
+        ->not->toContain('scrollIntoView')
+        ->not->toContain('@script');
+
+    $html = Livewire::test(Widget::class)
+        ->set('open', true)
+        ->html();
+
+    expect($html)
+        ->toContain('data-chat-transcript')
+        ->toContain('x-on:scroll="onTranscriptScroll()"')
+        ->toContain('x-on:submit="pinNewest()"')
+        ->toContain('x-on:wheel="onUserScrollIntent($event)"');
+});
+
 test('rendered ticket loops include wire:key attributes', function () {
     $ticket = Ticket::factory()->create();
 
