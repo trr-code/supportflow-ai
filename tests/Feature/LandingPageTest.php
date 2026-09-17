@@ -53,7 +53,7 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->toContain('href="'.route('demo.environment'))
         ->not->toContain('Harbor &amp; Co <span class="font-normal text-zinc-400">/</span> SupportFlow')
         ->and($widget)
-        ->toContain('fixed bottom-4 end-4 z-40 w-full max-w-sm')
+        ->toContain('fixed bottom-4 start-4 end-4 z-40 min-w-0 sm:start-auto sm:w-full sm:max-w-sm')
         ->toContain('h-[min(32rem,calc(100dvh-8rem))]')
         ->toContain('sm:h-[min(42rem,calc(100dvh-5.5rem))]')
         ->toContain('min-h-0 flex-1')
@@ -65,6 +65,7 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->not->toContain('max-h-80')
         ->not->toContain('max-h-[min(32rem,calc(100dvh-8rem))]')
         ->not->toContain('sm:max-h-[min(42rem,calc(100dvh-5.5rem))]')
+        ->not->toContain('fixed bottom-4 end-4 z-40 w-full max-w-sm')
         ->not->toContain('w-[min(24rem,calc(100vw-2rem))]');
 });
 

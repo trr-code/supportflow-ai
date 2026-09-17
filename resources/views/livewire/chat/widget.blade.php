@@ -1,5 +1,5 @@
 <div
-    class="fixed bottom-4 end-4 z-40 w-full max-w-sm"
+    class="fixed bottom-4 start-4 end-4 z-40 min-w-0 sm:start-auto sm:w-full sm:max-w-sm"
     x-data="{
         fieldFocused: false,
         pinToBottom: true,
@@ -33,23 +33,32 @@
             })
         },
         onUserScrollIntent(event) {
-            if (event && typeof event.deltaY === 'number' && event.deltaY > 0 && this.pinToBottom) {
+            if (event && typeof event.deltaY === 'number' && event.deltaY > 0) {
                 return
             }
+            this.ignoreScroll = false
             this.userScrolling = true
+            if (event && typeof event.deltaY === 'number' && event.deltaY < 0) {
+                this.pinToBottom = false
+            }
         },
         onTranscriptScroll() {
-            if (this.ignoreScroll) {
-                return
-            }
             const el = this.transcriptEl()
             if (! el) {
                 return
             }
             const awayFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 24
-            if (this.userScrolling && awayFromBottom) {
+            if (! awayFromBottom) {
+                this.pinToBottom = true
+                this.userScrolling = false
+                return
+            }
+            if (this.ignoreScroll) {
+                return
+            }
+            if (this.userScrolling) {
                 this.pinToBottom = false
-            } else if (this.pinToBottom && awayFromBottom) {
+            } else if (this.pinToBottom) {
                 this.scrollTranscript()
             }
             this.userScrolling = false
@@ -75,23 +84,22 @@
         let abortMessage = () => {}
         let abortRequest = () => {}
         const afterMorph = (hooks) => {
-            pinNewest()
+            scrollTranscript()
             if (hooks && typeof hooks === 'object') {
-                hooks.onMorphed?.(() => pinNewest())
-                hooks.onRender?.(() => pinNewest())
+                hooks.onMorphed?.(() => scrollTranscript())
+                hooks.onRender?.(() => scrollTranscript())
             }
         }
         $wire.interceptMessage('completeTurn', ({ cancel, onFinish, onSuccess, onStream }) => {
             abortMessage = cancel
             onStream?.(() => scrollTranscript())
             onSuccess?.(afterMorph)
-            onFinish?.(() => pinNewest())
+            onFinish?.(() => scrollTranscript())
         })
         $wire.interceptMessage('send', ({ onSend, onFinish, onSuccess }) => {
-            pinToBottom = true
-            onSend?.(() => pinNewest())
+            onSend?.(() => scrollTranscript())
             onSuccess?.(afterMorph)
-            onFinish?.(() => pinNewest())
+            onFinish?.(() => scrollTranscript())
         })
         $wire.interceptRequest('completeTurn', ({ request }) => { abortRequest = () => request.cancel() })
         $wire.$js.stop = () => { abortMessage(); abortRequest(); $wire.stopGenerating() }
@@ -111,15 +119,10 @@
                 })
             }
         })
-        $watch('$wire.streaming', value => {
-            if (value) {
-                pinToBottom = true
-            }
-            $nextTick(() => {
-                observeTranscript()
-                scrollTranscript()
-            })
-        })
+        $watch('$wire.streaming', () => $nextTick(() => {
+            observeTranscript()
+            scrollTranscript()
+        }))
         $watch('$wire.streamText', () => $nextTick(() => scrollTranscript()))
     "
     @demo-chat-focus.window="$nextTick(() => {
@@ -134,9 +137,9 @@
     @focusout.window="fieldFocused = false"
 >
     @if ($open)
-        <div class="mb-3 flex h-[min(32rem,calc(100dvh-8rem))] flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl sm:h-[min(42rem,calc(100dvh-5.5rem))]">
-            <div class="flex shrink-0 items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
-                <p class="text-sm font-medium text-harbor-ink">Harbor &amp; Co knowledge assistant</p>
+        <div class="mb-3 flex h-[min(32rem,calc(100dvh-8rem))] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl sm:h-[min(42rem,calc(100dvh-5.5rem))]">
+            <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
+                <p class="min-w-0 text-sm font-medium text-harbor-ink">Harbor &amp; Co knowledge assistant</p>
                 <div class="flex shrink-0 items-center gap-3">
                     @if ($messages->isNotEmpty() && ! $streaming)
                         <flux:modal.trigger name="confirm-new-conversation">
