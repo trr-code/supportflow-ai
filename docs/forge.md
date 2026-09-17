@@ -12,7 +12,7 @@ GitHub: [trr-code/supportflow-ai](https://github.com/trr-code/supportflow-ai). D
 4. Install `postgresql-XX-pgvector` if needed (server-wide). Then in `supportflow_ai` only: `CREATE EXTENSION vector;`
 5. Set environment variables below. Prefer `SESSION_ENCRYPT=true` in production.
 6. Paste the deploy script, enable SSL, and deploy.
-7. Queue worker: `--queue=ai,default --timeout=90` using PHP 8.5.
+7. Queue worker: `--queue=ai,default --timeout=120` using PHP 8.5. Edit the Forge daemon command itself; `$RESTART_QUEUES()` does not change it.
 8. Scheduler: `php artisan schedule:run` every minute.
 9. After first deploy: `php artisan db:seed --force` once.
 10. Confirm `/up` over HTTPS. Return screenshots of the site URL, PHP version, worker, scheduler, database list, `/up`, and first-deploy logs.
@@ -40,16 +40,23 @@ Set at least:
 - `SESSION_ENCRYPT=true` (production)
 - `DEMO_STALE_MINUTES=45`
 - `SUPPORTFLOW_MIN_SIMILARITY=0.45`
+- `DB_QUEUE_RETRY_AFTER=150`
 
 Do **not** publish a demo-agent password. Evaluators use **Open Agent Dashboard** (`POST /demo/enter-agent`). Credential screens (`/login`, `/register`, password reset, passkeys, 2FA) return 404. Guests who hit agent URLs are sent to the demo home. HTTPS is required for microphone dictation.
 
 ## Queue worker
 
-Create a Forge daemon (timeout ≥ 90s):
+Create a Forge daemon (timeout ≥ 120s):
 
 ```bash
-php artisan queue:work --queue=ai,default --sleep=1 --tries=3 --timeout=90
+php artisan queue:work --queue=ai,default --sleep=1 --tries=3 --timeout=120
 ```
+
+Set `DB_QUEUE_RETRY_AFTER=150` so reservation outlives the 120s job/worker timeout.
+
+The live timeout is this **daemon command**. After a code change that raises job `$timeout` to 120, **edit the daemon in the Forge UI** from `--timeout=90` to `--timeout=120`. Deploy does not rewrite daemon commands.
+
+`$RESTART_QUEUES()` (or `$FORGE_PHP artisan queue:restart` in the deploy script below) restarts workers during deployment. Restarted processes still launch with the existing daemon command. If the daemon still says `--timeout=90`, workers keep a 90s kill even after `$timeout = 120` ships.
 
 ## Scheduler
 

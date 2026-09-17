@@ -17,7 +17,7 @@ Nothing reaches the customer until a human support agent sends it.
 2. Enable `vector` in your database (`CREATE EXTENSION vector`). See [docs/pgvector.md](docs/pgvector.md).
 3. Run `composer setup` (or `composer install`, `php artisan key:generate`, `php artisan migrate`, `npm install`, `npm run build`).
 4. Seed once: `php artisan db:seed`.
-5. Run `composer run dev` and a queue worker: `php artisan queue:work --queue=ai,default --timeout=90`.
+5. Run `composer run dev` and a queue worker: `php artisan queue:work --queue=ai,default --timeout=120`.
 
 Open the home page, ask the knowledge assistant, or submit a demo ticket. Use **Open Agent Dashboard** for the review workspace—there is no public login form.
 

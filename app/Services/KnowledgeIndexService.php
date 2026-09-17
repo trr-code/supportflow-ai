@@ -15,7 +15,9 @@ class KnowledgeIndexService
         $article->chunks()->delete();
 
         foreach (KnowledgeChunker::chunk($article->body) as $part) {
-            $embedding = $this->retrieval->embed(($part['heading'] ?? '').' '.$part['body']);
+            $embedding = $queueEmbeddings
+                ? null
+                : $this->retrieval->embed(($part['heading'] ?? '').' '.$part['body']);
 
             $chunk = $article->chunks()->create([
                 'heading' => $part['heading'],

@@ -20,9 +20,9 @@ class GenerateSuggestedReply implements ShouldBeUnique, ShouldQueue
     /** @var list<int> */
     public array $backoff = [10, 60, 180];
 
-    public int $timeout = 90;
+    public int $timeout = 120;
 
-    public int $uniqueFor = 120;
+    public int $uniqueFor = 180;
 
     public function __construct(
         public int $ticketId,

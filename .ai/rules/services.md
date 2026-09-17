@@ -3,6 +3,7 @@ paths:
   - app/Services/DemoScenarioService.php
   - app/Services/TicketIntakeService.php
   - app/Services/SuggestedReplyService.php
+  - app/Services/KnowledgeIndexService.php
 ---
 
 # Services
@@ -18,3 +19,6 @@ Create the pending suggested reply and set ticket status to Awaiting review in o
 
 ## Regenerate must differ or keep the draft
 Regenerate must pass the previous pending draft into the prompt, require different wording or structure, keep the same grounded facts and sources, and add no unsupported information. If the formatted body is identical, retry once on the same AiRun. If it is still identical, keep the current pending draft, complete the run with unchanged true, and record SuggestionRegenerated instead of creating a duplicate.
+
+## Queued embeddings must not also embed synchronously
+syncArticle embeds synchronously XOR dispatches EmbedKnowledgeChunk. When queueEmbeddings is true, persist null embeddings and let the job fill them. Never embed in both places. Seeding stays queueEmbeddings: false.
