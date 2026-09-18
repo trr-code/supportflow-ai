@@ -11,8 +11,14 @@ trait HeartbeatsDemoSession
 
     public function bootHeartbeatsDemoSession(DemoSessionService $sessions): void
     {
-        $session = $this->existingDemoSession() ?? $sessions->heartbeat(request());
-        $session->forceFill(['last_activity_at' => now()])->save();
+        $session = $this->existingDemoSession();
+
+        if ($session === null) {
+            $session = $sessions->heartbeat(request());
+        } else {
+            $session->forceFill(['last_activity_at' => now()])->save();
+        }
+
         $this->demoSessionId = $session->id;
         $sessions->queueCookie($session);
     }
