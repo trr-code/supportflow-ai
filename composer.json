@@ -31,7 +31,8 @@
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^5.1",
         "pestphp/pest-plugin-drift": "^5.0",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-stressless": "^5.0"
     },
     "autoload": {
         "psr-4": {
@@ -75,7 +76,31 @@
             "@php artisan config:clear --ansi",
             "@lint:check",
             "@types:check",
-            "@php artisan test"
+            "@php artisan test --exclude-group=stress"
+        ],
+        "test:stress": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress --exclude-group=stress-capacity --compact"
+        ],
+        "test:stress:smoke": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress-smoke --compact"
+        ],
+        "test:stress:load": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress-load --compact"
+        ],
+        "test:stress:stress": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress-stress --compact"
+        ],
+        "test:stress:stability": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress-stability --compact"
+        ],
+        "test:stress:capacity": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test --group=stress-capacity --compact"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

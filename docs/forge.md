@@ -4,6 +4,8 @@ SupportFlow AI is a single-tenant Laravel 13 app. Use Forge (not Laravel Cloud).
 
 GitHub: [trr-code/supportflow-ai](https://github.com/trr-code/supportflow-ai). Deploy branch `main`.
 
+This Forge site is **staging**, not production: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). Set `APP_URL` to that HTTPS origin.
+
 ## Site checklist (existing CareerForge server)
 
 1. Install **PHP 8.5** on the server if it is not already present. Select PHP 8.5 for this site and for the queue worker.
@@ -17,7 +19,13 @@ GitHub: [trr-code/supportflow-ai](https://github.com/trr-code/supportflow-ai). D
 9. After first deploy: `php artisan db:seed --force` once.
 10. Confirm `/up` over HTTPS. Return screenshots of the site URL, PHP version, worker, scheduler, database list, `/up`, and first-deploy logs.
 
-Shared ~1 GB VM: queue storms and k6 compete with CareerForge. Run k6 off-peak; pause `schedule:run` for long k6 runs.
+Shared ~1 GB VM: queue storms and Stressless compete with CareerForge. Run progressive Pest Stressless **off-peak** against this known staging URL only. That is not permission to load-test an unknown production system.
+
+From a local checkout, with `STRESS=true`, `STRESS_URL=https://supportflow-ai-ou1b5gvy.on-forge.com`, and `STRESS_MAX_CONCURRENCY=16`:
+
+1. Start with `composer test:stress:smoke`. Stop if it fails.
+2. If smoke passes, you may run load, stress, stability, then capacity at that 16-VU safety rail.
+3. GET `/up`, `/`, `/knowledge`, and `/knowledge/return-window` only. Never hit ticket create, chat send, dictation, or regenerate.
 
 ## PostgreSQL + pgvector
 
@@ -28,7 +36,7 @@ See [pgvector.md](pgvector.md). Install `postgresql-XX-pgvector` and enable `CRE
 Set at least:
 
 - `APP_NAME=SupportFlow AI`
-- `APP_URL` (HTTPS site URL)
+- `APP_URL=https://supportflow-ai-ou1b5gvy.on-forge.com`
 - `DB_*` PostgreSQL
 - `QUEUE_CONNECTION=database`
 - `CACHE_STORE=database`

@@ -29,11 +29,43 @@ Do not enter real personal, order, or payment information.
 composer test
 ```
 
-CI runs Pint, Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`.
+CI runs Pint, Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests are **not** in that quality gate.
+
+### HTTP performance (Pest Stressless)
+
+Read-only GET checks against a live URL. They use Pest Stressless (k6 under the hood). There is no separate `k6/` suite.
+
+Do **not** stress-test ticket create, chat send, dictation, or regenerate—those call OpenAI and trip demo caps.
+
+`GET /up` is isolated server health. `/`, `/knowledge`, and `/knowledge/return-window` are separate representative routes. Capacity discovery climbs constant-concurrency plateaus per route until the first unhealthy plateau, then records the last healthy level and the first failing level. That approximates Grafana-style breakpoint testing; Stressless cannot stage arrival-rate or report p99.
+
+Local (Herd already serving):
+
+```powershell
+$env:STRESS = "true"
+$env:STRESS_URL = "https://supportflow-ai.test"
+# Approved safety rail—not a claimed capacity:
+$env:STRESS_MAX_CONCURRENCY = "16"
+# Pest Stress tests persist k6 cookies across iterations (returning visitors).
+# For ad-hoc `pest stress`, also set:
+# $env:K6_NO_COOKIES_RESET = "true"
+composer test:stress:smoke
+# Stop if smoke fails. Then:
+composer test:stress:load
+composer test:stress:stress
+composer test:stress:stability
+composer test:stress:capacity
+```
+
+`composer test:stress` runs smoke, load, stress, and stability. Capacity is a separate command.
+
+Forge staging is [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). It shares a VM with CareerForge. Run the same progressive Stressless sequence **off-peak** against that URL (`$env:STRESS_URL = "https://supportflow-ai-ou1b5gvy.on-forge.com"`). Start with smoke and stop if it fails. Load, stress, stability, and capacity may follow at `STRESS_MAX_CONCURRENCY=16`. Do not treat this as permission to load-test an unknown production system.
+
+Ad-hoc (no assertions): `./vendor/bin/pest stress supportflow-ai.test/up --concurrency=2 --duration=5`.
 
 ## Deploy
 
-Forge notes live in [docs/forge.md](docs/forge.md). Production URL, screenshots, and k6 results will be added after the live site exists.
+Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com).
 
 ## License
 

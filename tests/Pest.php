@@ -15,9 +15,21 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Ai\Embeddings;
 use Tests\TestCase;
 
+require __DIR__.'/Support/stressless.php';
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+pest()->group('stress')->in('Stress');
+
+pest()->beforeEach(function (): void {
+    persistStresslessCookiesAcrossIterations();
+
+    if (! stressTestingEnabled()) {
+        $this->markTestSkipped('Set STRESS=true and STRESS_URL to run Stressless tests.');
+    }
+})->in('Stress');
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);

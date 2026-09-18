@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "acf981f32c3edaa584522098b4eca3c5",
+    "content-hash": "cf45b5995e7dca4fac553db39aa11fea",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -10002,6 +10002,82 @@
                 "source": "https://github.com/pestphp/pest-plugin-profanity/tree/v5.0.0"
             },
             "time": "2026-07-21T07:48:56+00:00"
+        },
+        {
+            "name": "pestphp/pest-plugin-stressless",
+            "version": "v5.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/pestphp/pest-plugin-stressless.git",
+                "reference": "d1df49be234a00b8c6d49e79fde85f536849560d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/pestphp/pest-plugin-stressless/zipball/d1df49be234a00b8c6d49e79fde85f536849560d",
+                "reference": "d1df49be234a00b8c6d49e79fde85f536849560d",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-zip": "*",
+                "pestphp/pest": "^5.0.3",
+                "pestphp/pest-plugin": "^5.0.0",
+                "php": "^8.4"
+            },
+            "conflict": {
+                "pestphp/pest": "<5.0.0"
+            },
+            "require-dev": {
+                "pestphp/pest-dev-tools": "^5.0.0"
+            },
+            "type": "library",
+            "extra": {
+                "pest": {
+                    "plugins": [
+                        "Pest\\Stressless\\Plugin"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/Autoload.php"
+                ],
+                "psr-4": {
+                    "Pest\\Stressless\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Stressless plugin for Pest",
+            "keywords": [
+                "framework",
+                "pest",
+                "php",
+                "plugin",
+                "test",
+                "testing",
+                "unit"
+            ],
+            "support": {
+                "source": "https://github.com/pestphp/pest-plugin-stressless/tree/v5.0.2"
+            },
+            "funding": [
+                {
+                    "url": "https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=66BYDWAT92N6L",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/nunomaduro",
+                    "type": "github"
+                },
+                {
+                    "url": "https://www.patreon.com/nunomaduro",
+                    "type": "patreon"
+                }
+            ],
+            "time": "2026-08-04T15:23:10+00:00"
         },
         {
             "name": "phar-io/manifest",
