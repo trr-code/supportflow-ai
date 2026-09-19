@@ -22,7 +22,7 @@
             </div>
         </footer>
 
-        {{-- Experiment B: omit widget for Forge GET diagnosis; restore after measure. --}}
+        <livewire:chat.widget />
 
         @persist('toast')
             <flux:toast.group>

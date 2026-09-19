@@ -45,7 +45,7 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->not->toContain('min-h-0')
         ->not->toContain('overflow-y-auto')
         ->and($home)
-        ->not->toContain('Ask Harbor &amp; Co')
+        ->toContain('Ask Harbor &amp; Co')
         ->toContain('Harbor &amp; Co/SupportFlow')
         ->toContain('© '.now()->year)
         ->toContain('Submit a ticket')

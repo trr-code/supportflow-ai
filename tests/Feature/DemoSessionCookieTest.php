@@ -21,7 +21,7 @@ test('a second home visit with the demo session cookie reuses the same row', fun
 
     expect(DemoSession::query()->count())->toBe(1);
     expect(DemoSession::query()->value('id'))->toBe($session->id);
-})->skip('Experiment B: public chat widget omitted');
+});
 
 test('a returning home visit updates the demo session once', function () {
     $this->get(route('home'))->assertOk();
@@ -47,7 +47,7 @@ test('a returning home visit updates the demo session once', function () {
     expect($updates)->toBe(1);
     expect(DemoSession::query()->count())->toBe(1);
     expect(DemoSession::query()->whereKey($session->id)->value('last_activity_at')?->isSameSecond(now()))->toBeTrue();
-})->skip('Experiment B: public chat widget omitted');
+});
 
 test('the health route does not create a demo session cookie', function () {
     $this->get('/up')

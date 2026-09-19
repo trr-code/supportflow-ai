@@ -27,7 +27,7 @@ test('the customer ticket page renders the confirmed dark-green controls without
         ->assertOk()
         ->assertSee('Customer', false)
         ->assertSee('Submit ticket', false)
-        ->assertDontSee('Ask Harbor &amp; Co', false)
+        ->assertSee('Ask Harbor &amp; Co', false)
         ->getContent();
 
     expect($page)
