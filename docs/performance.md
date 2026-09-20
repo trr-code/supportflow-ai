@@ -56,6 +56,14 @@ Linux/Forge: `php artisan octane:frankenphp` (or `octane:start --server=frankenp
 
 Local one-shot concurrent waves at 1, then 2, then 4 demo sessions on both Herd and Octane: 14/14 real OpenAI turns succeeded, grounded, persisted, no exposed `CITES:`, no app 429s. Time to first token is provider-dominated (~1.6–2.2 s concurrent). Do not claim Octane makes answers faster for visitors.
 
+## Forge staging (2026-09-19)
+
+Target: `https://supportflow-ai-ou1b5gvy.on-forge.com` on the shared CareerForge VM (1 vCPU, 961 MiB). Octane/FrankenPHP, **1 worker**, Nginx TLS. Scheduler was not paused. GET benches used Pest Stressless only (`K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`). Chat used one-shot `POST /chat/stream` with separate cookie jars; `throttle:chat` stayed at 10/minute.
+
+Smoke, load, stress, stability, and capacity all passed with **zero HTTP failures**. Capacity last-healthy concurrency was 16 on `/`, `/knowledge`, and `/knowledge/return-window` (the 16-VU safety rail, not a local-style p95 gate). `/` peaked around **39 rps** (concurrency 12–16, p95 362–465 ms). `/knowledge` p95 rose above 1 s at concurrency 12. That is not the local 770 rps, 47 ms p95 result and must not be treated as a reason to raise Forge workers.
+
+Browser checks: `/`, `/knowledge`, `/knowledge/return-window`, agent dashboard/tickets, mobile-width home, SSE chat with citations and a persisted follow-up, no exposed `CITES:`. Chat waves 1/2/4: 7/7 `event: done`, no `event: error`, no `CITES:`, no app 429s.
+
 ## How to rerun GET tests
 
 From a checkout, with Stressless excluded from `composer test`:
@@ -70,5 +78,5 @@ Pest Evals are deferred.
 
 ## CI and Forge (2026-09-19)
 
-Pushed `21c9320` to `origin/main`. GitHub Actions Tests passed. Forge Octane deploy and Stressless benches are blocked on an invalid Forge CLI API token. See [forge.md](forge.md).
+Pushed `500e465` to `origin/main`. GitHub Actions Tests passed. Forge Octane is serving staging; GET and chat benches above ran against that origin. See [forge.md](forge.md).
 

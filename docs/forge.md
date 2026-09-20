@@ -8,31 +8,25 @@ This Forge site is **staging**, not production: [https://supportflow-ai-ou1b5gvy
 
 ## Status (2026-09-19)
 
-`main` is at `21c9320`. GitHub Actions [Tests #35478206879](https://github.com/trr-code/supportflow-ai/actions/runs/35478206879) passed (Pint, Larastan, Pest).
+`main` is at `500e465`. GitHub Actions [Tests #35478206879](https://github.com/trr-code/supportflow-ai/actions/runs/35478206879) passed (Pint, Larastan, Pest).
 
-Forge CLI on the Windows workstation has an **invalid API token** (`organization:list` returns "Your API Token is invalid."). `FORGE_API_TOKEN` is unset. Octane daemon, Nginx proxy, `OCTANE_*` env, worker sizing from server RAM/CPU, scheduler pause, and Forge Stressless benches **did not run**.
+Forge CLI is **2.0.3** (documented `composer global require laravel/forge-cli:^2.0.3`; Herd’s `forge.phar` was replaced so PATH stays on 2.0.3). Organization `terry-lafferty`, server `careerforge` (`1228434`, `167.172.14.46`), site SupportFlow `3362425`.
 
-Single HTTPS GETs after the main push: `/up`, `/`, `/knowledge`, and `/knowledge/return-window` returned 200. Home includes the SSE widget (`startStream`). Response times were about 450–750 ms, which matches PHP-FPM on the shared VM, not the local Octane 47 ms p95. Queue worker, scheduler, and Octane process health are unverified without CLI/SSH.
+`forge ssh:test` still hangs on Windows at “Establishing secure connection.” Do **not** run `forge ssh:configure`. Access is proven with OpenSSH: `ssh -o BatchMode=yes forge@167.172.14.46`. CLI commands that shell out to SSH hang the same way; API commands work.
 
-### Exact CLI auth required
+Octane is live on staging: FrankenPHP daemon `1094048` (`--workers=1 --max-requests=500`) listens on `127.0.0.1:8000`, Nginx `@octane` proxies HTTPS, `OCTANE_SERVER=frankenphp` and `OCTANE_HTTPS=true` are set. Queue daemon `1055641` (`--timeout=120 --queue=ai,default`) and the scheduler are running. PHP-FPM 8.5 remains installed but this site no longer uses it.
 
-1. Create a token: Forge account dashboard → API → Create token. Give it server, site, background-process/daemon, Nginx, and environment scopes. See [Forge API tokens](https://forge.laravel.com/docs/api).
-2. In this project’s PowerShell:
+`index index.php` is required in the Forge inner `site.conf`. `index index.html` with official `try_files $uri $uri/ @octane` returns nginx 403 on `/`.
 
-```powershell
-php C:\Users\trrla\.config\herd\bin\forge.phar logout
-php C:\Users\trrla\.config\herd\bin\forge.phar login --token="YOUR_TOKEN"
-php C:\Users\trrla\.config\herd\bin\forge.phar organization:switch
-php C:\Users\trrla\.config\herd\bin\forge.phar server:switch
-```
+Zero-downtime deployments are still **on**. Official Forge docs say not to combine ZDD with Octane. Site PUT returns 403 for this token, so ZDD was not disabled here. The deploy script copies `frankenphp` into the new release and runs `sudo supervisorctl restart daemon-1094048:*` after `$ACTIVATE_RELEASE()` because FrankenPHP binds the release realpath. If a Zero-downtime deployments control is visible in the site’s creation-time Advanced settings, turn it off; docs say it cannot be added later and may not be togglable.
 
-3. Reply in chat that auth succeeded. Do not paste the token.
+The site `app_type` is Custom, so the Laravel Octane UI toggle may not appear. The daemon was created via the background-processes API.
 
-After that, the Octane Linux path in this document can be applied, then GET/chat benches can run.
+Off-peak Stressless GET (16-VU rail, `K6_NO_COOKIES_RESET=true`) and real `POST /chat/stream` waves 1/2/4 completed. See [performance.md](performance.md). Scheduler was not paused.
 
 ### Unavailable Forge documentation
 
-These URLs returned 404: `/docs/sites/nginx`, `/docs/resources/daemons`, `/docs/sites/deployments.html`. Use Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx) and the [Forge CLI](https://forge.laravel.com/docs/cli) instead.
+These URLs returned 404: `/docs/sites/nginx`, `/docs/resources/daemons`, `/docs/sites/deployments.html`. Use Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx), [Forge deployments](https://forge.laravel.com/docs/sites/deployments), and the [Forge CLI](https://forge.laravel.com/docs/cli) instead.
 
 ## Site checklist (existing CareerForge server)
 
@@ -51,37 +45,40 @@ Shared ~1 GB VM: queue storms and Stressless compete with CareerForge. Run progr
 
 Local Octane HTML capacity on a 20-thread desktop was **770 rps at 16 workers**. Do **not** copy that worker count here. Size Forge Octane workers from this VM’s CPU/RAM and CareerForge load. See [performance.md](performance.md).
 
-## Octane / FrankenPHP (Linux staging)
+## Octane/FrankenPHP (Linux staging)
 
 Laravel documents Octane behind Nginx with FrankenPHP on `127.0.0.1:8000`. Native Windows FrankenPHP is **not** the supported production path.
 
 1. Keep the queue daemon and scheduler **separate** from Octane.
-2. Add a Forge daemon, directory = the site path (the `current` release if isolation is on):
+2. Add a Forge background process, directory = the site `current` path:
 
 ```bash
-php artisan octane:start --server=frankenphp --host=127.0.0.1 --port=8000 --workers=2 --max-requests=500
+php artisan octane:start --server=frankenphp --host=127.0.0.1 --port=8000 --workers=1 --max-requests=500
 ```
 
-Start with **2 workers** on this shared ~1 GB VM unless measured otherwise. `config/octane.php` `max_execution_time` is 120.
+This shared ~1 GB, 1 vCPU VM already runs CareerForge. Measured RAM after cutover left ~300 MiB available. Keep **1 worker**. Do not copy the local 16-worker count. `config/octane.php` `max_execution_time` is 120.
 
 3. Environment:
 
 - `OCTANE_SERVER=frankenphp`
 - `OCTANE_HTTPS=true` (Nginx terminates TLS)
 
-4. Replace the site Nginx config with Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx): static files from `public`, `proxy_pass http://127.0.0.1:8000` for application routes, WebSocket upgrade map, `X-Forwarded-*` headers. After TLS, keep HTTPS `listen` as Forge already configured.
+4. Replace the inner Forge `site.conf` with Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx): `index index.php`, static files from `public`, `proxy_pass http://127.0.0.1:8000` for application routes, `X-Forwarded-*` headers, `proxy_buffering off`, `proxy_read_timeout 120s`. Keep Forge `include forge-conf/{site}/server/*` and the existing HTTPS wrapper. PUT `{config}` to `/orgs/{org}/servers/{server}/sites/{id}/nginx`.
 
-5. Deploy script must reload in-memory workers after the new release is in place:
+5. With zero-downtime deployments still on, copy `frankenphp` into the new release (or `octane:install --server=frankenphp --no-interaction`) **before** `$ACTIVATE_RELEASE()`, then restart the Octane daemon after activation:
 
 ```bash
 $FORGE_PHP artisan migrate --force
-$FORGE_PHP artisan octane:reload --server=frankenphp
-$FORGE_PHP artisan queue:restart
+
+$ACTIVATE_RELEASE()
+
+sudo supervisorctl restart daemon-1094048:*
+$RESTART_QUEUES()
 ```
 
-If `octane:reload` cannot reach the daemon (isolated releases / cwd mismatch), restart the Octane daemon instead. Zero-downtime isolation conflicts with Octane when the daemon’s working directory is a now-replaced release path—point the daemon at `current` or disable isolation for this site.
+`octane:reload` is not enough while FrankenPHP has resolved `releases/{id}` as the real path. Official Forge: do not use ZDD with Octane. Update the script via PUT `/orgs/{org}/servers/{server}/sites/{id}/deployments/script` with `{content}`.
 
-6. Confirm `GET /up` over HTTPS after deploy. Octane process health: daemon running, `octane:status` via `forge command` if the CLI is authenticated.
+6. Confirm `GET /up` over HTTPS after deploy. Octane process health: daemon running, `php artisan octane:status` over OpenSSH. Do not use `forge ssh:test` on Windows.
 
 From a local checkout, with `STRESS=true`, `STRESS_URL=https://supportflow-ai-ou1b5gvy.on-forge.com`, and `STRESS_MAX_CONCURRENCY=16`:
 
@@ -151,11 +148,14 @@ Include:
 
 ```bash
 $FORGE_PHP artisan migrate --force
-$FORGE_PHP artisan octane:reload --server=frankenphp
-$FORGE_PHP artisan queue:restart
+
+$ACTIVATE_RELEASE()
+
+sudo supervisorctl restart daemon-1094048:*
+$RESTART_QUEUES()
 ```
 
-After first deploy: `php artisan db:seed --force` once to create `demo_agent`, the Harbor & Co knowledge base, and showcase tickets. If Octane is not yet the site runtime, omit `octane:reload` until the daemon and Nginx proxy are in place.
+After first deploy: `php artisan db:seed --force` once to create `demo_agent`, the Harbor & Co knowledge base, and showcase tickets. If Octane is not yet the site runtime, omit the daemon restart until the process and Nginx proxy are in place.
 
 ## Production reset
 
