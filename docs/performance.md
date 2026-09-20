@@ -67,3 +67,8 @@ STRESS=true STRESS_URL=https://supportflow-ai.test composer test:stress:smoke
 Forge staging is off-peak only: `https://supportflow-ai-ou1b5gvy.on-forge.com`. Start with smoke. Stop if it fails. GET `/up`, `/`, `/knowledge`, and `/knowledge/return-window` only.
 
 Pest Evals are deferred.
+
+## CI and Forge (2026-09-19)
+
+Pushed `21c9320` to `origin/main`. GitHub Actions Tests passed. Forge Octane deploy and Stressless benches are blocked on an invalid Forge CLI API token. See [forge.md](forge.md).
+

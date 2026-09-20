@@ -6,6 +6,34 @@ GitHub: [trr-code/supportflow-ai](https://github.com/trr-code/supportflow-ai). D
 
 This Forge site is **staging**, not production: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). Set `APP_URL` to that HTTPS origin.
 
+## Status (2026-09-19)
+
+`main` is at `21c9320`. GitHub Actions [Tests #35478206879](https://github.com/trr-code/supportflow-ai/actions/runs/35478206879) passed (Pint, Larastan, Pest).
+
+Forge CLI on the Windows workstation has an **invalid API token** (`organization:list` returns "Your API Token is invalid."). `FORGE_API_TOKEN` is unset. Octane daemon, Nginx proxy, `OCTANE_*` env, worker sizing from server RAM/CPU, scheduler pause, and Forge Stressless benches **did not run**.
+
+Single HTTPS GETs after the main push: `/up`, `/`, `/knowledge`, and `/knowledge/return-window` returned 200. Home includes the SSE widget (`startStream`). Response times were about 450–750 ms, which matches PHP-FPM on the shared VM, not the local Octane 47 ms p95. Queue worker, scheduler, and Octane process health are unverified without CLI/SSH.
+
+### Exact CLI auth required
+
+1. Create a token: Forge account dashboard → API → Create token. Give it server, site, background-process/daemon, Nginx, and environment scopes. See [Forge API tokens](https://forge.laravel.com/docs/api).
+2. In this project’s PowerShell:
+
+```powershell
+php C:\Users\trrla\.config\herd\bin\forge.phar logout
+php C:\Users\trrla\.config\herd\bin\forge.phar login --token="YOUR_TOKEN"
+php C:\Users\trrla\.config\herd\bin\forge.phar organization:switch
+php C:\Users\trrla\.config\herd\bin\forge.phar server:switch
+```
+
+3. Reply in chat that auth succeeded. Do not paste the token.
+
+After that, the Octane Linux path in this document can be applied, then GET/chat benches can run.
+
+### Unavailable Forge documentation
+
+These URLs returned 404: `/docs/sites/nginx`, `/docs/resources/daemons`, `/docs/sites/deployments.html`. Use Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx) and the [Forge CLI](https://forge.laravel.com/docs/cli) instead.
+
 ## Site checklist (existing CareerForge server)
 
 1. Install **PHP 8.5** on the server if it is not already present. Select PHP 8.5 for this site and for the queue worker.

@@ -29,3 +29,5 @@ yarn-error.log
 frankenphp
 frankenphp.exe
 frankenphp-worker.php
+debug.log
+/tests/Stress/RuntimeAbTest.php
