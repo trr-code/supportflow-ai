@@ -83,8 +83,6 @@ return new class extends Migration
     protected function hasEmbeddingIndex(): bool
     {
         return collect(Schema::getIndexes('knowledge_chunks'))
-            ->contains(function (array $index): bool {
-                return ($index['columns'] ?? []) === ['embedding'];
-            });
+            ->contains(fn (array $index): bool => ($index['columns'] ?? []) === ['embedding']);
     }
 };

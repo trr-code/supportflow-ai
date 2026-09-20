@@ -25,8 +25,8 @@ use Laravel\Ai\Streaming\Events\TextDelta;
 class ChatService
 {
     public function __construct(
-        private RetrievalService $retrieval,
-        private AiUsageRecorder $recorder,
+        private readonly RetrievalService $retrieval,
+        private readonly AiUsageRecorder $recorder,
     ) {}
 
     public function conversationFor(DemoSession $session): ChatConversation

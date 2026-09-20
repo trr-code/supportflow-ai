@@ -108,12 +108,8 @@ class AppServiceProvider extends ServiceProvider
                 ->by((string) ($request->user()?->id ?: $request->ip()));
         });
 
-        RateLimiter::for('demo.enter-agent', function (Request $request) {
-            return Limit::perMinute(10)->by((string) $request->ip());
-        });
+        RateLimiter::for('demo.enter-agent', fn (Request $request) => Limit::perMinute(10)->by((string) $request->ip()));
 
-        RateLimiter::for('demo.prune-stale', function (Request $request) {
-            return Limit::perMinute(3)->by((string) ($request->user()?->id ?: $request->ip()));
-        });
+        RateLimiter::for('demo.prune-stale', fn (Request $request) => Limit::perMinute(3)->by((string) ($request->user()?->id ?: $request->ip())));
     }
 }

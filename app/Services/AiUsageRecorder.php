@@ -11,7 +11,7 @@ use Laravel\Ai\Responses\AgentResponse;
 
 class AiUsageRecorder
 {
-    public function __construct(private CostEstimator $costs) {}
+    public function __construct(private readonly CostEstimator $costs) {}
 
     public function start(AiRunFeature $feature, ?Ticket $ticket, string $model, ?string $hash = null): AiRun
     {

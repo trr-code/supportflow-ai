@@ -20,7 +20,7 @@ use InvalidArgumentException;
 
 class DemoScenarioService
 {
-    public function __construct(private AiUsageRecorder $recorder) {}
+    public function __construct(private readonly AiUsageRecorder $recorder) {}
 
     /**
      * @return array<string, array{label: string, situation: string, ai: string, expect: string}>

@@ -22,8 +22,8 @@ use Throwable;
 class TicketIntakeService
 {
     public function __construct(
-        private AiUsageRecorder $recorder,
-        private TicketTimeline $timeline,
+        private readonly AiUsageRecorder $recorder,
+        private readonly TicketTimeline $timeline,
     ) {}
 
     public function process(Ticket $ticket, bool $force = false): void

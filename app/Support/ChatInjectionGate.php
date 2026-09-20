@@ -9,7 +9,7 @@ class ChatInjectionGate
     /**
      * @var list<string>
      */
-    private const PATTERNS = [
+    private const array PATTERNS = [
         '/\bignore\b.{0,40}\b(?:previous|prior|above)\b.{0,20}\binstructions\b/i',
         '/\breveal\b.{0,40}\b(?:hidden|system)\b.{0,20}\bprompts?\b/i',
         '/\b(?:hidden|system)\s+prompts?\b.{0,40}\breveal\b/i',
@@ -29,13 +29,7 @@ class ChatInjectionGate
             return false;
         }
 
-        foreach (self::PATTERNS as $pattern) {
-            if (preg_match($pattern, $question) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::PATTERNS, fn ($pattern) => preg_match($pattern, $question) === 1);
     }
 
     public static function isRefusal(string $body): bool

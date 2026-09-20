@@ -123,13 +123,11 @@ Driftwood Duffels are not sold with in-house embroidery. Third-party embroidery 
 MD],
         ];
 
-        return array_values(array_map(function (array $row): array {
-            return [
-                'title' => $row[0],
-                'slug' => $row[1],
-                'category' => $row[2],
-                'body' => $row[3],
-            ];
-        }, $rows));
+        return array_values(array_map(fn (array $row): array => [
+            'title' => $row[0],
+            'slug' => $row[1],
+            'category' => $row[2],
+            'body' => $row[3],
+        ], $rows));
     }
 }

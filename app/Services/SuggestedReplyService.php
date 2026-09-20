@@ -32,9 +32,9 @@ use Throwable;
 class SuggestedReplyService
 {
     public function __construct(
-        private RetrievalService $retrieval,
-        private AiUsageRecorder $recorder,
-        private TicketTimeline $timeline,
+        private readonly RetrievalService $retrieval,
+        private readonly AiUsageRecorder $recorder,
+        private readonly TicketTimeline $timeline,
     ) {}
 
     public function generate(Ticket $ticket, bool $force = false, ?int $regeneratedFromId = null): ?SuggestedReply

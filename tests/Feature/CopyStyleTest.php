@@ -54,7 +54,7 @@ test('seeded SF-10482 cites live return-window chunks and uses greeting layout',
     expect($ticket->suggestedReplies()->where('status', SuggestedReplyStatus::Pending)->count())->toBe(1)
         ->and($reply->grounded)->toBeTrue()
         ->and($reply->cited_chunk_ids)->not->toBeEmpty()
-        ->and($reply->citedChunks())->toHaveCount(count($reply->cited_chunk_ids))
+        ->and($reply->citedChunks())->toHaveSameSize($reply->cited_chunk_ids)
         ->and($reply->citedChunks()->pluck('article.slug')->unique()->all())->toBe(['return-window'])
         ->and($reply->body)->toContain('Hi Jamie,')
         ->and($reply->body)->toContain("Best,\nAlex Rivera\nHarbor & Co Support")

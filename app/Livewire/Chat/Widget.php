@@ -168,7 +168,7 @@ class Widget extends Component
 
         foreach ($messages as $message) {
             /** @var list<int> $ids */
-            $ids = array_values(array_map('intval', $message->cited_chunk_ids ?? []));
+            $ids = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
             $sourceGroups[$message->id] = CitedSources::groupByArticle(
                 CitedSources::inCitationOrder($chunks->only($ids), $ids),
             );

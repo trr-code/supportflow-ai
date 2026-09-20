@@ -50,6 +50,6 @@ class SecurityTest extends TestCase
             ->assertOk()
             ->assertDontSee('Appearance');
 
-        $this->assertFalse(array_key_exists('appearance.edit', app('router')->getRoutes()->getRoutesByName()));
+        expect(array_key_exists('appearance.edit', app('router')->getRoutes()->getRoutesByName()))->toBeFalse();
     }
 }

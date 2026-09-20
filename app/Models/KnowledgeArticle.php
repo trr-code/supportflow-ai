@@ -52,7 +52,7 @@ class KnowledgeArticle extends Model
         preg_match_all('/^##\s+(.+)$/m', $this->body, $matches);
 
         return array_values(array_filter(array_map(
-            static fn (string $heading): string => trim($heading),
+            trim(...),
             $matches[1],
         )));
     }

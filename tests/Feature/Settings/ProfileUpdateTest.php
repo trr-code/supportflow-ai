@@ -33,9 +33,9 @@ class ProfileUpdateTest extends TestCase
 
         $user->refresh();
 
-        $this->assertEquals('Test User', $user->name);
-        $this->assertEquals('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        expect($user->name)->toEqual('Test User');
+        expect($user->email)->toEqual('test@example.com');
+        expect($user->email_verified_at)->toBeNull();
     }
 
     public function test_email_verification_status_is_unchanged_when_email_address_is_unchanged(): void
@@ -51,7 +51,7 @@ class ProfileUpdateTest extends TestCase
 
         $response->assertHasNoErrors();
 
-        $this->assertNotNull($user->refresh()->email_verified_at);
+        expect($user->refresh()->email_verified_at)->not->toBeNull();
     }
 
     public function test_user_can_delete_their_account(): void
@@ -68,8 +68,8 @@ class ProfileUpdateTest extends TestCase
             ->assertHasNoErrors()
             ->assertRedirect('/');
 
-        $this->assertNull($user->fresh());
-        $this->assertFalse(auth()->check());
+        expect($user->fresh())->toBeNull();
+        expect(auth()->check())->toBeFalse();
     }
 
     public function test_correct_password_must_be_provided_to_delete_account(): void
@@ -84,6 +84,6 @@ class ProfileUpdateTest extends TestCase
 
         $response->assertHasErrors(['password']);
 
-        $this->assertNotNull($user->fresh());
+        expect($user->fresh())->not->toBeNull();
     }
 }

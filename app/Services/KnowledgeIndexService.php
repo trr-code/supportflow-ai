@@ -8,7 +8,7 @@ use App\Support\KnowledgeChunker;
 
 class KnowledgeIndexService
 {
-    public function __construct(private RetrievalService $retrieval) {}
+    public function __construct(private readonly RetrievalService $retrieval) {}
 
     public function syncArticle(KnowledgeArticle $article, bool $queueEmbeddings = false): void
     {

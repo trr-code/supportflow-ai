@@ -40,6 +40,10 @@ That 770 rps figure is about **2.5×** the four-worker `/` result (~304–309 rp
 
 Do **not** copy 16 workers onto Forge. Choose Forge workers from that server’s CPU/RAM and CareerForge contention.
 
+## Post-Rector local Octane check
+
+After Rector, `composer test` passed (223 tests, 1 skipped). Official `php artisan octane:start --server=frankenphp` on this Windows host now throws: FrankenPHP binaries are only available for Linux and macOS. On Windows, use WSL or Docker. The 770 rps figure above remains the last measured local Octane `/` maximum; it was not re-run after Rector because Laravel no longer downloads a native Windows binary.
+
 ## Windows FrankenPHP limitation
 
 Laravel Octane documents Docker for Windows FrankenPHP. The local 770 rps run used a native Windows FrankenPHP binary plus Herd’s `cacert.pem` so OpenAI TLS would verify. That workaround is **not** the supported production path and must not be committed (binaries, `frankenphp-worker.php`, local CA paths, vendor signal guards).

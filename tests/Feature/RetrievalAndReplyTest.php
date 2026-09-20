@@ -869,11 +869,9 @@ test('regenerate includes the previous draft and keeps a different rewrite with 
 
     $reply = app(SuggestedReplyService::class)->generate($ticket, true, $previous->id);
 
-    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt) use ($original): bool {
-        return $prompt->contains('previous_draft')
-            && $prompt->contains('not identical')
-            && $prompt->contains($original);
-    });
+    SuggestedReplyAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('previous_draft')
+        && $prompt->contains('not identical')
+        && $prompt->contains($original));
     SuggestedReplyAgent::assertPromptedTimes(1);
 
     expect($reply)->not->toBeNull()
@@ -934,12 +932,8 @@ test('an identical regenerate retries once then keeps the current draft and tell
 
     $reply = app(SuggestedReplyService::class)->generate($ticket, true, $previous->id);
 
-    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt) use ($original): bool {
-        return $prompt->contains('previous_draft') && $prompt->contains($original);
-    });
-    SuggestedReplyAgent::assertPrompted(function (AgentPrompt $prompt): bool {
-        return $prompt->contains('matched the existing draft exactly');
-    });
+    SuggestedReplyAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('previous_draft') && $prompt->contains($original));
+    SuggestedReplyAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('matched the existing draft exactly'));
     SuggestedReplyAgent::assertPromptedTimes(2);
 
     expect($reply?->id)->toBe($previous->id)

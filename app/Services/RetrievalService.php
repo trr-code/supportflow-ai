@@ -11,7 +11,7 @@ use Laravel\Ai\Enums\Lab;
 
 class RetrievalService
 {
-    private const LEXICAL_DOCUMENT = "to_tsvector('english', concat_ws(' ', knowledge_articles.title, coalesce(knowledge_chunks.heading, ''), knowledge_chunks.body))";
+    private const string LEXICAL_DOCUMENT = "to_tsvector('english', concat_ws(' ', knowledge_articles.title, coalesce(knowledge_chunks.heading, ''), knowledge_chunks.body))";
 
     /**
      * @return Collection<int, array{chunk: KnowledgeChunk, similarity: float}>
@@ -68,7 +68,7 @@ class RetrievalService
             return collect();
         }
 
-        $orderedIds = array_map('intval', array_keys($this->reciprocalRankFusion($rankLists)));
+        $orderedIds = array_map(intval(...), array_keys($this->reciprocalRankFusion($rankLists)));
         $chunks = KnowledgeChunk::query()
             ->with('article')
             ->whereIn('id', $orderedIds)
@@ -158,9 +158,7 @@ class RetrievalService
         foreach ($chunks as $chunk) {
             $id = (int) $chunk->id;
 
-            if (! isset($ranks[$id])) {
-                $ranks[$id] = $position;
-            }
+            $ranks[$id] ??= $position;
 
             $position++;
         }

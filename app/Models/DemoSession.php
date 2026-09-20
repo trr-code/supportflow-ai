@@ -14,8 +14,10 @@ use Illuminate\Support\Carbon;
 #[Fillable(['id', 'ip_hash', 'last_activity_at'])]
 class DemoSession extends Model
 {
+    #[\Override]
     public $incrementing = false;
 
+    #[\Override]
     protected $keyType = 'string';
 
     protected function casts(): array

@@ -7,8 +7,10 @@ use Illuminate\Console\Command;
 
 class ResetDemoDataCommand extends Command
 {
+    #[\Override]
     protected $signature = 'demo:reset {--force : Wipe all non-seeded tickets and sessions}';
 
+    #[\Override]
     protected $description = 'Restore the shared demo toward the seeded baseline (owner/CLI only)';
 
     public function handle(DemoPruneService $prune): int

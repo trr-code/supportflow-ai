@@ -34,11 +34,9 @@ test('regenerate dispatches within the allowed limit', function () {
         ->assertSet('flash', 'Regenerating a grounded draft…');
 
     Queue::assertPushed(GenerateSuggestedReply::class, 1);
-    Queue::assertPushed(GenerateSuggestedReply::class, function (GenerateSuggestedReply $job) use ($ticket, $reply): bool {
-        return $job->ticketId === $ticket->id
-            && $job->force === true
-            && $job->regeneratedFromId === $reply->id;
-    });
+    Queue::assertPushed(GenerateSuggestedReply::class, fn (GenerateSuggestedReply $job): bool => $job->ticketId === $ticket->id
+        && $job->force === true
+        && $job->regeneratedFromId === $reply->id);
     Queue::assertNotPushed(ProcessTicketIntake::class);
 
     expect($reply->fresh()->status)->toBe(SuggestedReplyStatus::Pending)

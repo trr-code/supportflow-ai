@@ -24,7 +24,7 @@ test('guest can create a ticket and receive an unguessable status url', function
 
     $ticket = Ticket::query()->first();
     expect($ticket)->not->toBeNull();
-    expect(strlen((string) $ticket->public_token))->toBe(32);
+    expect((string) $ticket->public_token)->toHaveLength(32);
     expect($ticket->status)->not->toBe(TicketStatus::Submitted);
 });
 

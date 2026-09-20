@@ -61,11 +61,9 @@ test('queued embeddings skip the synchronous embed and fill the vector in the jo
         ->and($generations)->toBe(0);
 
     Queue::assertPushed(EmbedKnowledgeChunk::class, 1);
-    Queue::assertPushed(EmbedKnowledgeChunk::class, function (EmbedKnowledgeChunk $job) use ($chunk): bool {
-        return $job->chunkId === $chunk->id
-            && $job->timeout === 120
-            && $job->uniqueFor === 180;
-    });
+    Queue::assertPushed(EmbedKnowledgeChunk::class, fn (EmbedKnowledgeChunk $job): bool => $job->chunkId === $chunk->id
+        && $job->timeout === 120
+        && $job->uniqueFor === 180);
 
     (new EmbedKnowledgeChunk($chunk->id))->handle(app(RetrievalService::class));
 

@@ -21,14 +21,12 @@ class CitedSources
             $articleId = $chunk->knowledge_article_id ?: 'unknown-'.$chunk->id;
             $title = $chunk->article?->title ?: 'Knowledge article';
 
-            if (! isset($groups[$articleId])) {
-                $groups[$articleId] = [
-                    'article_id' => $articleId,
-                    'title' => $title,
-                    'headings' => [],
-                    'chunks' => [],
-                ];
-            }
+            $groups[$articleId] ??= [
+                'article_id' => $articleId,
+                'title' => $title,
+                'headings' => [],
+                'chunks' => [],
+            ];
 
             $groups[$articleId]['chunks'][] = $chunk;
 

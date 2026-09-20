@@ -17,8 +17,8 @@ use App\Models\TicketMessage;
 class TicketService
 {
     public function __construct(
-        private TicketTimeline $timeline,
-        private AiUsageRecorder $recorder,
+        private readonly TicketTimeline $timeline,
+        private readonly AiUsageRecorder $recorder,
     ) {}
 
     /**

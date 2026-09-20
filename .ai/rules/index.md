@@ -8,6 +8,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Livewire/Chat/Widget.php | .ai/rules/chat.md |
 | app/Http/Controllers/StreamChatController.php | .ai/rules/controllers.md |
 | docs/forge.md, docs/performance.md | .ai/rules/docs.md |
+| rector.php | .ai/rules/general.md |
 | resources/views/components/layouts/public.blade.php | .ai/rules/layouts.md |
 | resources/views/livewire/chat/widget.blade.php | .ai/rules/livewire-chat.md |
 | resources/views/livewire/pages/welcome.blade.php, resources/views/livewire/pages/demo-safety.blade.php, resources/views/livewire/pages/demo-environment.blade.php | .ai/rules/livewire-pages.md |

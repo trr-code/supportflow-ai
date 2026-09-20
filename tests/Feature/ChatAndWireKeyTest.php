@@ -850,11 +850,9 @@ test('an earlier unsafe instruction does not reach a later legitimate model turn
     $this->mock(RetrievalService::class, function (MockInterface $mock) use ($chunk, $legitimate, $injection): void {
         $mock->shouldReceive('search')
             ->once()
-            ->withArgs(function (string $query) use ($legitimate, $injection): bool {
-                return str_contains($query, $legitimate)
-                    && ! str_contains($query, $injection)
-                    && ! str_contains($query, "\n");
-            })
+            ->withArgs(fn (string $query): bool => str_contains($query, $legitimate)
+                && ! str_contains($query, $injection)
+                && ! str_contains($query, "\n"))
             ->andReturn(collect([['chunk' => $chunk, 'similarity' => 0.91]]));
     });
 

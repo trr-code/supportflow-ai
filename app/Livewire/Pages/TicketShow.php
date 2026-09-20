@@ -32,12 +32,12 @@ class TicketShow extends Component
     use HeartbeatsDemoSession;
 
     /** @var list<string> */
-    private const PROCESSING_FLASHES = [
+    private const array PROCESSING_FLASHES = [
         'Regenerating a grounded draft…',
         'Retrying AI intake…',
     ];
 
-    private const UNCHANGED_REGENERATE_FLASH = 'The regenerated draft matched the previous one. The current draft was kept.';
+    private const string UNCHANGED_REGENERATE_FLASH = 'The regenerated draft matched the previous one. The current draft was kept.';
 
     public Ticket $ticket;
 

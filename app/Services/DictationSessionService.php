@@ -10,7 +10,7 @@ use RuntimeException;
 
 class DictationSessionService
 {
-    public function __construct(private AiUsageRecorder $recorder) {}
+    public function __construct(private readonly AiUsageRecorder $recorder) {}
 
     /**
      * @return array{client_secret: string, expires_at: string|null, max_seconds: int}
