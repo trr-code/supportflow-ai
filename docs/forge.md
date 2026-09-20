@@ -21,6 +21,40 @@ This Forge site is **staging**, not production: [https://supportflow-ai-ou1b5gvy
 
 Shared ~1 GB VM: queue storms and Stressless compete with CareerForge. Run progressive Pest Stressless **off-peak** against this known staging URL only. That is not permission to load-test an unknown production system.
 
+Local Octane HTML capacity on a 20-thread desktop was **770 rps at 16 workers**. Do **not** copy that worker count here. Size Forge Octane workers from this VM’s CPU/RAM and CareerForge load. See [performance.md](performance.md).
+
+## Octane / FrankenPHP (Linux staging)
+
+Laravel documents Octane behind Nginx with FrankenPHP on `127.0.0.1:8000`. Native Windows FrankenPHP is **not** the supported production path.
+
+1. Keep the queue daemon and scheduler **separate** from Octane.
+2. Add a Forge daemon, directory = the site path (the `current` release if isolation is on):
+
+```bash
+php artisan octane:start --server=frankenphp --host=127.0.0.1 --port=8000 --workers=2 --max-requests=500
+```
+
+Start with **2 workers** on this shared ~1 GB VM unless measured otherwise. `config/octane.php` `max_execution_time` is 120.
+
+3. Environment:
+
+- `OCTANE_SERVER=frankenphp`
+- `OCTANE_HTTPS=true` (Nginx terminates TLS)
+
+4. Replace the site Nginx config with Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx): static files from `public`, `proxy_pass http://127.0.0.1:8000` for application routes, WebSocket upgrade map, `X-Forwarded-*` headers. After TLS, keep HTTPS `listen` as Forge already configured.
+
+5. Deploy script must reload in-memory workers after the new release is in place:
+
+```bash
+$FORGE_PHP artisan migrate --force
+$FORGE_PHP artisan octane:reload --server=frankenphp
+$FORGE_PHP artisan queue:restart
+```
+
+If `octane:reload` cannot reach the daemon (isolated releases / cwd mismatch), restart the Octane daemon instead. Zero-downtime isolation conflicts with Octane when the daemon’s working directory is a now-replaced release path—point the daemon at `current` or disable isolation for this site.
+
+6. Confirm `GET /up` over HTTPS after deploy. Octane process health: daemon running, `octane:status` via `forge command` if the CLI is authenticated.
+
 From a local checkout, with `STRESS=true`, `STRESS_URL=https://supportflow-ai-ou1b5gvy.on-forge.com`, and `STRESS_MAX_CONCURRENCY=16`:
 
 1. Start with `composer test:stress:smoke`. Stop if it fails.
@@ -49,6 +83,8 @@ Set at least:
 - `DEMO_STALE_MINUTES=45`
 - `SUPPORTFLOW_MIN_SIMILARITY=0.45`
 - `DB_QUEUE_RETRY_AFTER=150`
+- `OCTANE_SERVER=frankenphp`
+- `OCTANE_HTTPS=true`
 
 Do **not** publish a demo-agent password. Evaluators use **Open Agent Dashboard** (`POST /demo/enter-agent`). Credential screens (`/login`, `/register`, password reset, passkeys, 2FA) return 404. Guests who hit agent URLs are sent to the demo home. HTTPS is required for microphone dictation.
 
@@ -87,10 +123,11 @@ Include:
 
 ```bash
 $FORGE_PHP artisan migrate --force
+$FORGE_PHP artisan octane:reload --server=frankenphp
 $FORGE_PHP artisan queue:restart
 ```
 
-After first deploy: `php artisan db:seed --force` once to create `demo_agent`, the Harbor & Co knowledge base, and showcase tickets.
+After first deploy: `php artisan db:seed --force` once to create `demo_agent`, the Harbor & Co knowledge base, and showcase tickets. If Octane is not yet the site runtime, omit `octane:reload` until the daemon and Nginx proxy are in place.
 
 ## Production reset
 
