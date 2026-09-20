@@ -78,9 +78,26 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('chat', function (Request $request) {
-            $session = $request->cookie(DemoSessionService::COOKIE);
+            $ip = (string) $request->ip();
+            $cookie = $request->cookie(DemoSessionService::COOKIE);
+            $session = is_string($cookie) && $cookie !== '' ? $cookie : $ip;
+            $tooMany = function (Request $request, array $headers) {
+                $seconds = max(1, (int) ($headers['Retry-After'] ?? 60));
+                $unit = $seconds === 1 ? 'second' : 'seconds';
+                $message = "Chat limit reached. Try again in {$seconds} {$unit}.";
 
-            return Limit::perMinute(10)->by($session ?: $request->ip());
+                return response()->json([
+                    'message' => $message,
+                    'errors' => [
+                        'question' => [$message],
+                    ],
+                ], 429, $headers);
+            };
+
+            return [
+                Limit::perMinute(10)->by('ip:'.$ip)->response($tooMany),
+                Limit::perMinute(10)->by('session:'.$session)->response($tooMany),
+            ];
         });
 
         RateLimiter::for('regenerate', function (Request $request) {

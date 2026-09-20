@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\EnterDemoAgentController;
 use App\Http\Controllers\StartDictationSessionController;
+use App\Http\Controllers\StreamChatController;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoEnvironment;
 use App\Livewire\Pages\DemoSafety;
@@ -37,6 +38,10 @@ Route::post('/demo/enter-agent', EnterDemoAgentController::class)
 Route::post('/demo/dictation/session', StartDictationSessionController::class)
     ->middleware('throttle:30,1')
     ->name('demo.dictation.session');
+
+Route::post('/chat/stream', StreamChatController::class)
+    ->middleware('throttle:chat')
+    ->name('chat.stream');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');

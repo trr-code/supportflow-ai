@@ -48,7 +48,7 @@ test('chatbot answers from knowledge and cites sources', function () {
         ->call('send')
         ->assertHasNoErrors()
         ->assertSee('How long do I have to return')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Unused returns are accepted')
         ->assertSee('Return window')
         ->assertSee('Window');
@@ -80,7 +80,7 @@ test('new conversation confirmation copy is present and confirming clears the th
     $component = Livewire::test(Widget::class)
         ->set('question', 'How long do I have to return an unused pack with tags?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Unused returns are accepted')
         ->assertSee('Start a new conversation?')
         ->assertSee('This permanently deletes the current thread. This demo does not keep a conversation history list.')
@@ -129,18 +129,22 @@ test('stopping after send records Stopped and does not write a grounded answer',
 
     expect($html)
         ->toContain('wire:click.async="$js.stop"')
-        ->toContain("interceptMessage('completeTurn'")
-        ->toContain("interceptRequest('completeTurn'")
-        ->toContain('request.cancel()')
+        ->toContain('abortController?.abort()')
+        ->toContain('startChatStream')
+        ->toContain('new AbortController()')
+        ->not->toContain('interceptMessage(\'completeTurn\'')
+        ->not->toContain('interceptRequest(\'completeTurn\'')
+        ->not->toContain('wire:stream')
         ->not->toContain('$wire.$cancel')
         ->and($view)
-        ->toContain("interceptMessage('completeTurn'")
-        ->toContain("interceptRequest('completeTurn'")
-        ->toContain('request.cancel()')
+        ->toContain('abortController?.abort()')
+        ->toContain('startChatStream')
+        ->toContain('new AbortController()')
         ->toContain('$wire.stopGenerating()')
         ->toContain('$wire.$js.stop')
         ->not->toContain('@script')
         ->not->toContain('$wire.$cancel')
+        ->not->toContain('wire:stream')
         ->and($calls)->toContain('$js.stop')
         ->and($calls)->not->toContain('$cancel');
 
@@ -155,12 +159,12 @@ test('stopping after send records Stopped and does not write a grounded answer',
     }
 
     $component
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Stopped.')
         ->assertDontSee('Unused returns are accepted');
 });
 
-test('send and completeTurn work after a stopped turn', function () {
+test('send works after a stopped turn', function () {
     config(['supportflow.retrieval.min_similarity' => 0.05]);
 
     $article = KnowledgeArticle::query()->create([
@@ -187,7 +191,7 @@ test('send and completeTurn work after a stopped turn', function () {
         ->set('question', 'How long do I have to return an unused pack with tags?')
         ->call('send')
         ->call('stopGenerating')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Stopped.')
         ->assertDontSee('Unused returns are accepted');
 
@@ -200,7 +204,7 @@ test('send and completeTurn work after a stopped turn', function () {
     $component
         ->set('question', 'How long do I have to return an unused pack with tags?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Unused returns are accepted')
         ->assertSee('Return window');
 });
@@ -218,12 +222,18 @@ test('chat widget registers stream cancel on first paint before the panel opens'
     $html = Livewire::test(Widget::class)->html();
 
     expect($html)
-        ->toContain("interceptMessage('completeTurn'")
-        ->toContain("interceptRequest('completeTurn'")
-        ->toContain('request.cancel()')
+        ->toContain('abortController?.abort()')
+        ->toContain('startChatStream')
+        ->toContain('$wire.$js.startStream')
+        ->toContain('new AbortController()')
         ->toContain('$wire.$js.stop')
         ->toContain('$wire.stopGenerating()')
+        ->not->toContain('interceptMessage(\'completeTurn\'')
+        ->not->toContain('interceptRequest(\'completeTurn\'')
         ->not->toContain('$wire.$cancel');
+
+    expect(file_get_contents(app_path('Livewire/Chat/Widget.php')))
+        ->toContain("\$this->js('\$js.startStream()')");
 });
 
 test('replyToLatest records Stopped and skips citations when stop was already requested', function () {
@@ -276,7 +286,7 @@ test('chatbot refuses when knowledge is missing', function () {
     Livewire::test(Widget::class)
         ->set('question', 'Can you embroider a secret map on my jacket?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('knowledge base');
 });
 
@@ -311,11 +321,10 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('this.pinToBottom = false')
         ->toContain('if (! awayFromBottom)')
         ->toContain("\$watch('\$wire.streaming'")
-        ->toContain("\$watch('\$wire.streamText'")
-        ->toContain("interceptMessage('completeTurn'")
+        ->toContain("\$watch('liveHtml'")
+        ->toContain('startChatStream')
         ->toContain("interceptMessage('send'")
         ->toContain('onSend?.(() => scrollTranscript())')
-        ->toContain('onStream?.(() => scrollTranscript())')
         ->toContain('hooks.onMorphed?.(() => scrollTranscript())')
         ->toContain('hooks.onRender?.(() => scrollTranscript())')
         ->toContain('onFinish?.(() => scrollTranscript())')
@@ -329,7 +338,8 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->not->toContain("if (value) {\n                pinToBottom = true")
         ->not->toContain('x-ref="transcript"')
         ->not->toContain('scrollIntoView')
-        ->not->toContain('@script');
+        ->not->toContain('@script')
+        ->not->toContain('wire:stream');
 
     $html = Livewire::test(Widget::class)
         ->set('open', true)
@@ -392,7 +402,7 @@ test('chat covers and cites return, shipping, and warranty when all three are re
     Livewire::test(Widget::class)
         ->set('question', 'Explain the complete return, shipping, and warranty policies')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('30 days')
         ->assertSee('3–6 business days')
         ->assertSee('2-year')
@@ -415,7 +425,7 @@ test('undocumented federal tax questions refuse without citing unrelated article
     Livewire::test(Widget::class)
         ->set('question', 'What is the federal tax treatment of a Harbor gift card?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('knowledge base')
         ->assertDontSee('Source: Return window')
         ->assertDontSee('Source: Shipping times')
@@ -437,7 +447,7 @@ test('chat renders markdown-like assistant text as lists without raw emphasis ma
     $html = Livewire::test(Widget::class)
         ->set('question', 'Explain the complete return, shipping, and warranty policies')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->html();
 
     expect($html)
@@ -461,7 +471,7 @@ test('chat bolds plain section labels without wrapping the explanation', functio
     $html = Livewire::test(Widget::class)
         ->set('question', 'Explain the complete return, shipping, and warranty policies')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->html();
 
     expect($html)
@@ -480,7 +490,7 @@ test('explicit prompt injection is refused without product retrieval or citation
     Livewire::test(Widget::class)
         ->set('question', $prompt)
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee(ChatInjectionGate::REFUSAL)
         ->assertDontSee('Summit')
         ->assertDontSee('trekking')
@@ -510,7 +520,7 @@ test('explicit injection plus a return topic is still refused without retrieval'
     Livewire::test(Widget::class)
         ->set('question', $prompt)
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee(ChatInjectionGate::REFUSAL)
         ->assertDontSee('Source:')
         ->assertDontSee('Box not required')
@@ -546,7 +556,7 @@ test('unsafe-instruction fill keeps prior answers and sources while the refusal 
     $component = Livewire::test(Widget::class)
         ->set('question', 'Can you embroider a wedding date on the Driftwood Duffel?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('Source: Duffel care')
         ->call('fillQuestion', 'prompt_injection')
         ->assertSet('question', $prompt['question'])
@@ -557,7 +567,7 @@ test('unsafe-instruction fill keeps prior answers and sources while the refusal 
 
     $html = $component
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee(ChatInjectionGate::REFUSAL)
         ->assertSee('Source: Duffel care')
         ->html();
@@ -599,7 +609,7 @@ test('instruction-override refusals drop retrieved citations from the model trai
     Livewire::test(Widget::class)
         ->set('question', 'Do you offer in-house embroidery on the Driftwood Duffel?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee(ChatInjectionGate::REFUSAL)
         ->assertDontSee('Source: Duffel care')
         ->assertDontSee('Source:');
@@ -638,7 +648,7 @@ test('trail pack chat cites box not required and prepaid labels', function () {
     Livewire::test(Widget::class)
         ->set('question', $query)
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->assertSee('sturdy carton')
         ->assertSee('not required')
         ->assertSee('Box not required')
@@ -749,11 +759,11 @@ test('starting a new conversation does not send the deleted thread to the model'
     $component
         ->set('question', 'How long do I have to return an unused pack with tags?')
         ->call('send')
-        ->call('completeTurn')
+        ->streamTurn()
         ->call('startNewConversation')
         ->set('question', 'Is the original shipping box required for a return?')
         ->call('send')
-        ->call('completeTurn');
+        ->streamTurn();
 
     expect($histories)->toHaveCount(2)
         ->and($histories[0])->toBe([])

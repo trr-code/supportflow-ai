@@ -15,6 +15,7 @@ use App\Support\CitedChunkIds;
 use App\Support\SupportingPassages;
 use App\Support\UntrustedContent;
 use Closure;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Responses\StreamedAgentResponse;
@@ -65,6 +66,16 @@ class ChatService
     public function clearStopRequest(DemoSession $session): void
     {
         Cache::forget($this->stopCacheKey($session));
+    }
+
+    public function streamLockKey(DemoSession $session): string
+    {
+        return 'chat-stream:'.$session->id;
+    }
+
+    public function streamLock(DemoSession $session, int $seconds = 120): Lock
+    {
+        return Cache::lock($this->streamLockKey($session), $seconds);
     }
 
     public function recordStoppedIfOrphaned(DemoSession $session): ?ChatMessage

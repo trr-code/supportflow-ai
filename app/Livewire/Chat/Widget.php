@@ -5,11 +5,9 @@ namespace App\Livewire\Chat;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
-use App\Support\ChatAnswerHtml;
 use App\Support\CitedSources;
 use App\Support\DemoGuide;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Async;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Validate;
@@ -22,6 +20,8 @@ class Widget extends Component
     #[Validate('required|string|min:4|max:500')]
     public string $question = '';
 
+    public string $pendingQuestion = '';
+
     public bool $open = false;
 
     public bool $streaming = false;
@@ -32,34 +32,41 @@ class Widget extends Component
     {
         $this->validate();
 
-        $key = 'chat|'.request()->ip();
-
         if ($this->streaming) {
             return;
         }
 
-        if (RateLimiter::tooManyAttempts($key, 10)) {
-            $seconds = max(1, RateLimiter::availableIn($key));
-            $unit = $seconds === 1 ? 'second' : 'seconds';
-            $this->addError('question', "Chat limit reached. Try again in {$seconds} {$unit}.");
-
-            return;
-        }
-
-        RateLimiter::hit($key, 60);
-
         $chat->clearStopRequest($this->demoSession());
-        $chat->recordUser($this->demoSession(), $this->question);
+        $this->pendingQuestion = $this->question;
         $this->question = '';
         $this->open = true;
         $this->streaming = true;
         $this->streamText = '';
-        $this->js('$wire.completeTurn()');
+        $this->js('$js.startStream()');
     }
 
     public function updatedQuestion(): void
     {
         $this->resetErrorBag('question');
+    }
+
+    public function reportStreamError(string $message): void
+    {
+        if ($this->pendingQuestion !== '') {
+            $this->question = $this->pendingQuestion;
+        }
+
+        $this->pendingQuestion = '';
+        $this->streaming = false;
+        $this->streamText = '';
+        $this->addError('question', $message);
+    }
+
+    public function finishTurn(): void
+    {
+        $this->pendingQuestion = '';
+        $this->streaming = false;
+        $this->streamText = '';
     }
 
     #[On('demo-open-chat')]
@@ -123,30 +130,9 @@ class Widget extends Component
 
         $chat->startNewConversation($this->demoSession());
         $this->question = '';
+        $this->pendingQuestion = '';
         $this->streamText = '';
         $this->dispatch('modal-close', name: 'confirm-new-conversation');
-    }
-
-    public function completeTurn(ChatService $chat): void
-    {
-        if (! $this->streaming) {
-            return;
-        }
-
-        try {
-            $chat->replyToLatest($this->demoSession(), function (string $visible): void {
-                $this->streamText = $visible;
-                $this->stream(
-                    to: 'answer',
-                    content: $visible === '' ? 'Thinking…' : ChatAnswerHtml::render($visible),
-                    replace: true,
-                );
-            });
-        } finally {
-            $this->streaming = false;
-            $this->streamText = '';
-            $chat->clearStopRequest($this->demoSession());
-        }
     }
 
     #[Async]
@@ -155,7 +141,12 @@ class Widget extends Component
         $chat->requestStop($this->demoSession());
         $this->streaming = false;
         $this->streamText = '';
-        $chat->recordStoppedIfOrphaned($this->demoSession());
+
+        if ($chat->recordStoppedIfOrphaned($this->demoSession()) === null && $this->pendingQuestion !== '') {
+            $this->question = $this->pendingQuestion;
+        }
+
+        $this->pendingQuestion = '';
     }
 
     public function render(ChatService $chat): View

@@ -11,7 +11,6 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Services\DemoScenarioService;
 use App\Support\DemoGuide;
-use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
 test('the prepared question path opens chat without filling or sending', function () {
@@ -44,8 +43,6 @@ test('safety-page prompts dispatch a fill event without sending', function () {
 
 test('fill question opens chat and prefills without sending or hitting the limiter', function () {
     $prompt = DemoGuide::prompt('return_window');
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
 
     $component = Livewire::test(Widget::class)
         ->call('fillQuestion', 'return_window')
@@ -57,7 +54,6 @@ test('fill question opens chat and prefills without sending or hitting the limit
     $widget = file_get_contents(resource_path('views/livewire/chat/widget.blade.php'));
 
     expect(ChatMessage::query()->count())->toBe(0)
-        ->and(RateLimiter::attempts($key))->toBe(0)
         ->and($component->get('streaming'))->toBeFalse()
         ->and($widget)
         ->toContain("querySelector('input, textarea')")

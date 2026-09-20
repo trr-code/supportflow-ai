@@ -10,9 +10,12 @@ use App\Enums\TicketPriority;
 use App\Enums\TicketSentiment;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
+use App\Services\DemoSessionService;
 use App\Services\KnowledgeIndexService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Laravel\Ai\Embeddings;
+use Livewire\Features\SupportTesting\Testable;
 use Tests\TestCase;
 
 require __DIR__.'/Support/stressless.php';
@@ -131,3 +134,46 @@ function fakeSupportAi(array $triage = [], array $reply = [], array $chat = []):
         ($chatPayload['body'] ?? 'Unused returns are accepted within 30 days with tags attached.')."\nCITES: {$cite}",
     ])->preventStrayPrompts();
 }
+
+function postChatStream(string $question, ?string $demoSessionId = null): TestResponse
+{
+    $pending = test()->withCredentials();
+
+    if (is_string($demoSessionId) && $demoSessionId !== '') {
+        $pending = $pending->withCookie(DemoSessionService::COOKIE, $demoSessionId);
+    }
+
+    return $pending->withHeaders([
+        'Accept' => 'text/event-stream, application/json',
+        'X-Requested-With' => 'XMLHttpRequest',
+    ])->postJson(route('chat.stream'), ['question' => $question]);
+}
+
+function completeWidgetChatTurn(mixed $component, ?string $question = null): TestResponse
+{
+    $question ??= (string) $component->get('pendingQuestion');
+
+    if ($question === '') {
+        $question = (string) $component->get('question');
+    }
+    $response = postChatStream($question, (string) $component->get('demoSessionId'));
+
+    if ($response->getStatusCode() === 200) {
+        $response->assertStreamed();
+        $response->streamedContent();
+        $component->call('finishTurn');
+    } else {
+        $message = $response->json('errors.question.0')
+            ?? $response->json('message')
+            ?? 'Chat request failed.';
+        $component->call('reportStreamError', $message);
+    }
+
+    return $response;
+}
+
+Testable::macro('streamTurn', function (?string $question = null) {
+    completeWidgetChatTurn($this, $question);
+
+    return $this;
+});

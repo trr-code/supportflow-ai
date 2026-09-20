@@ -4,39 +4,47 @@ use App\Enums\AiRunFeature;
 use App\Livewire\Chat\Widget;
 use App\Models\AiRun;
 use App\Models\ChatMessage;
-use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
 test('chat allows ten requests per minute then blocks the eleventh with a retry message', function () {
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
     config(['supportflow.demo.chat_turn_cap' => 20]);
     fakeSupportAi();
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class);
+    $sessionId = (string) $component->get('demoSessionId');
 
     for ($i = 0; $i < 10; $i++) {
-        $component->set('question', $question)
-            ->call('send')
-            ->assertHasNoErrors()
-            ->call('completeTurn');
+        $response = postChatStream($question, $sessionId);
+
+        $response->assertOk()->assertStreamed();
+        $response->streamedContent();
     }
 
-    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(10)
-        ->and(RateLimiter::attempts($key))->toBe(10);
+    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(10);
 
     $messages = ChatMessage::query()->count();
     $runs = AiRun::query()->where('feature', AiRunFeature::Chat)->count();
 
-    $html = $component->set('question', $question)
+    $blocked = postChatStream($question, $sessionId)
+        ->assertTooManyRequests();
+
+    expect($blocked->json('message'))
+        ->toMatch('/Chat limit reached\. Try again in \d+ seconds?\./')
+        ->and($blocked->json('errors.question.0'))
+        ->toMatch('/Chat limit reached\. Try again in \d+ seconds?\./')
+        ->and(ChatMessage::query()->count())->toBe($messages)
+        ->and(ChatMessage::query()->where('role', 'user')->count())->toBe(10)
+        ->and(AiRun::query()->where('feature', AiRunFeature::Chat)->count())->toBe($runs);
+
+    $component->set('question', $question)
         ->call('send')
+        ->call('reportStreamError', $blocked->json('errors.question.0'))
         ->assertHasErrors(['question'])
         ->assertSet('question', $question)
-        ->assertSet('streaming', false)
-        ->html();
+        ->assertSet('streaming', false);
 
-    expect($html)
+    expect($component->html())
         ->toContain('Chat limit reached. Try again in')
         ->toMatch('/Try again in \d+ seconds?\./')
         ->toContain('id="chat-question-error"')
@@ -48,26 +56,28 @@ test('chat allows ten requests per minute then blocks the eleventh with a retry 
         ->not->toContain('@endif=')
         ->not->toContain('errors="errors"')
         ->not->toContain('has="has"')
-        ->not->toContain('question="question"')
-        ->and(ChatMessage::query()->count())->toBe($messages)
-        ->and(ChatMessage::query()->where('role', 'user')->count())->toBe(10)
-        ->and(AiRun::query()->where('feature', AiRunFeature::Chat)->count())->toBe($runs);
+        ->not->toContain('question="question"');
 });
 
 test('chat accepts a request after the rate-limit window expires and clears the error', function () {
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
     fakeSupportAi();
-
-    for ($i = 0; $i < 10; $i++) {
-        RateLimiter::hit($key, 60);
-    }
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class)
-        ->set('open', true)
-        ->set('question', $question)
+        ->set('open', true);
+    $sessionId = (string) $component->get('demoSessionId');
+
+    for ($i = 0; $i < 10; $i++) {
+        $response = postChatStream($question, $sessionId);
+        $response->assertOk();
+        $response->streamedContent();
+    }
+
+    $blocked = postChatStream($question, $sessionId)->assertTooManyRequests();
+
+    $component->set('question', $question)
         ->call('send')
+        ->call('reportStreamError', $blocked->json('errors.question.0'))
         ->assertHasErrors(['question'])
         ->assertSee('Chat limit reached');
 
@@ -76,28 +86,33 @@ test('chat accepts a request after the rate-limit window expires and clears the 
     $component->set('question', $question)
         ->call('send')
         ->assertHasNoErrors()
-        ->assertDontSee('Chat limit reached')
-        ->call('completeTurn');
+        ->streamTurn();
 
-    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(1)
+    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(11)
         ->and($component->html())
         ->not->toContain('Chat limit reached')
         ->not->toContain('aria-invalid="true"');
 });
 
 test('editing the chat question clears a stale rate-limit error', function () {
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
-
-    for ($i = 0; $i < 10; $i++) {
-        RateLimiter::hit($key, 60);
-    }
+    fakeSupportAi();
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class)
-        ->set('open', true)
-        ->set('question', $question)
+        ->set('open', true);
+    $sessionId = (string) $component->get('demoSessionId');
+
+    for ($i = 0; $i < 10; $i++) {
+        $response = postChatStream($question, $sessionId);
+        $response->assertOk();
+        $response->streamedContent();
+    }
+
+    $blocked = postChatStream($question, $sessionId)->assertTooManyRequests();
+
+    $component->set('question', $question)
         ->call('send')
+        ->call('reportStreamError', $blocked->json('errors.question.0'))
         ->assertHasErrors(['question'])
         ->assertSee('Chat limit reached');
 
@@ -107,8 +122,6 @@ test('editing the chat question clears a stale rate-limit error', function () {
 });
 
 test('empty chat validation stays distinct from the rate-limit message', function () {
-    RateLimiter::clear('chat|'.request()->ip());
-
     Livewire::test(Widget::class)
         ->set('open', true)
         ->set('question', '')
@@ -119,49 +132,55 @@ test('empty chat validation stays distinct from the rate-limit message', functio
 });
 
 test('ten-question chat cap stays distinct from the rate-limit message', function () {
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
     fakeSupportAi();
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class);
 
     for ($i = 0; $i < 10; $i++) {
-        $component->set('question', $question)->call('send')->call('completeTurn');
+        $component->set('question', $question)->call('send')->streamTurn();
     }
 
-    RateLimiter::clear($key);
+    $this->travel(61)->seconds();
 
     $component->set('question', $question)
         ->call('send')
         ->assertHasNoErrors()
-        ->call('completeTurn')
-        ->assertSee('capped at 10 questions')
-        ->assertDontSee('Chat limit reached');
+        ->streamTurn();
 
-    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(11);
+    expect($component->html())
+        ->toContain('capped at 10 questions')
+        ->not->toContain('Chat limit reached')
+        ->and(ChatMessage::query()->where('role', 'user')->count())->toBe(11);
 });
 
 test('a new conversation does not bypass the visitor chat rate limit', function () {
-    $key = 'chat|'.request()->ip();
-    RateLimiter::clear($key);
-
-    for ($i = 0; $i < 10; $i++) {
-        RateLimiter::hit($key, 60);
-    }
+    fakeSupportAi();
 
     $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)
+        ->set('open', true);
+    $sessionId = (string) $component->get('demoSessionId');
 
-    Livewire::test(Widget::class)
-        ->set('open', true)
-        ->call('startNewConversation')
+    for ($i = 0; $i < 10; $i++) {
+        $response = postChatStream($question, $sessionId);
+        $response->assertOk();
+        $response->streamedContent();
+    }
+
+    $component->call('startNewConversation')
         ->set('question', $question)
         ->call('send')
-        ->assertHasErrors(['question'])
-        ->assertSee('Chat limit reached')
-        ->assertSet('question', $question);
+        ->assertHasNoErrors()
+        ->assertSet('question', '');
 
-    expect(ChatMessage::query()->count())->toBe(0);
+    $blocked = completeWidgetChatTurn($component);
+
+    $blocked->assertTooManyRequests();
+
+    expect($component->get('streaming'))->toBeFalse()
+        ->and($component->html())->toContain('Chat limit reached')
+        ->and(ChatMessage::query()->count())->toBe(0);
 });
 
 test('the open chat widget does not print blade or flux attribute fragments', function () {
@@ -177,4 +196,35 @@ test('the open chat widget does not print blade or flux attribute fragments', fu
         ->not->toContain('has="has"')
         ->not->toContain('question="question"')
         ->not->toContain('aria-describedby="chat-question-error"');
+});
+
+test('livewire send does not record a user message or consume the chat limiter', function () {
+    fakeSupportAi();
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class);
+
+    for ($i = 0; $i < 10; $i++) {
+        $component->set('question', $question)
+            ->set('streaming', false)
+            ->set('pendingQuestion', '')
+            ->call('send')
+            ->assertHasNoErrors()
+            ->assertSet('streaming', true)
+            ->assertSet('pendingQuestion', $question);
+    }
+
+    expect(ChatMessage::query()->count())->toBe(0);
+
+    $sessionId = (string) $component->get('demoSessionId');
+
+    for ($i = 0; $i < 10; $i++) {
+        $response = postChatStream($question, $sessionId);
+        $response->assertOk();
+        $response->streamedContent();
+    }
+
+    expect(ChatMessage::query()->where('role', 'user')->count())->toBe(10);
+
+    postChatStream($question, $sessionId)->assertTooManyRequests();
 });

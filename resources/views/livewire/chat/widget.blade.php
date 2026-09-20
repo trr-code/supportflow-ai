@@ -5,6 +5,9 @@
         pinToBottom: true,
         ignoreScroll: false,
         userScrolling: false,
+        liveHtml: '',
+        abortController: null,
+        streamUrl: @js(route('chat.stream')),
         transcriptEl() {
             return this.$el.querySelector('[data-chat-transcript]')
         },
@@ -79,10 +82,104 @@
             this._transcriptResizeObserver = new ResizeObserver(() => this.scrollTranscript())
             this._transcriptResizeObserver.observe(el)
         },
+        parseSse(buffer) {
+            const parts = buffer.split('\n\n')
+            const rest = parts.pop() ?? ''
+            const events = []
+            for (const block of parts) {
+                let event = 'message'
+                const dataLines = []
+                for (const line of block.split('\n')) {
+                    if (line.startsWith('event:')) {
+                        event = line.slice(6).trim()
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.slice(5).trimStart())
+                    }
+                }
+                if (dataLines.length) {
+                    events.push({ event, data: dataLines.join('\n') })
+                }
+            }
+            return { events, rest }
+        },
+        async startChatStream() {
+            const question = this.$wire.pendingQuestion
+            if (! question || ! this.$wire.streaming) {
+                return
+            }
+            this.liveHtml = ''
+            this.abortController?.abort()
+            this.abortController = new AbortController()
+            const csrf = document.querySelector('meta[name=csrf-token]')?.getAttribute('content')
+            try {
+                const response = await fetch(this.streamUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    signal: this.abortController.signal,
+                    headers: {
+                        Accept: 'text/event-stream',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf ?? '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ question }),
+                })
+                if (! response.ok) {
+                    let message = 'The assistant could not start that answer. Try again.'
+                    try {
+                        const payload = await response.json()
+                        message = payload.errors?.question?.[0] || payload.message || message
+                    } catch (error) {}
+                    await this.$wire.reportStreamError(message)
+                    return
+                }
+                const reader = response.body.getReader()
+                const decoder = new TextDecoder()
+                let buffer = ''
+                let terminal = false
+                while (! terminal) {
+                    const { done, value } = await reader.read()
+                    if (done) {
+                        break
+                    }
+                    buffer += decoder.decode(value, { stream: true })
+                    const parsed = this.parseSse(buffer)
+                    buffer = parsed.rest
+                    for (const item of parsed.events) {
+                        let payload = {}
+                        try {
+                            payload = JSON.parse(item.data)
+                        } catch (error) {
+                            continue
+                        }
+                        if (item.event === 'delta' && typeof payload.html === 'string') {
+                            this.liveHtml = payload.html
+                            this.scrollTranscript()
+                        } else if (item.event === 'error' && payload.message) {
+                            await this.$wire.reportStreamError(payload.message)
+                            terminal = true
+                            break
+                        } else if (item.event === 'done' || item.event === 'stopped') {
+                            this.liveHtml = ''
+                            await this.$wire.finishTurn()
+                            terminal = true
+                            break
+                        }
+                    }
+                }
+                if (! terminal && this.$wire.streaming) {
+                    this.liveHtml = ''
+                    await this.$wire.finishTurn()
+                }
+            } catch (error) {
+                if (error?.name === 'AbortError') {
+                    return
+                }
+                await this.$wire.reportStreamError('The assistant could not finish that answer. Try again.')
+            }
+        },
     }"
     x-init="
-        let abortMessage = () => {}
-        let abortRequest = () => {}
         const afterMorph = (hooks) => {
             scrollTranscript()
             if (hooks && typeof hooks === 'object') {
@@ -90,19 +187,13 @@
                 hooks.onRender?.(() => scrollTranscript())
             }
         }
-        $wire.interceptMessage('completeTurn', ({ cancel, onFinish, onSuccess, onStream }) => {
-            abortMessage = cancel
-            onStream?.(() => scrollTranscript())
-            onSuccess?.(afterMorph)
-            onFinish?.(() => scrollTranscript())
-        })
         $wire.interceptMessage('send', ({ onSend, onFinish, onSuccess }) => {
             onSend?.(() => scrollTranscript())
             onSuccess?.(afterMorph)
             onFinish?.(() => scrollTranscript())
         })
-        $wire.interceptRequest('completeTurn', ({ request }) => { abortRequest = () => request.cancel() })
-        $wire.$js.stop = () => { abortMessage(); abortRequest(); $wire.stopGenerating() }
+        $wire.$js.startStream = () => { startChatStream() }
+        $wire.$js.stop = () => { abortController?.abort(); $wire.stopGenerating() }
         const focusChatQuestion = () => {
             const root = document.getElementById('chat-question')
             if (! root) return
@@ -123,7 +214,7 @@
             observeTranscript()
             scrollTranscript()
         }))
-        $watch('$wire.streamText', () => $nextTick(() => scrollTranscript()))
+        $watch('liveHtml', () => $nextTick(() => scrollTranscript()))
     "
     @demo-chat-focus.window="$nextTick(() => {
         const root = document.getElementById('chat-question')
@@ -205,10 +296,15 @@
                         </div>
                     @endunless
                 @endforelse
+                @if ($streaming && $pendingQuestion !== '')
+                    <div wire:key="chat-pending-user" class="text-end">
+                        <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $pendingQuestion }}</p>
+                    </div>
+                @endif
                 @if ($streaming)
                     <div wire:key="chat-stream" class="text-start">
                         <p class="sr-only">Assistant is writing</p>
-                        <div wire:stream="answer" class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4">{!! $streamText !== '' ? \App\Support\ChatAnswerHtml::render($streamText) : 'Thinking…' !!}</div>
+                        <div class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4" x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
                     </div>
                 @endif
             </div>
