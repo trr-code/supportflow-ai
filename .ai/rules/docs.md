@@ -23,8 +23,8 @@ Forge nginxConfigs is the inner site.conf. Official Octane try_files needs `inde
 ## SupportFlow Forge is non-ZDD Octane on 8001
 Live site 3397748 is supportflow-ai-lqojsjr5.on-forge.com on server 1228434. ZDD is off. PHP 8.5, Laravel. Octane command: `php8.5 artisan octane:start --server=frankenphp --host=127.0.0.1 --port=8001 --workers=1 --max-requests=500` at the site root, graceful shutdown 120s. Nginx proxy_pass 127.0.0.1:8001. Health checks on /up are enabled. Push to deploy is on for main. Queue worker: database, ai,default, sleep 3, timeout 120, tries 3, memory 128 MB, no --daemon. Scheduler: `php …/supportflow-ai-lqojsjr5.on-forge.com/artisan schedule:run` every minute. Deploy: git pull, npm ci/build, migrate --force, optimize, octane:reload, queue:restart. No PHP-FPM reload. No ZDD macros. Port 8001 is permanent. CareerForge (worker-987181) stays untouched. Keep 1 worker, never copy local 16. Do not publish deployment-hook tokens.
 
-## Retired ZDD site is stopped, not live
-Site 3362425/supportflow-ai-ou1b5gvy.on-forge.com is retained for cleanup only. Old Octane and queue worker are stopped; old scheduler is paused. Do not restart them while the live worker and scheduler run against supportflow_ai. Do not use that hostname for staging, Stressless, or APP_URL.
+## Former ZDD site is deleted
+Site 3362425/supportflow-ai-ou1b5gvy.on-forge.com has been deleted. Its Octane process, queue worker, and scheduler have been removed. The shared supportflow_ai database remains intact. Live site is 3397748/supportflow-ai-lqojsjr5.on-forge.com.
 
 ## Forge deploy script has its own API path
 Update the deploy script at PUT `/orgs/{org}/servers/{server}/sites/{id}/deployments/script` with `{content}`. Do not PUT the site resource for script-only edits.

@@ -58,15 +58,9 @@ PHP-FPM 8.5 remains installed. This site does not use it for HTTPS. `index index
 
 Same VM. Supervisor `worker-987181` runs CareerForge queues (`careerforge-vec7voun.on-forge.com`, `--timeout=600 --queue=default`). Leave that worker, that site, its Nginx, scheduler, database, and deploys unchanged.
 
-### Retired ZDD site (cleanup only)
+### Former ZDD site (deleted)
 
-Site `3362425`, hostname `supportflow-ai-ou1b5gvy.on-forge.com`, is **not** the live SupportFlow site. It is temporarily retained for cleanup and has **not** been deleted.
-
-- Old Octane (`daemon-1094048`, port 8000) and the old queue worker (`1055641`) are **stopped**.
-- The old scheduler is **paused**.
-- Do **not** restart those processes while the live worker and scheduler run against `supportflow_ai`.
-- Do **not** point Stressless, `APP_URL`, or the manual regression checklist at this hostname.
-- Port **8001** stays the documented SupportFlow Octane port. Do not move it to 8000.
+Site `3362425`, hostname `supportflow-ai-ou1b5gvy.on-forge.com`, has been **deleted**. Its Octane process, queue worker, and scheduler have been **removed**. The shared PostgreSQL database `supportflow_ai` remains intact. Live SupportFlow is still site `3397748`/`supportflow-ai-lqojsjr5.on-forge.com`. Port **8001** stays the documented SupportFlow Octane port.
 
 ### Unavailable Forge documentation
 
