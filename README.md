@@ -67,13 +67,13 @@ composer test:stress:capacity
 
 `composer test:stress` runs smoke, load, stress, and stability. Capacity is a separate command.
 
-Forge staging is [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). It shares a VM with CareerForge. Run the same progressive Stressless sequence **off-peak** against that URL (`$env:STRESS_URL = "https://supportflow-ai-ou1b5gvy.on-forge.com"`). Start with smoke and stop if it fails. Load, stress, stability, and capacity may follow at `STRESS_MAX_CONCURRENCY=16`. Do not treat this as permission to load-test an unknown production system.
+Forge staging is [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). It shares a VM with CareerForge. Run the same progressive Stressless sequence **off-peak** against that URL (`$env:STRESS_URL = "https://supportflow-ai-lqojsjr5.on-forge.com"`). Start with smoke and stop if it fails. Load, stress, stability, and capacity may follow at `STRESS_MAX_CONCURRENCY=16`. Do not treat this as permission to load-test an unknown production system.
 
 Ad-hoc (no assertions): `./vendor/bin/pest stress supportflow-ai.test/up --concurrency=2 --duration=5`.
 
 ## Deploy
 
-Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL today: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). That site still uses ZDD; the approved replacement is a new non-ZDD site on the same server. CareerForge stays untouched. Do not deploy or change Forge until that cutover is approved.
+Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That site is non-ZDD Octane on port 8001. CareerForge stays untouched.
 
 ## License
 
