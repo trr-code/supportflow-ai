@@ -33,3 +33,6 @@ Contextual follow-ups such as “Which one is longer?” must retrieve with the 
 
 ## OR expansion skips brand and order tokens
 OR-expanded lexical search must not rank on Harbor, Outfitters, order, or orders. Those tokens appear across the seeded catalog and make unknown questions retrieve unrelated policy. Distinct fake embeddings belong in retrieval Feature tests; never assign one shared vector when ranking is under test.
+
+## Stop force-releases the chat stream lock
+Stop and new conversation must interruptStream: requestStop, bump chat-gen, and forceRelease chat-stream:{session}. Aborting the browser fetch does not release the SSE lock. In-flight ask must not write if the generation no longer matches.

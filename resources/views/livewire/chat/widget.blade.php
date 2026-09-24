@@ -7,7 +7,15 @@
         userScrolling: false,
         liveHtml: '',
         abortController: null,
+        abortReason: null,
+        streamFailed: false,
+        livewireRecoveryPending: false,
+        livewireRecoveryInFlight: false,
+        livewireRecoveryTimer: null,
+        streamErrorMessage: 'The assistant could not finish that answer. Try again.',
         streamUrl: @js(route('chat.stream')),
+        streamProbeUrl: @js(url('/robots.txt')),
+        streamStallMs: 20000,
         transcriptEl() {
             return this.$el.querySelector('[data-chat-transcript]')
         },
@@ -102,17 +110,146 @@
             }
             return { events, rest }
         },
+        restoreComposerFromPending() {
+            this.$nextTick(() => {
+                const root = document.getElementById('chat-question')
+                if (! root) {
+                    return
+                }
+                const input = (root instanceof HTMLInputElement || root instanceof HTMLTextAreaElement)
+                    ? root
+                    : root.querySelector('input, textarea')
+                const recovered = this.$wire.pendingQuestion
+                if (input && recovered) {
+                    input.value = recovered
+                }
+            })
+        },
+        scheduleLivewireRecoveryRetry() {
+            if (! this.livewireRecoveryPending || this.abortReason === 'stop') {
+                return
+            }
+            clearTimeout(this.livewireRecoveryTimer)
+            this.livewireRecoveryTimer = setTimeout(() => {
+                this.commitLivewireRecovery()
+            }, 1000)
+        },
+        async commitLivewireRecovery() {
+            if (this.abortReason !== 'network' || ! this.livewireRecoveryPending || this.livewireRecoveryInFlight) {
+                return
+            }
+            this.livewireRecoveryInFlight = true
+            try {
+                await this.$wire.abandonFailedStream(this.streamErrorMessage)
+                this.livewireRecoveryPending = false
+                if (! this.$wire.streaming) {
+                    this.streamFailed = false
+                }
+                clearTimeout(this.livewireRecoveryTimer)
+            } catch (error) {
+                this.scheduleLivewireRecoveryRetry()
+            } finally {
+                this.livewireRecoveryInFlight = false
+            }
+        },
+        async failOpenStream() {
+            if (this.abortReason === 'stop') {
+                return
+            }
+            if (this.abortReason === 'network') {
+                await this.commitLivewireRecovery()
+                return
+            }
+            if (! this.$wire.streaming) {
+                return
+            }
+            this.abortReason = 'network'
+            this.streamFailed = true
+            this.livewireRecoveryPending = true
+            this.liveHtml = ''
+            this.abortController?.abort()
+            this.restoreComposerFromPending()
+            await this.commitLivewireRecovery()
+        },
+        async withStall(promise) {
+            let timer = null
+            try {
+                return await Promise.race([
+                    promise,
+                    new Promise((_, reject) => {
+                        timer = setTimeout(() => {
+                            const error = new Error('chat stream stalled')
+                            error.name = 'StreamStallError'
+                            reject(error)
+                        }, this.streamStallMs)
+                    }),
+                ])
+            } finally {
+                clearTimeout(timer)
+            }
+        },
+        async readWithStall(reader) {
+            return this.withStall(reader.read())
+        },
         async startChatStream() {
             const question = this.$wire.pendingQuestion
             if (! question || ! this.$wire.streaming) {
                 return
             }
             this.liveHtml = ''
+            this.abortReason = null
+            this.streamFailed = false
+            this.livewireRecoveryPending = false
+            clearTimeout(this.livewireRecoveryTimer)
             this.abortController?.abort()
             this.abortController = new AbortController()
             const csrf = document.querySelector('meta[name=csrf-token]')?.getAttribute('content')
+            let probing = false
+            let probeTimer = null
+            let probeAbort = null
+            const stopProbe = () => {
+                probing = false
+                if (probeTimer !== null) {
+                    clearInterval(probeTimer)
+                    probeTimer = null
+                }
+                probeAbort?.abort()
+            }
+            const probeOnce = async () => {
+                if (! probing) {
+                    return
+                }
+                probeAbort?.abort()
+                probeAbort = new AbortController()
+                let timedOut = false
+                const timeout = setTimeout(() => {
+                    timedOut = true
+                    probeAbort.abort()
+                }, 2000)
+                try {
+                    await fetch(this.streamProbeUrl + '?chat-stream=' + Date.now(), {
+                        cache: 'no-store',
+                        credentials: 'same-origin',
+                        signal: probeAbort.signal,
+                    })
+                } catch (error) {
+                    if (! probing || this.abortReason === 'stop' || this.abortReason === 'network') {
+                        return
+                    }
+                    if (error?.name === 'AbortError' && ! timedOut) {
+                        return
+                    }
+                    stopProbe()
+                    await this.failOpenStream()
+                } finally {
+                    clearTimeout(timeout)
+                }
+            }
             try {
-                const response = await fetch(this.streamUrl, {
+                probing = true
+                probeOnce()
+                probeTimer = setInterval(() => { probeOnce() }, 2000)
+                const response = await this.withStall(fetch(this.streamUrl, {
                     method: 'POST',
                     credentials: 'same-origin',
                     signal: this.abortController.signal,
@@ -123,13 +260,14 @@
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                     body: JSON.stringify({ question }),
-                })
+                }))
                 if (! response.ok) {
                     let message = 'The assistant could not start that answer. Try again.'
                     try {
                         const payload = await response.json()
                         message = payload.errors?.question?.[0] || payload.message || message
                     } catch (error) {}
+                    stopProbe()
                     await this.$wire.reportStreamError(message)
                     return
                 }
@@ -138,7 +276,7 @@
                 let buffer = ''
                 let terminal = false
                 while (! terminal) {
-                    const { done, value } = await reader.read()
+                    const { done, value } = await this.readWithStall(reader)
                     if (done) {
                         break
                     }
@@ -167,15 +305,16 @@
                         }
                     }
                 }
-                if (! terminal && this.$wire.streaming) {
-                    this.liveHtml = ''
-                    await this.$wire.finishTurn()
+                if (! terminal) {
+                    await this.failOpenStream()
                 }
             } catch (error) {
-                if (error?.name === 'AbortError') {
+                if (error?.name === 'AbortError' && (this.abortReason === 'stop' || this.abortReason === 'network')) {
                     return
                 }
-                await this.$wire.reportStreamError('The assistant could not finish that answer. Try again.')
+                await this.failOpenStream()
+            } finally {
+                stopProbe()
             }
         },
     }"
@@ -193,7 +332,7 @@
             onFinish?.(() => scrollTranscript())
         })
         $wire.$js.startStream = () => { startChatStream() }
-        $wire.$js.stop = () => { abortController?.abort(); $wire.stopGenerating() }
+        $wire.$js.stop = () => { abortReason = 'stop'; abortController?.abort(); $wire.stopGenerating() }
         const focusChatQuestion = () => {
             const root = document.getElementById('chat-question')
             if (! root) return
@@ -210,10 +349,17 @@
                 })
             }
         })
-        $watch('$wire.streaming', () => $nextTick(() => {
-            observeTranscript()
-            scrollTranscript()
-        }))
+        $watch('$wire.streaming', value => {
+            if (! value) {
+                streamFailed = false
+                livewireRecoveryPending = false
+                clearTimeout(livewireRecoveryTimer)
+            }
+            $nextTick(() => {
+                observeTranscript()
+                scrollTranscript()
+            })
+        })
         $watch('liveHtml', () => $nextTick(() => scrollTranscript()))
     "
     @demo-chat-focus.window="$nextTick(() => {
@@ -226,6 +372,8 @@
     })"
     @focusin.window="fieldFocused = ['INPUT','TEXTAREA'].includes($event.target.tagName)"
     @focusout.window="fieldFocused = false"
+    @offline.window="failOpenStream()"
+    @online.window="commitLivewireRecovery()"
 >
     @if ($open)
         <div class="mb-3 flex h-[min(32rem,calc(100dvh-8rem))] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl sm:h-[min(42rem,calc(100dvh-5.5rem))]">
@@ -297,33 +445,48 @@
                     @endunless
                 @endforelse
                 @if ($streaming && $pendingQuestion !== '')
-                    <div wire:key="chat-pending-user" class="text-end">
+                    <div wire:key="chat-pending-user" class="text-end" x-show="!streamFailed">
                         <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $pendingQuestion }}</p>
                     </div>
                 @endif
                 @if ($streaming)
-                    <div wire:key="chat-stream" class="text-start">
+                    <div wire:key="chat-stream" class="text-start" x-show="!streamFailed">
                         <p class="sr-only">Assistant is writing</p>
                         <div class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4" x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
                     </div>
                 @endif
             </div>
-            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3" x-on:submit="pinNewest()">
+            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3" x-on:submit="pinNewest(); if (livewireRecoveryPending) { $event.preventDefault(); $event.stopImmediatePropagation(); commitLivewireRecovery() }">
                 <flux:input
                     id="chat-question"
                     wire:model="question"
                     placeholder="Ask about returns, shipping, warranty…"
-                    :disabled="$streaming"
+                    x-bind:disabled="$wire.streaming && !streamFailed"
                     :aria-describedby="$errors->has('question') ? 'chat-question-error' : null"
                 />
+                <p
+                    wire:key="chat-stream-failed"
+                    class="mt-3 text-sm font-medium text-red-500 dark:text-red-400"
+                    role="alert"
+                    x-show="streamFailed && livewireRecoveryPending"
+                    x-text="streamErrorMessage"
+                    style="display: none;"
+                ></p>
                 <flux:error name="question" id="chat-question-error" />
                 <x-dictation-button target="question" noun="question" />
                 <div class="mt-2 flex items-center justify-between">
                     <a href="{{ route('tickets.create') }}" wire:navigate class="text-xs underline">Escalate to a ticket</a>
                     @if ($streaming)
-                        <flux:button size="sm" type="button" wire:click.async="$js.stop">Stop</flux:button>
+                        <div wire:key="chat-stop" x-show="!streamFailed">
+                            <flux:button size="sm" type="button" wire:click.async="$js.stop">Stop</flux:button>
+                        </div>
+                        <div wire:key="chat-send-retry" x-show="streamFailed" style="display: none;">
+                            <flux:button size="sm" type="submit">Send</flux:button>
+                        </div>
                     @else
-                        <flux:button size="sm" type="submit">Send</flux:button>
+                        <div wire:key="chat-send">
+                            <flux:button size="sm" type="submit">Send</flux:button>
+                        </div>
                     @endif
                 </div>
             </form>

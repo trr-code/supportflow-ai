@@ -46,8 +46,19 @@ class ChatService
 
     public function startNewConversation(DemoSession $session): void
     {
-        $this->clearStopRequest($session);
+        $this->interruptStream($session);
         $this->conversationFor($session)->messages()->delete();
+    }
+
+    public function interruptStream(DemoSession $session): void
+    {
+        $this->requestStop($session);
+        Cache::put(
+            $this->streamGenerationKey($session),
+            $this->currentStreamGeneration($session) + 1,
+            now()->addMinutes(5),
+        );
+        $this->streamLock($session)->forceRelease();
     }
 
     public function requestStop(DemoSession $session): void
@@ -96,13 +107,16 @@ class ChatService
 
     public function ask(DemoSession $session, string $question, ?Closure $onDelta = null): ChatMessage
     {
+        $generation = $this->currentStreamGeneration($session);
+
         $this->recordUser($session, $question);
 
-        return $this->replyToLatest($session, $onDelta);
+        return $this->replyToLatest($session, $onDelta, $generation);
     }
 
-    public function replyToLatest(DemoSession $session, ?Closure $onDelta = null): ChatMessage
+    public function replyToLatest(DemoSession $session, ?Closure $onDelta = null, ?int $generation = null): ChatMessage
     {
+        $generation ??= $this->currentStreamGeneration($session);
         $conversation = $this->conversationFor($session);
         $cap = (int) config('supportflow.demo.chat_turn_cap');
         $userTurns = $conversation->messages()->where('role', 'user')->count();
@@ -116,8 +130,8 @@ class ChatService
             ]);
         }
 
-        if ($this->generationWasStopped($session)) {
-            return $this->stoppedAssistantMessage($session);
+        if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
+            return $abandoned;
         }
 
         if (ChatInjectionGate::blocks($question)) {
@@ -144,8 +158,8 @@ class ChatService
 
         $chunkIds = array_values($matches->map(fn (array $row): int => $row['chunk']->id)->all());
 
-        if ($this->generationWasStopped($session)) {
-            return $this->stoppedAssistantMessage($session);
+        if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
+            return $abandoned;
         }
 
         $run = $this->recorder->start(
@@ -157,10 +171,10 @@ class ChatService
         $refusal = 'I don’t have a documented answer in the Harbor & Co knowledge base. Submit a support ticket and a human agent will take it from here.';
 
         if ($matches->isEmpty()) {
-            if ($this->generationWasStopped($session)) {
+            if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
                 $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: []);
 
-                return $this->stoppedAssistantMessage($session);
+                return $abandoned;
             }
 
             $this->recorder->complete($run, payload: ['grounded' => false], retrievedChunkIds: []);
@@ -195,8 +209,8 @@ class ChatService
             model: (string) config('supportflow.models.chat'),
         );
 
-        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, $onDelta, $session): bool {
-            if ($this->generationWasStopped($session)) {
+        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, $onDelta, $session, $generation): bool {
+            if ($this->abandonInFlightIfNeeded($session, $generation) !== null) {
                 $cancelled = true;
 
                 return false;
@@ -212,10 +226,12 @@ class ChatService
             return true;
         });
 
-        if ($cancelled || $this->generationWasStopped($session)) {
+        $abandoned = $this->abandonInFlightIfNeeded($session, $generation);
+
+        if ($cancelled || $abandoned !== null) {
             $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: $chunkIds);
 
-            return $this->stoppedAssistantMessage($session);
+            return $abandoned ?? $this->stoppedAssistantMessage($session);
         }
 
         $streamed = null;
@@ -256,6 +272,12 @@ class ChatService
             $cited = [];
         }
 
+        if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
+            $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: $chunkIds);
+
+            return $abandoned;
+        }
+
         $this->recorder->complete($run, $streamed, ['grounded' => $grounded], $chunkIds);
 
         return $conversation->messages()->create([
@@ -290,6 +312,53 @@ class ChatService
         return $this->stopWasRequested($session) || connection_aborted() === 1;
     }
 
+    /**
+     * @phpstan-impure
+     */
+    private function currentStreamGeneration(DemoSession $session): int
+    {
+        return (int) Cache::get($this->streamGenerationKey($session), 0);
+    }
+
+    /**
+     * @phpstan-impure
+     */
+    private function streamIsStale(DemoSession $session, int $generation): bool
+    {
+        return $this->currentStreamGeneration($session) !== $generation;
+    }
+
+    /**
+     * @phpstan-impure
+     */
+    private function abandonInFlightIfNeeded(DemoSession $session, int $generation): ?ChatMessage
+    {
+        if ($this->streamIsStale($session, $generation)) {
+            return $this->abandonedStreamMessage($session);
+        }
+
+        if ($this->generationWasStopped($session)) {
+            return $this->stoppedAssistantMessage($session);
+        }
+
+        return null;
+    }
+
+    private function abandonedStreamMessage(DemoSession $session): ChatMessage
+    {
+        $latest = $this->conversationFor($session)->messages()->latest('id')->first();
+
+        if ($latest instanceof ChatMessage) {
+            return $latest;
+        }
+
+        return $this->conversationFor($session)->messages()->make([
+            'role' => 'assistant',
+            'body' => 'Stopped.',
+            'cited_chunk_ids' => [],
+        ]);
+    }
+
     private function stoppedAssistantMessage(DemoSession $session): ChatMessage
     {
         return $this->recordStoppedIfOrphaned($session)
@@ -299,5 +368,10 @@ class ChatService
     private function stopCacheKey(DemoSession $session): string
     {
         return 'chat-stop:'.$session->id;
+    }
+
+    private function streamGenerationKey(DemoSession $session): string
+    {
+        return 'chat-gen:'.$session->id;
     }
 }

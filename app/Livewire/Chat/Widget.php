@@ -62,6 +62,12 @@ class Widget extends Component
         $this->addError('question', $message);
     }
 
+    public function abandonFailedStream(string $message, ChatService $chat): void
+    {
+        $chat->interruptStream($this->demoSession());
+        $this->reportStreamError($message);
+    }
+
     public function finishTurn(): void
     {
         $this->pendingQuestion = '';
@@ -138,7 +144,7 @@ class Widget extends Component
     #[Async]
     public function stopGenerating(ChatService $chat): void
     {
-        $chat->requestStop($this->demoSession());
+        $chat->interruptStream($this->demoSession());
         $this->streaming = false;
         $this->streamText = '';
 

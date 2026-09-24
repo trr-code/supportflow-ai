@@ -37,6 +37,8 @@ Local paid Evals (live OpenAI, seeded Harbor catalog):
 composer test:evals
 ```
 
+After those pass, use the [manual regression checklist](docs/manual-regression.md) before any deploy. Do not ship from this change set.
+
 ### HTTP performance (Pest Stressless)
 
 Read-only GET checks against a live URL. They use Pest Stressless (k6 under the hood). There is no separate `k6/` suite.
