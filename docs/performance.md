@@ -58,7 +58,7 @@ Local one-shot concurrent waves at 1, then 2, then 4 demo sessions on both Herd 
 
 ## Forge staging (2026-09-19)
 
-Target: `https://supportflow-ai-ou1b5gvy.on-forge.com` on the shared CareerForge VM (1 vCPU, 961 MiB). Octane/FrankenPHP, **1 worker**, Nginx TLS. Scheduler was not paused. GET benches used Pest Stressless only (`K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`). Chat used one-shot `POST /chat/stream` with separate cookie jars; `throttle:chat` stayed at 10/minute.
+Target: `https://supportflow-ai-ou1b5gvy.on-forge.com` on the shared CareerForge VM (1 vCPU, 961 MiB). Octane/FrankenPHP **1 worker** on `127.0.0.1:8000` behind Nginx TLS (verified 24 Sep 2026). GET benches use the HTTPS URL, so they do not depend on that loopback port. A replacement non-ZDD site must bind **8001** while this site still owns 8000, then stay on 8001. Scheduler was not paused. GET benches used Pest Stressless only (`K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`). Chat used one-shot `POST /chat/stream` with separate cookie jars; `throttle:chat` stayed at 10/minute.
 
 Smoke, load, stress, stability, and capacity all passed with **zero HTTP failures**. Capacity last-healthy concurrency was 16 on `/`, `/knowledge`, and `/knowledge/return-window` (the 16-VU safety rail, not a local-style p95 gate). `/` peaked around **39 rps** (concurrency 12–16, p95 362–465 ms). `/knowledge` p95 rose above 1 s at concurrency 12. That is not the local 770 rps, 47 ms p95 result and must not be treated as a reason to raise Forge workers.
 

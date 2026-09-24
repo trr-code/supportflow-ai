@@ -73,7 +73,7 @@ Ad-hoc (no assertions): `./vendor/bin/pest stress supportflow-ai.test/up --concu
 
 ## Deploy
 
-Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com).
+Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL today: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). That site still uses ZDD; the approved replacement is a new non-ZDD site on the same server. CareerForge stays untouched. Do not deploy or change Forge until that cutover is approved.
 
 ## License
 
