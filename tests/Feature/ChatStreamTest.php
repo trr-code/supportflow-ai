@@ -161,6 +161,82 @@ test('chat stream deltas hide citation trailers', function () {
         ->not->toContain('CITES:');
 });
 
+test('a completed chat stream includes source labels on the done event', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'chat-stream-done-sources',
+        'category' => 'returns',
+        'body' => "## Window\nHarbor Outfitters accepts unused returns within 30 days of delivery with tags attached.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = $article->chunks()->firstOrFail();
+
+    fakeSupportAi(chat: [
+        'body' => 'Unused returns are accepted within 30 days with tags attached.',
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+
+    $body = postChatStream('How long do I have to return an unused pack with tags?', $session->id)
+        ->assertOk()
+        ->streamedContent();
+
+    expect($body)
+        ->toContain('event: done')
+        ->not->toContain('event: stopped');
+
+    preg_match('/event: done\ndata: ({.*})/', $body, $matches);
+    $done = json_decode($matches[1] ?? '', true);
+
+    expect($done)
+        ->toHaveKey('id')
+        ->toHaveKey('html')
+        ->toHaveKey('sources')
+        ->and($done['html'])->toContain('Unused returns')
+        ->and($done['sources'])->toHaveCount(1)
+        ->and($done['sources'][0]['title'])->toBe('Return window')
+        ->and($done['sources'][0]['headings'])->toContain('Window')
+        ->and($done['sources'][0]['includes_intro'])->toBeFalse();
+});
+
+test('a stopped chat stream does not attach source labels', function () {
+    fakeSupportAi();
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+
+    app(ChatService::class)->recordUser($session, 'How long do I have to return an unused pack with tags?');
+    app(ChatService::class)->requestStop($session);
+
+    $body = postChatStream('How long do I have to return an unused pack with tags?', $session->id)
+        ->assertOk()
+        ->streamedContent();
+
+    expect($body)->toContain('event: stopped');
+
+    preg_match('/event: stopped\ndata: ({.*})/', $body, $matches);
+    $stopped = json_decode($matches[1] ?? '', true);
+
+    expect($stopped)
+        ->toHaveKey('id')
+        ->not->toHaveKey('sources')
+        ->not->toHaveKey('html');
+});
+
 test('stop generating does not consume a chat rate-limit attempt', function () {
     fakeSupportAi();
 

@@ -109,3 +109,26 @@ test('is-that-free follow-up retrieval covers the previous trail pack exchange',
     expect($slugs)->toContain('exchanges')
         ->and($slugs)->toContain('trail-pack-sizes');
 });
+
+test('can-i-exchange-it follow-up retrieval stays current-query and includes the exchanges intro', function () {
+    seedHarborKnowledgeCatalog();
+
+    $previous = 'I have an unused 28L Harbor Trail Pack. What is the return policy?';
+    $followUp = 'Can I exchange it for the 36L version instead?';
+    $query = ChatFollowUpQuery::retrievalQuery($followUp, $previous);
+
+    $results = app(RetrievalService::class)->search(
+        $query,
+        (int) config('supportflow.retrieval.limit'),
+        (float) config('supportflow.retrieval.min_similarity'),
+    );
+
+    $slugs = $results->map(fn (array $row): string => $row['chunk']->article->slug)->unique()->values()->all();
+    $intro = $results->first(fn (array $row): bool => $row['chunk']->article->slug === 'exchanges'
+        && ($row['chunk']->heading === null || $row['chunk']->heading === ''));
+
+    expect($query)->toBe($followUp)
+        ->and($slugs)->toContain('exchanges')
+        ->and($slugs)->not->toContain('return-window')
+        ->and(data_get($intro, 'chunk.body'))->toContain('free within 30 days');
+});

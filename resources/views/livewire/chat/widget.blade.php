@@ -6,6 +6,7 @@
         ignoreScroll: false,
         userScrolling: false,
         liveHtml: '',
+        liveSources: [],
         abortController: null,
         abortReason: null,
         streamFailed: false,
@@ -167,6 +168,7 @@
             this.streamFailed = true
             this.livewireRecoveryPending = true
             this.liveHtml = ''
+            this.liveSources = []
             this.abortController?.abort()
             this.restoreComposerFromPending()
             await this.commitLivewireRecovery()
@@ -197,6 +199,7 @@
                 return
             }
             this.liveHtml = ''
+            this.liveSources = []
             this.abortReason = null
             this.streamFailed = false
             this.livewireRecoveryPending = false
@@ -297,8 +300,22 @@
                             await this.$wire.reportStreamError(payload.message)
                             terminal = true
                             break
-                        } else if (item.event === 'done' || item.event === 'stopped') {
+                        } else if (item.event === 'done') {
+                            if (typeof payload.html === 'string' && payload.html !== '') {
+                                this.liveHtml = payload.html
+                            }
+                            if (Array.isArray(payload.sources)) {
+                                this.liveSources = payload.sources
+                            }
+                            this.scrollTranscript()
+                            await this.$wire.finishTurn()
                             this.liveHtml = ''
+                            this.liveSources = []
+                            terminal = true
+                            break
+                        } else if (item.event === 'stopped') {
+                            this.liveHtml = ''
+                            this.liveSources = []
                             await this.$wire.finishTurn()
                             terminal = true
                             break
@@ -453,6 +470,14 @@
                     <div wire:key="chat-stream" class="text-start" x-show="!streamFailed">
                         <p class="sr-only">Assistant is writing</p>
                         <div class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4" x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
+                        <ul class="mt-1 text-start text-xs text-zinc-500" x-show="liveSources.length > 0">
+                            <template x-for="group in liveSources" :key="'live-cite-' + group.article_id">
+                                <li>
+                                    Source: <span x-text="group.title"></span>
+                                    <span class="text-zinc-400" x-show="group.headings && group.headings.length" x-text="'(' + group.headings.join(', ') + ')'"></span>
+                                </li>
+                            </template>
+                        </ul>
                     </div>
                 @endif
             </div>

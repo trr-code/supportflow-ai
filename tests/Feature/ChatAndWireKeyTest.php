@@ -393,6 +393,20 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('sm:start-auto sm:w-full sm:max-w-sm');
 });
 
+test('done stream events keep the answer visible while painting sources', function () {
+    $view = file_get_contents(resource_path('views/livewire/chat/widget.blade.php'));
+
+    expect($view)
+        ->toContain('liveSources: []')
+        ->toContain('this.liveSources = payload.sources')
+        ->toContain("item.event === 'done'")
+        ->toContain("item.event === 'stopped'")
+        ->toContain('x-for="group in liveSources"')
+        ->toContain("await this.\$wire.finishTurn()\n                            this.liveHtml = ''\n                            this.liveSources = []")
+        ->toContain("this.liveHtml = ''\n                            this.liveSources = []\n                            await this.\$wire.finishTurn()")
+        ->not->toContain("item.event === 'done' || item.event === 'stopped'");
+});
+
 test('rendered ticket loops include wire:key attributes', function () {
     $ticket = Ticket::factory()->create();
 

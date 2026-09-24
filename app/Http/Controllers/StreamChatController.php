@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatMessage;
+use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
 use App\Services\DemoSessionService;
 use App\Support\ChatAnswerHtml;
+use App\Support\CitedSources;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -78,7 +81,7 @@ class StreamChatController extends Controller
                     );
 
                     $event = $message->body === 'Stopped.' ? 'stopped' : 'done';
-                    $emit($event, ['id' => $message->id]);
+                    $emit($event, self::terminalPayload($event, $message));
                 } catch (Throwable $exception) {
                     report($exception);
                     $emit('error', [
@@ -98,5 +101,31 @@ class StreamChatController extends Controller
 
             throw $exception;
         }
+    }
+
+    /**
+     * @return array{id: int, html?: string, sources?: list<array{article_id: int|string, title: string, headings: list<string>, includes_intro: bool}>}
+     */
+    private static function terminalPayload(string $event, ChatMessage $message): array
+    {
+        $payload = ['id' => (int) $message->id];
+
+        if ($event !== 'done') {
+            return $payload;
+        }
+
+        $citedIds = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
+        $payload['sources'] = $citedIds === []
+            ? []
+            : CitedSources::streamLabels(
+                KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get(),
+                $citedIds,
+            );
+
+        if ($message->body !== '') {
+            $payload['html'] = ChatAnswerHtml::render($message->body);
+        }
+
+        return $payload;
     }
 }

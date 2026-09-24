@@ -31,6 +31,9 @@ syncArticle embeds synchronously XOR dispatches EmbedKnowledgeChunk. When queueE
 ## Contextual follow-ups reuse previous subjects
 Contextual follow-ups such as “Which one is longer?” must retrieve with the previous non-gated user turn plus the current question even when the follow-up alone returns hits. New topical questions stay current-query only. Never prefix retrieval with a ChatInjectionGate-blocked turn. Citations still come only from the current turn’s allowed chunk IDs.
 
+## Paraphrased claims still cite the stating passage
+5-word overlap is not enough to decide citations. If the draft asserts a claim the retrieved passage actually states (for example free and 30 days), CitedChunkIds::usedInBody must add that chunk even when the model paraphrased it. Subsection headings such as How to start must not stand in for an uncited article intro. Do not change seeded knowledge merely to match a generated paraphrase.
+
 ## OR expansion skips brand and order tokens
 OR-expanded lexical search must not rank on Harbor, Outfitters, order, or orders. Those tokens appear across the seeded catalog and make unknown questions retrieve unrelated policy. Distinct fake embeddings belong in retrieval Feature tests; never assign one shared vector when ranking is under test.
 

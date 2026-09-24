@@ -58,6 +58,7 @@ test('cited sources group repeated passages under one article and keep headings'
     expect($groups)->toHaveCount(1)
         ->and($groups[0]['title'])->toBe('Return window')
         ->and($groups[0]['headings'])->toBe(['Box not required'])
+        ->and($groups[0]['includes_intro'])->toBeTrue()
         ->and($groups[0]['chunks'])->toHaveCount(2);
 });
 

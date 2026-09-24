@@ -75,7 +75,23 @@ class CitedChunkIds
             }
         }
 
-        return false;
+        return self::sharesGroundedClaims($haystack, $source);
+    }
+
+    /**
+     * Paraphrases still need the passage that actually states the claim.
+     */
+    protected static function sharesGroundedClaims(string $body, string $source): bool
+    {
+        $bodyHasFree = str_contains($body, 'free')
+            || str_contains($body, 'no charge')
+            || str_contains($body, 'without a fee')
+            || str_contains($body, 'without fee');
+
+        return str_contains($source, 'free')
+            && $bodyHasFree
+            && str_contains($source, '30 days')
+            && str_contains($body, '30 days');
     }
 
     protected static function normalize(string $text): string

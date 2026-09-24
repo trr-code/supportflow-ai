@@ -17,5 +17,5 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/partials/head.blade.php | .ai/rules/partials.md |
 | app/Services/DemoScenarioService.php, app/Services/TicketIntakeService.php, app/Services/SuggestedReplyService.php, app/Services/ChatService.php, app/Services/KnowledgeIndexService.php, app/Services/RetrievalService.php | .ai/rules/services.md |
 | tests/Stress/** | .ai/rules/stress.md |
-| app/Support/Chat*.php | .ai/rules/support.md |
+| app/Support/Chat*.php, app/Support/CitedChunkIds.php, app/Support/CitedSources.php | .ai/rules/support.md |
 | .github/workflows/tests.yml | .ai/rules/workflows.md |

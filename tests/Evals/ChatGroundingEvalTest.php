@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ChatMessage;
+use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
 
 test('chat answers an unused 28L to 36L exchange from the seeded policies', function () {
@@ -19,7 +20,14 @@ test('chat answers an unused 28L to 36L exchange from the seeded policies', func
     expect($message)->toBeInstanceOf(ChatMessage::class)
         ->and($message->body)->not->toContain('restocking')
         ->and($message->body)->not->toMatch('/prepaid UPS/i')
-        ->and(citedArticleSlugs($message))->toContain('exchanges');
+        ->and(citedArticleSlugs($message))->toContain('exchanges')
+        ->and(
+            KnowledgeChunk::query()
+                ->whereIn('id', $message->cited_chunk_ids ?? [])
+                ->whereHas('article', fn ($query) => $query->where('slug', 'exchanges'))
+                ->whereNull('heading')
+                ->exists(),
+        )->toBeTrue();
 });
 
 test('chat refuses an undocumented tax question without citations', function () {
@@ -68,7 +76,14 @@ test('chat uses the prior trail pack turn when asked if that is free', function 
     expect($followUp->body)
         ->toMatch('/free|no charge|without (?:a |an )?fee/i')
         ->toMatch('/unused|30\s*days/i')
-        ->and(citedArticleSlugs($followUp))->toContain('exchanges');
+        ->and(citedArticleSlugs($followUp))->toContain('exchanges')
+        ->and(
+            KnowledgeChunk::query()
+                ->whereIn('id', $followUp->cited_chunk_ids ?? [])
+                ->whereHas('article', fn ($query) => $query->where('slug', 'exchanges'))
+                ->whereNull('heading')
+                ->exists(),
+        )->toBeTrue();
 });
 
 test('chat covers the unused return window and original box', function () {

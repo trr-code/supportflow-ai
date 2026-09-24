@@ -521,3 +521,82 @@ test('chat hides same-line citation markers from streamed and stored answers', f
     expect(ChatMessage::query()->where('role', 'assistant')->pluck('body'))
         ->each->not->toContain('CITES');
 });
+
+test('a 36L exchange follow-up cites the exchanges intro for free and 30 days', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+    fakeMatchingKnowledgeEmbeddings();
+
+    foreach ([
+        ['Return window', 'return-window', 'returns', "## Window\nHarbor Outfitters accepts unused returns within 30 days of delivery with tags attached.\n## Prepaid labels\nWe email a prepaid UPS label after the return is approved in the order portal."],
+        ['Exchanges', 'exchanges', 'returns', "Size exchanges for packs, shells, and footwear are free within 30 days if the item is unused.\n## How to start\nStart an exchange from the order in the Harbor app or email support with the order number."],
+        ['Trail pack sizes', 'trail-pack-sizes', 'general', 'Harbor Trail Packs ship in 28L and 36L. Weekend trips generally need 36L if carrying a sleeping bag.'],
+    ] as $row) {
+        $article = KnowledgeArticle::query()->create([
+            'title' => $row[0],
+            'slug' => $row[1],
+            'category' => $row[2],
+            'body' => $row[3],
+            'is_published' => true,
+            'is_seeded' => true,
+        ]);
+        app(KnowledgeIndexService::class)->syncArticle($article);
+    }
+
+    fakeMatchingKnowledgeEmbeddings();
+
+    $intro = KnowledgeChunk::query()
+        ->whereHas('article', fn ($query) => $query->where('slug', 'exchanges'))
+        ->whereNull('heading')
+        ->firstOrFail();
+    $how = KnowledgeChunk::query()
+        ->whereHas('article', fn ($query) => $query->where('slug', 'exchanges'))
+        ->where('heading', 'How to start')
+        ->firstOrFail();
+    $sizes = KnowledgeChunk::query()
+        ->whereHas('article', fn ($query) => $query->where('slug', 'trail-pack-sizes'))
+        ->firstOrFail();
+    $prepaid = KnowledgeChunk::query()
+        ->whereHas('article', fn ($query) => $query->where('slug', 'return-window'))
+        ->where('heading', 'Prepaid labels')
+        ->firstOrFail();
+
+    $body = 'Yes. You can exchange the unused 28L pack for the 36L version free of charge within 30 days. Start the exchange from your order in the Harbor app or email support with your order number. Both 28L and 36L Trail Pack sizes are available.';
+
+    fakeSupportAi(chat: [
+        'body' => $body,
+        'cited_chunk_ids' => [$how->id, $sizes->id],
+        'grounded' => true,
+    ]);
+
+    $component = Livewire::test(Widget::class)->set('open', true);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $conversation = app(ChatService::class)->conversationFor($session);
+    $conversation->messages()->create([
+        'role' => 'user',
+        'body' => 'I have an unused 28L Harbor Trail Pack. What is the return policy?',
+    ]);
+    $conversation->messages()->create([
+        'role' => 'assistant',
+        'body' => 'Harbor Outfitters accepts unused returns within 30 days of delivery, with tags attached. After the return is approved in the order portal, a prepaid UPS label is emailed to you.',
+        'cited_chunk_ids' => [$prepaid->id],
+    ]);
+
+    $followUp = 'Can I exchange it for the 36L version instead?';
+
+    $component
+        ->set('question', $followUp)
+        ->call('send')
+        ->streamTurn()
+        ->assertSee('free of charge within 30 days')
+        ->assertSee('Source: Exchanges')
+        ->assertSee('How to start')
+        ->assertSee('Source: Trail pack sizes');
+
+    $reply = ChatMessage::query()->where('role', 'assistant')->latest('id')->firstOrFail();
+
+    expect($reply->body)->toBe($body)
+        ->and($reply->cited_chunk_ids)->toContain($intro->id)
+        ->and($reply->cited_chunk_ids)->toContain($how->id)
+        ->and($reply->cited_chunk_ids)->toContain($sizes->id)
+        ->and($reply->cited_chunk_ids)->not->toContain($prepaid->id);
+});

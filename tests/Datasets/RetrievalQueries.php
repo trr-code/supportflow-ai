@@ -9,6 +9,10 @@ dataset('harbor retrieval slug coverage', [
         'Can I get the 36L instead of my unused 28L Harbor Trail Pack?',
         ['exchanges', 'trail-pack-sizes'],
     ],
+    'production 36L follow-up wording' => [
+        'Can I exchange it for the 36L version instead?',
+        ['exchanges'],
+    ],
     'unused return without original box and prepaid label' => [
         'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.',
         ['return-window'],

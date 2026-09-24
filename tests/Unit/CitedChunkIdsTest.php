@@ -4,6 +4,39 @@ use App\Models\KnowledgeChunk;
 use App\Support\CitedChunkIds;
 use App\Support\SupportingPassages;
 
+test('paraphrased free and 30-day claims still cite the passage that states them', function () {
+    $intro = new KnowledgeChunk([
+        'heading' => null,
+        'body' => 'Size exchanges for packs, shells, and footwear are free within 30 days if the item is unused.',
+    ]);
+    $intro->id = 101;
+
+    $how = new KnowledgeChunk([
+        'heading' => 'How to start',
+        'body' => 'Start an exchange from the order in the Harbor app or email support with the order number.',
+    ]);
+    $how->id = 102;
+
+    $sizes = new KnowledgeChunk([
+        'heading' => null,
+        'body' => 'Harbor Trail Packs ship in 28L and 36L. Weekend trips generally need 36L if carrying a sleeping bag.',
+    ]);
+    $sizes->id = 103;
+
+    $matches = collect([
+        ['chunk' => $intro, 'similarity' => 0.9],
+        ['chunk' => $how, 'similarity' => 0.9],
+        ['chunk' => $sizes, 'similarity' => 0.9],
+    ]);
+
+    $body = 'Yes. You can exchange the unused 28L pack for the 36L version free of charge within 30 days. Start the exchange from your order in the Harbor app or email support with your order number. Both 28L and 36L Trail Pack sizes are available.';
+
+    expect(CitedChunkIds::usesChunk($body, $intro))->toBeTrue()
+        ->and(CitedChunkIds::usesChunk($body, $how))->toBeTrue()
+        ->and(CitedChunkIds::usesChunk($body, $sizes))->toBeFalse()
+        ->and(CitedChunkIds::usedInBody($body, $matches, [102, 103]))->toBe([102, 103, 101]);
+});
+
 test('used in body cites a passage only when the draft reuses its wording', function () {
     $gift = new KnowledgeChunk([
         'heading' => null,
