@@ -8,13 +8,17 @@ use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected bool $fakeEmbeddings = true;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->withoutVite();
 
-        Embeddings::fake();
+        if ($this->fakeEmbeddings) {
+            Embeddings::fake();
+        }
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void

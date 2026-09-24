@@ -32,6 +32,10 @@ class ChatFollowUpQuery
             return true;
         }
 
+        if (preg_match('/^\s*(?:so[,:]?\s+)?(?:and\s+)?(?:is|was|does|can|will)\s+(?:that|it)\b/i', $current) === 1) {
+            return true;
+        }
+
         return preg_match(
             '/\b(?:which one|which of (?:them|those|these)|which is (?:longer|shorter)|that (?:one|window|period|warranty|policy|return|time|option)|(?:the )?(?:longer|shorter) one)\b/i',
             $current,

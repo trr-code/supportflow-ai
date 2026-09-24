@@ -58,7 +58,7 @@ Local one-shot concurrent waves at 1, then 2, then 4 demo sessions on both Herd 
 
 ## Forge staging (2026-09-19)
 
-Target: `https://supportflow-ai-ou1b5gvy.on-forge.com` on the shared CareerForge VM (1 vCPU, 961 MiB). Octane/FrankenPHP, **1 worker**, Nginx TLS. Scheduler was not paused. GET benches used Pest Stressless only (`K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`). Chat used one-shot `POST /chat/stream` with separate cookie jars; `throttle:chat` stayed at 10/minute.
+Target: `https://supportflow-ai-ou1b5gvy.on-forge.com` on the shared CareerForge VM (1 vCPU, 961 MiB). Octane/FrankenPHP **1 worker** on `127.0.0.1:8000` behind Nginx TLS (verified 24 Sep 2026). GET benches use the HTTPS URL, so they do not depend on that loopback port. A replacement non-ZDD site must bind **8001** while this site still owns 8000, then stay on 8001. Scheduler was not paused. GET benches used Pest Stressless only (`K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`). Chat used one-shot `POST /chat/stream` with separate cookie jars; `throttle:chat` stayed at 10/minute.
 
 Smoke, load, stress, stability, and capacity all passed with **zero HTTP failures**. Capacity last-healthy concurrency was 16 on `/`, `/knowledge`, and `/knowledge/return-window` (the 16-VU safety rail, not a local-style p95 gate). `/` peaked around **39 rps** (concurrency 12–16, p95 362–465 ms). `/knowledge` p95 rose above 1 s at concurrency 12. That is not the local 770 rps, 47 ms p95 result and must not be treated as a reason to raise Forge workers.
 
@@ -74,7 +74,7 @@ STRESS=true STRESS_URL=https://supportflow-ai.test composer test:stress:smoke
 
 Forge staging is off-peak only: `https://supportflow-ai-ou1b5gvy.on-forge.com`. Start with smoke. Stop if it fails. GET `/up`, `/`, `/knowledge`, and `/knowledge/return-window` only.
 
-Pest Evals are deferred.
+Pest Evals are local-only. Run `composer test:evals` (`vendor/bin/pest --evals --group=evals`). They call live OpenAI through ChatService, TicketIntakeService, and SuggestedReplyService against KnowledgeSeeder. Do not set `PEST_EVALS=1` in CI. `composer test` and GitHub Actions exclude group `evals`. Keep `OPENAI_SMOKE` until you decide the triage evals replace it. Rector `--dry-run` is part of `composer test` and GitHub Actions; applying Rector stays local (`composer rector`).
 
 ## CI and Forge (2026-09-19)
 

@@ -218,6 +218,45 @@ test('rendered stop action would 500 if it still requested $cancel', function ()
         ->assertSeeHtml('wire:click.async="$js.stop"');
 });
 
+test('a dropped chat stream restores the composer instead of finishing the turn', function () {
+    $view = file_get_contents(resource_path('views/livewire/chat/widget.blade.php'));
+
+    expect($view)
+        ->toContain('@offline.window="failOpenStream()"')
+        ->toContain('@online.window="commitLivewireRecovery()"')
+        ->toContain('async failOpenStream()')
+        ->toContain('async commitLivewireRecovery()')
+        ->toContain('livewireRecoveryPending')
+        ->toContain('streamFailed')
+        ->toContain('x-bind:disabled="$wire.streaming && !streamFailed"')
+        ->toContain('x-show="!streamFailed"')
+        ->toContain('x-show="streamFailed && livewireRecoveryPending"')
+        ->toContain('x-text="streamErrorMessage"')
+        ->toContain('await this.$wire.abandonFailedStream(this.streamErrorMessage)')
+        ->toContain('this.scheduleLivewireRecoveryRetry()')
+        ->toContain("if (this.abortReason === 'network')")
+        ->toContain('await this.commitLivewireRecovery()')
+        ->toContain('async withStall(promise)')
+        ->toContain('async readWithStall(reader)')
+        ->toContain('Promise.race')
+        ->toContain("error.name = 'StreamStallError'")
+        ->toContain('streamStallMs: 20000')
+        ->toContain("url('/robots.txt')")
+        ->toContain('?chat-stream=')
+        ->toContain("cache: 'no-store'")
+        ->toContain('this.withStall(fetch(this.streamUrl')
+        ->toContain("abortReason === 'stop' || this.abortReason === 'network'")
+        ->toContain("abortReason === 'stop'")
+        ->toContain("abortReason = 'stop'")
+        ->toContain('The assistant could not finish that answer. Try again.')
+        ->toContain('await this.readWithStall(reader)')
+        ->toContain('await this.failOpenStream()')
+        ->toContain('$event.stopImmediatePropagation()')
+        ->not->toContain('if (! terminal && this.$wire.streaming)')
+        ->not->toContain("fetch('/up")
+        ->not->toContain('@script');
+});
+
 test('chat widget registers stream cancel on first paint before the panel opens', function () {
     $html = Livewire::test(Widget::class)->html();
 
@@ -311,7 +350,7 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('data-chat-transcript')
         ->toContain("querySelector('[data-chat-transcript]')")
         ->toContain('el.scrollTop = el.scrollHeight')
-        ->toContain('x-on:submit="pinNewest()"')
+        ->toContain('x-on:submit="pinNewest();')
         ->toContain('onUserScrollIntent')
         ->toContain('userScrolling')
         ->toContain('x-on:wheel="onUserScrollIntent($event)"')
@@ -348,7 +387,7 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
     expect($html)
         ->toContain('data-chat-transcript')
         ->toContain('x-on:scroll="onTranscriptScroll()"')
-        ->toContain('x-on:submit="pinNewest()"')
+        ->toContain('x-on:submit="pinNewest();')
         ->toContain('x-on:wheel="onUserScrollIntent($event)"')
         ->toContain('start-4 end-4')
         ->toContain('sm:start-auto sm:w-full sm:max-w-sm');

@@ -204,7 +204,7 @@ class RetrievalService
     {
         preg_match_all('/[A-Za-z][A-Za-z0-9-]{2,}/', $query, $matches);
 
-        $stop = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'can', 'how', 'what', 'when', 'with', 'without', 'this', 'that', 'from', 'have', 'has', 'complete'];
+        $stop = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'can', 'how', 'what', 'when', 'with', 'without', 'this', 'that', 'from', 'have', 'has', 'complete', 'harbor', 'outfitters', 'order', 'orders', 'demo', 'please', 'thanks'];
         $terms = [];
 
         foreach ($matches[0] as $term) {

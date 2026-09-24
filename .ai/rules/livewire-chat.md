@@ -13,3 +13,6 @@ On small screens pin the widget with `start-4 end-4` so both side margins stay e
 
 ## Chat tokens stream over fetch SSE
 Token paint is Alpine fetch of chat.stream plus AbortController, not wire:stream or completeTurn. send/fetch morph, liveHtml, and $wire.streaming may only call scrollTranscript() while pinToBottom is true. Stop aborts the fetch and calls stopGenerating.
+
+## Dropped streams recover without waiting on Livewire
+Chrome DevTools Offline does not fire window offline/online and leaves fetch/reader.read() pending. Recover with readWithStall (Promise.race, 20s) and a static robots.txt probe (not GET /up—Octane 1 worker is busy streaming). failOpenStream aborts SSE and sets streamFailed immediately so Thinking… and the disabled composer do not wait on Livewire. commitLivewireRecovery try/catches abandonFailedStream and retries on @online.window plus a 1s timer because that /livewire/update cannot succeed while Offline and is not retried otherwise. abortReason=network still prevents a second SSE. Stop sets abortReason=stop then aborts; AbortError must not show the stream-error message. 409 conflict still uses reportStreamError so it does not forceRelease another stream's lock. Do not add @script.

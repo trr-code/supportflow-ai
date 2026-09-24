@@ -29,7 +29,15 @@ Do not enter real personal, order, or payment information.
 composer test
 ```
 
-CI runs Pint, Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests are **not** in that quality gate.
+CI runs Pint, Rector (`--dry-run`), Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests and paid Pest Evals are **not** in that quality gate. Apply Rector locally with `composer rector` after a dry-run; never apply it in CI.
+
+Local paid Evals (live OpenAI, seeded Harbor catalog):
+
+```bash
+composer test:evals
+```
+
+After those pass, use the [manual regression checklist](docs/manual-regression.md) before any deploy. Do not ship from this change set.
 
 ### HTTP performance (Pest Stressless)
 
@@ -65,7 +73,7 @@ Ad-hoc (no assertions): `./vendor/bin/pest stress supportflow-ai.test/up --concu
 
 ## Deploy
 
-Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com).
+Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL today: [https://supportflow-ai-ou1b5gvy.on-forge.com](https://supportflow-ai-ou1b5gvy.on-forge.com). That site still uses ZDD; the approved replacement is a new non-ZDD site on the same server. CareerForge stays untouched. Do not deploy or change Forge until that cutover is approved.
 
 ## License
 

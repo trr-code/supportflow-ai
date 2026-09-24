@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "38c43581aa728d5baaf3aaa1b113f60b",
+    "content-hash": "248961e814ecfa3783c94503fc102cc0",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -10050,6 +10050,97 @@
                 }
             ],
             "time": "2026-07-21T07:48:55+00:00"
+        },
+        {
+            "name": "pestphp/pest-plugin-evals",
+            "version": "v5.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/pestphp/pest-plugin-evals.git",
+                "reference": "6e2f2c652def5d342edbdddc08b2cde4c64c7118"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/pestphp/pest-plugin-evals/zipball/6e2f2c652def5d342edbdddc08b2cde4c64c7118",
+                "reference": "6e2f2c652def5d342edbdddc08b2cde4c64c7118",
+                "shasum": ""
+            },
+            "require": {
+                "pestphp/pest": "^5.0.3",
+                "pestphp/pest-plugin": "^5.0.0",
+                "php": "^8.4"
+            },
+            "conflict": {
+                "laravel/ai": "<0.10.2 || >=0.12.0",
+                "pestphp/pest": "<5.0.0"
+            },
+            "require-dev": {
+                "laravel/ai": "^0.10.2 || ^0.11.0",
+                "laravel/framework": "^13.23.0",
+                "orchestra/testbench": "^11.1.0",
+                "pestphp/pest-dev-tools": "^5.0.0"
+            },
+            "type": "library",
+            "extra": {
+                "pest": {
+                    "plugins": [
+                        "Pest\\Evals\\Plugin"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/Autoload.php"
+                ],
+                "psr-4": {
+                    "Pest\\Evals\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Pushpak Chhajed",
+                    "email": "pushpak1300@gmail.com"
+                },
+                {
+                    "name": "Nuno Maduro",
+                    "email": "enunomaduro@gmail.com"
+                }
+            ],
+            "description": "A PestPHP plugin for evaluating LLM agents with LLM-as-judge, semantic similarity, and deterministic scorers",
+            "keywords": [
+                "ai",
+                "eval",
+                "framework",
+                "llm",
+                "pest",
+                "php",
+                "plugin",
+                "test",
+                "testing",
+                "unit"
+            ],
+            "support": {
+                "source": "https://github.com/pestphp/pest-plugin-evals/tree/v5.0.3"
+            },
+            "funding": [
+                {
+                    "url": "https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=66BYDWAT92N6L",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/nunomaduro",
+                    "type": "github"
+                },
+                {
+                    "url": "https://www.patreon.com/nunomaduro",
+                    "type": "patreon"
+                }
+            ],
+            "time": "2026-09-03T13:37:38+00:00"
         },
         {
             "name": "pestphp/pest-plugin-laravel",

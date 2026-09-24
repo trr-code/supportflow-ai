@@ -6,8 +6,12 @@ use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Services\ChatService;
 use App\Services\KnowledgeIndexService;
+use App\Services\RetrievalService;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Mockery\MockInterface;
+use RuntimeException;
 
 test('the chat stream route records one user message without a livewire send', function () {
     fakeSupportAi();
@@ -60,6 +64,61 @@ test('a second chat stream is rejected while the session lock is held', function
     } finally {
         $lock->release();
     }
+});
+
+test('a follow-up stream after stop is not rejected with 409 while the previous lock is held', function () {
+    fakeSupportAi();
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)->set('open', true);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $lock = app(ChatService::class)->streamLock($session);
+    expect($lock->get())->toBeTrue();
+
+    $component
+        ->set('streaming', true)
+        ->set('pendingQuestion', $question)
+        ->call('stopGenerating')
+        ->assertSet('streaming', false);
+
+    postChatStream($question, $session->id)
+        ->assertOk()
+        ->assertStreamed();
+});
+
+test('a stream after a new conversation is not rejected with 409 while the previous lock is held', function () {
+    fakeSupportAi();
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)->set('open', true);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $lock = app(ChatService::class)->streamLock($session);
+    expect($lock->get())->toBeTrue();
+
+    $component->call('startNewConversation');
+
+    postChatStream($question, $session->id)
+        ->assertOk()
+        ->assertStreamed();
+});
+
+test('an interrupted in-flight answer does not write after the conversation is reset', function () {
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($session): void {
+        $mock->shouldReceive('search')->andReturnUsing(function () use ($session) {
+            app(ChatService::class)->startNewConversation($session);
+
+            return collect();
+        });
+    });
+
+    app(ChatService::class)->ask($session, 'How long do I have to return an unused pack with tags?');
+
+    expect(ChatMessage::query()->count())->toBe(0);
 });
 
 test('chat stream deltas hide citation trailers', function () {
@@ -133,4 +192,88 @@ test('asking through the stream endpoint does not insert a duplicate user row', 
     expect(ChatMessage::query()->where('role', 'user')->count())->toBe(1)
         ->and(ChatMessage::query()->where('role', 'assistant')->count())->toBe(1)
         ->and(ChatMessage::query()->where('role', 'user')->where('body', $question)->count())->toBe(1);
+});
+
+test('a failed chat stream emits an error event and restores the composer', function () {
+    Exceptions::fake();
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('search')->once()->andThrow(new RuntimeException('provider unavailable'));
+    });
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)
+        ->set('open', true)
+        ->set('question', $question)
+        ->call('send');
+
+    $body = postChatStream($question, (string) $component->get('demoSessionId'))
+        ->assertOk()
+        ->assertStreamed()
+        ->streamedContent();
+
+    expect($body)
+        ->toContain('event: error')
+        ->toContain('The assistant could not finish that answer. Try again.')
+        ->not->toContain('event: done');
+
+    Exceptions::assertReported(RuntimeException::class);
+
+    $component->call('reportStreamError', 'The assistant could not finish that answer. Try again.')
+        ->assertSet('question', $question)
+        ->assertSet('pendingQuestion', '')
+        ->assertSet('streaming', false)
+        ->assertHasErrors(['question']);
+});
+
+test('abandoning a failed stream is not rejected with 409 while the previous lock is held', function () {
+    fakeSupportAi();
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)
+        ->set('open', true)
+        ->set('streaming', true)
+        ->set('pendingQuestion', $question);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $lock = app(ChatService::class)->streamLock($session);
+    expect($lock->get())->toBeTrue();
+
+    $component->call('abandonFailedStream', 'The assistant could not finish that answer. Try again.')
+        ->assertSet('question', $question)
+        ->assertSet('pendingQuestion', '')
+        ->assertSet('streaming', false)
+        ->assertHasErrors(['question' => 'The assistant could not finish that answer. Try again.']);
+
+    $component->call('abandonFailedStream', 'The assistant could not finish that answer. Try again.')
+        ->assertSet('question', $question)
+        ->assertSet('pendingQuestion', '')
+        ->assertSet('streaming', false)
+        ->assertHasErrors(['question' => 'The assistant could not finish that answer. Try again.']);
+
+    expect(ChatMessage::query()->where('body', 'Stopped.')->count())->toBe(0);
+
+    postChatStream($question, $session->id)
+        ->assertOk()
+        ->assertStreamed();
+});
+
+test('reporting a conflict does not release another stream lock', function () {
+    fakeSupportAi();
+
+    $question = 'How long do I have to return an unused pack with tags?';
+    $component = Livewire::test(Widget::class)
+        ->set('open', true)
+        ->set('streaming', true)
+        ->set('pendingQuestion', $question);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $lock = app(ChatService::class)->streamLock($session);
+    expect($lock->get())->toBeTrue();
+
+    $component->call('reportStreamError', 'Please wait for the current answer to finish.');
+
+    postChatStream($question, $session->id)
+        ->assertConflict()
+        ->assertJsonPath('errors.question.0', 'Please wait for the current answer to finish.');
+
+    $lock->release();
 });
