@@ -65,7 +65,7 @@ Use a phone viewport (~390px) and an iPad viewport (~768–1024px), plus a real 
 
 ## Live Forge staging (off-peak)
 
-Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That hostname is the live non-ZDD site (Octane on 8001). Do not use the retired ZDD hostname. Do not run Stressless chat/ticket writes. Do not raise `throttle:chat`.
+Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That hostname is the live non-ZDD site (Octane on 8001). Do not run Stressless chat/ticket writes. Do not raise `throttle:chat`.
 
 - [ ] `/`, `/knowledge`, `/knowledge/return-window`, Open Agent Dashboard.
 - [ ] One grounded chat turn with citations and a follow-up. No `CITES:` in the UI.
