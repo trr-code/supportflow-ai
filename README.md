@@ -29,7 +29,7 @@ Do not enter real personal, order, or payment information.
 composer test
 ```
 
-CI runs Pint, Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests and paid Pest Evals are **not** in that quality gate.
+CI runs Pint, Rector (`--dry-run`), Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests and paid Pest Evals are **not** in that quality gate. Apply Rector locally with `composer rector` after a dry-run; never apply it in CI.
 
 Local paid Evals (live OpenAI, seeded Harbor catalog):
 

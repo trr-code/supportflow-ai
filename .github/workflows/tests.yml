@@ -45,6 +45,9 @@ jobs:
       - name: Run Pint
         run: vendor/bin/pint --test
 
+      - name: Run Rector
+        run: vendor/bin/rector process --dry-run --no-progress-bar --output-format=github
+
       - name: Run Larastan
         run: vendor/bin/phpstan analyse --memory-limit=1G
 
