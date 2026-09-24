@@ -49,7 +49,7 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=1G
 
       - name: Run Pest
-        run: php artisan test --exclude-group=stress
+        run: php artisan test --exclude-group=stress --exclude-group=evals
         env:
           APP_ENV: testing
           DB_CONNECTION: pgsql

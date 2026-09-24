@@ -41,6 +41,7 @@ test('chat follow-up retrieval reuses previous subjects for which-one comparison
     expect(ChatFollowUpQuery::needsPreviousSubjects($followUp, $previous))->toBeTrue()
         ->and(ChatFollowUpQuery::retrievalQuery($followUp, $previous))->toBe($previous."\n".$followUp)
         ->and(ChatFollowUpQuery::needsPreviousSubjects('How long is that window?', $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('Is that free?', $previous))->toBeTrue()
         ->and(ChatFollowUpQuery::needsPreviousSubjects(
             'How many days does standard ground shipping take?',
             $previous,

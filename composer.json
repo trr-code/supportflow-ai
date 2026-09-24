@@ -32,6 +32,7 @@
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^5.1",
         "pestphp/pest-plugin-drift": "^5.0",
+        "pestphp/pest-plugin-evals": "^5.0",
         "pestphp/pest-plugin-laravel": "^5.0",
         "pestphp/pest-plugin-rector": "^5.0",
         "pestphp/pest-plugin-stressless": "^5.0",
@@ -63,23 +64,34 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev\" --names='server,queue,vite'"
         ],
         "lint": [
-            "pint --parallel"
+            "@php vendor/bin/pint --parallel"
         ],
         "lint:check": [
-            "pint --parallel --test"
+            "@php vendor/bin/pint --parallel --test"
+        ],
+        "rector": [
+            "@php vendor/bin/rector process --no-progress-bar"
+        ],
+        "rector:check": [
+            "@php vendor/bin/rector process --dry-run --no-progress-bar"
         ],
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
             "@test"
         ],
         "types:check": [
-            "phpstan analyse --memory-limit=1G"
+            "@php vendor/bin/phpstan analyse --memory-limit=1G"
         ],
         "test": [
             "@php artisan config:clear --ansi",
             "@lint:check",
+            "@rector:check",
             "@types:check",
-            "@php artisan test --exclude-group=stress"
+            "@php artisan test --exclude-group=stress --exclude-group=evals"
+        ],
+        "test:evals": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php vendor/bin/pest --evals --group=evals --compact"
         ],
         "test:stress": [
             "Composer\\Config::disableProcessTimeout",

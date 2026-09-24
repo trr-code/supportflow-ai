@@ -5,6 +5,7 @@ paths:
   - app/Services/SuggestedReplyService.php
   - app/Services/ChatService.php
   - app/Services/KnowledgeIndexService.php
+  - app/Services/RetrievalService.php
 ---
 
 # Services
@@ -29,3 +30,6 @@ syncArticle embeds synchronously XOR dispatches EmbedKnowledgeChunk. When queueE
 
 ## Contextual follow-ups reuse previous subjects
 Contextual follow-ups such as “Which one is longer?” must retrieve with the previous non-gated user turn plus the current question even when the follow-up alone returns hits. New topical questions stay current-query only. Never prefix retrieval with a ChatInjectionGate-blocked turn. Citations still come only from the current turn’s allowed chunk IDs.
+
+## OR expansion skips brand and order tokens
+OR-expanded lexical search must not rank on Harbor, Outfitters, order, or orders. Those tokens appear across the seeded catalog and make unknown questions retrieve unrelated policy. Distinct fake embeddings belong in retrieval Feature tests; never assign one shared vector when ranking is under test.

@@ -74,7 +74,7 @@ STRESS=true STRESS_URL=https://supportflow-ai.test composer test:stress:smoke
 
 Forge staging is off-peak only: `https://supportflow-ai-ou1b5gvy.on-forge.com`. Start with smoke. Stop if it fails. GET `/up`, `/`, `/knowledge`, and `/knowledge/return-window` only.
 
-Pest Evals are deferred.
+Pest Evals are local-only. Run `composer test:evals` (`vendor/bin/pest --evals --group=evals`). They call live OpenAI through ChatService, TicketIntakeService, and SuggestedReplyService against KnowledgeSeeder. Do not set `PEST_EVALS=1` in CI. `composer test` and GitHub Actions exclude group `evals`. Keep `OPENAI_SMOKE` until you decide the triage evals replace it.
 
 ## CI and Forge (2026-09-19)
 

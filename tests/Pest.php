@@ -8,14 +8,23 @@ use App\Enums\TicketCategory;
 use App\Enums\TicketDepartment;
 use App\Enums\TicketPriority;
 use App\Enums\TicketSentiment;
+use App\Models\ChatMessage;
+use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
+use App\Models\SuggestedReply;
 use App\Services\DemoSessionService;
 use App\Services\KnowledgeIndexService;
+use Database\Seeders\KnowledgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Ai\Embeddings;
 use Livewire\Features\SupportTesting\Testable;
+use Pest\Evals\Drivers\LaravelAiEmbeddings;
+use Pest\Evals\Drivers\LaravelAiJudge;
+use Pest\Evals\Plugin as PestEvals;
+use Tests\EvalTestCase;
 use Tests\TestCase;
 
 require __DIR__.'/Support/stressless.php';
@@ -23,6 +32,27 @@ require __DIR__.'/Support/stressless.php';
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+pest()->extend(EvalTestCase::class)
+    ->use(RefreshDatabase::class)
+    ->group('evals')
+    ->in('Evals');
+
+pest()->evals()
+    ->judgeUsing(new LaravelAiJudge(provider: 'openai', model: 'gpt-5.6-luna'))
+    ->embeddingsUsing(new LaravelAiEmbeddings(provider: 'openai', model: 'text-embedding-3-small'));
+
+pest()->beforeEach(function (): void {
+    if (! PestEvals::isEvalMode()) {
+        $this->markTestSkipped('Eval skipped. Run with [--evals] to evaluate against a real model.');
+    }
+
+    if (! filled((string) config('ai.providers.openai.key'))) {
+        $this->markTestSkipped('Set OPENAI_API_KEY to run Evals.');
+    }
+
+    test()->seed(KnowledgeSeeder::class);
+})->in('Evals');
 
 pest()->group('stress')->in('Stress');
 
@@ -75,6 +105,62 @@ function fakeMatchingKnowledgeEmbeddings(?array $vector = null): array
     Embeddings::fake(fn (): array => [$vector]);
 
     return $vector;
+}
+
+/**
+ * Give each stored chunk a unique unit vector and point later Embeddings::for()
+ * calls at an unused axis so pgvector ranking cannot treat every passage as a hit.
+ */
+function assignDistinctKnowledgeEmbeddings(): void
+{
+    $dimensions = (int) config('supportflow.embeddings.dimensions', 1536);
+    $index = 0;
+
+    KnowledgeChunk::query()->orderBy('id')->each(function (KnowledgeChunk $chunk) use ($dimensions, &$index): void {
+        $vector = array_fill(0, $dimensions, 0.0);
+        $vector[$index % $dimensions] = 1.0;
+        $chunk->forceFill(['embedding' => $vector])->save();
+        $index++;
+    });
+
+    $queryVector = array_fill(0, $dimensions, 0.0);
+    $queryVector[min($dimensions - 1, $index + 8)] = 1.0;
+    Embeddings::fake(fn (): array => [$queryVector]);
+}
+
+function seedHarborKnowledgeCatalog(): void
+{
+    test()->seed(KnowledgeSeeder::class);
+    assignDistinctKnowledgeEmbeddings();
+}
+
+/**
+ * @return list<string>
+ */
+function citedArticleSlugs(ChatMessage|SuggestedReply $record): array
+{
+    $ids = array_values(array_map(intval(...), $record->cited_chunk_ids ?? []));
+
+    if ($ids === []) {
+        return [];
+    }
+
+    return KnowledgeChunk::query()
+        ->with('article')
+        ->whereIn('id', $ids)
+        ->get()
+        ->map(fn (KnowledgeChunk $chunk): string => $chunk->article->slug)
+        ->unique()
+        ->values()
+        ->all();
+}
+
+function evalDemoSession(): DemoSession
+{
+    return DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
 }
 
 function seedHarborPolicyArticles(): void
