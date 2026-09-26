@@ -1,6 +1,6 @@
 ---
 description: Keep FrankenPHP workers free of stale request state, memory growth, and Swoole-only APIs
-globs: app/**/*.php,bootstrap/**/*.php,config/octane.php
+globs: app/**/*.php,bootstrap/**/*.php,config/octane.php,routes/**/*.php
 alwaysApply: false
 ---
 
