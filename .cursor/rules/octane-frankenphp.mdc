@@ -1,0 +1,23 @@
+---
+description: Keep FrankenPHP workers free of stale request state, memory growth, and Swoole-only APIs
+globs: app/**/*.php,bootstrap/**/*.php,config/octane.php
+alwaysApply: false
+---
+
+# Octane / FrankenPHP
+
+Production is FrankenPHP. Workers keep the app in memory across requests. A service provider's `register` and `boot` methods run once per worker.
+
+* Read the current request, container, and config at call time with `request()`, `app()`, `config()`, or a closure. The Octane docs explicitly allow type-hinting `Illuminate\Http\Request` on controller methods and route closures.
+* Do not register a singleton whose constructor stores the application container, the request, or the config repository.
+
+```php
+// Stale on the next request:
+$this->app->singleton(Service::class, fn ($app) => new Service($app['request']));
+
+// Safe:
+$service->handle($request->input('question'));
+```
+
+* Do not append to static arrays or other values that grow for the life of the worker. A static method that returns a new value is fine.
+* Do not call `Octane::concurrently()`, `Octane::tick()`, `Octane::table()`, `Cache::store('octane')`, or Octane cache intervals. Those require Swoole.
