@@ -20,6 +20,7 @@ use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
 use App\Services\SuggestedReplyService;
 use App\Support\CitedSources;
+use App\Support\KnowledgeCorpus;
 use App\Support\RetrievalQuery;
 use App\Support\SuggestedReplyPanelState;
 use Illuminate\Support\Collection;
@@ -110,6 +111,7 @@ test('retrieval returns chunks above the minimum similarity gate', function () {
 
     $results = app(RetrievalService::class)->search(
         'Can I return an unused pack without the original box?',
+        KnowledgeCorpus::harbor(),
         4,
         0.05,
     );
@@ -317,6 +319,7 @@ test('billing dispute retrieval includes gift cards and billing splits at the pr
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -734,6 +737,7 @@ test('multi-topic retrieval covers return, shipping, and warranty articles', fun
 
     $results = app(RetrievalService::class)->search(
         'Explain the complete return, shipping, and warranty policies',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -757,6 +761,7 @@ test('original-box retrieval includes return window and is not exchanges-only', 
 
     $results = app(RetrievalService::class)->search(
         'Can I return an unused pack without the original box and what are the next steps?',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -775,6 +780,7 @@ test('trail pack retrieval keeps box not required and prepaid labels with the de
 
     $results = app(RetrievalService::class)->search(
         'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -793,6 +799,7 @@ test('lexical retrieval binds visitor text instead of interpolating sql', functi
 
     $results = app(RetrievalService::class)->search(
         "return window'); DELETE FROM knowledge_chunks; --",
+        KnowledgeCorpus::harbor(),
         6,
         0.05,
     );
@@ -816,6 +823,7 @@ test('prepaid-label ticket that mentions the original box retrieves return-windo
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );

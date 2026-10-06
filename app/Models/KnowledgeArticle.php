@@ -5,7 +5,9 @@ namespace App\Models;
 use App\Enums\TicketCategory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 /**
@@ -16,7 +18,7 @@ use Illuminate\Support\Str;
  * @property bool $is_published
  * @property bool $is_seeded
  */
-#[Fillable(['title', 'slug', 'category', 'body', 'is_published', 'is_seeded'])]
+#[Fillable(['title', 'slug', 'category', 'body', 'is_published', 'is_seeded', 'workspace_id'])]
 class KnowledgeArticle extends Model
 {
     protected function casts(): array
@@ -32,6 +34,18 @@ class KnowledgeArticle extends Model
     public function chunks(): HasMany
     {
         return $this->hasMany(KnowledgeChunk::class);
+    }
+
+    /** @return BelongsTo<Workspace, $this> */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    /** @return HasOne<WorkspaceDocument, $this> */
+    public function document(): HasOne
+    {
+        return $this->hasOne(WorkspaceDocument::class, 'knowledge_article_id');
     }
 
     public function excerpt(): string

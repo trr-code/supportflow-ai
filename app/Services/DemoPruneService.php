@@ -71,7 +71,7 @@ class DemoPruneService
             $ticket->delete();
         }
 
-        ChatConversation::query()->delete();
+        ChatConversation::query()->whereNull('workspace_id')->delete();
         $sessionCount = DemoSession::query()->delete();
 
         return [

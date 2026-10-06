@@ -63,9 +63,9 @@ Tracking typically updates within 24 hours of “label created”.
 On the tracking screen, swipe downward and release to refresh the latest information. Carrier scans can lag behind our label status.
 MD],
             ['Warranty', 'warranty', TicketCategory::General, <<<'MD'
-Harbor hardgoods carry a 2-year manufacturing warranty against seam and hardware failure in normal use.
+Harbor hardgoods carry a 2-year warranty for manufacturing defects that cause seam or hardware failure during normal use.
 ## Not covered
-Impacts, misuse, and normal wear are not covered. We may offer a discounted replacement.
+Ordinary wear, impacts, and misuse are not covered. We may offer a discounted replacement.
 MD],
             ['Gift cards', 'gift-cards', TicketCategory::Billing, <<<'MD'
 Harbor gift cards can be combined with a credit card. The gift card is captured first.

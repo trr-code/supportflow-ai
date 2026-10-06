@@ -42,5 +42,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="OPENAI_STORE" value="false"/>
+        <env name="SUPPORTFLOW_WORKSPACE_MIN_FREE_BYTES" value="0"/>
+        <env name="SUPPORTFLOW_WORKSPACE_FREE_SPACE_PATH" value="base"/>
     </php>
 </phpunit>

@@ -62,4 +62,17 @@ return [
         ],
     ],
 
+
+    'workspaces' => [
+        'lifetime_days' => 7,
+        'max_stored_bytes' => (int) env('SUPPORTFLOW_WORKSPACE_MAX_STORED_BYTES', 2_147_483_648),
+        'min_free_bytes' => (int) env('SUPPORTFLOW_WORKSPACE_MIN_FREE_BYTES', 8 * 1024 * 1024 * 1024),
+        'free_space_path' => env('SUPPORTFLOW_WORKSPACE_FREE_SPACE_PATH', '/'),
+        'max_file_bytes' => 8 * 1024 * 1024,
+        'max_documents' => 25,
+        'max_batch' => 8,
+        'max_extracted_characters' => 150_000,
+        'extract_seconds' => 30,
+        'extract_memory_bytes' => 256 * 1024 * 1024,
+    ],
 ];

@@ -16,6 +16,7 @@ use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
 use App\Support\ChatInjectionGate;
 use App\Support\DemoGuide;
+use App\Support\KnowledgeCorpus;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -429,6 +430,7 @@ test('chat covers and cites return, shipping, and warranty when all three are re
 
     $matches = app(RetrievalService::class)->search(
         'Explain the complete return, shipping, and warranty policies',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -675,6 +677,7 @@ test('trail pack chat cites box not required and prepaid labels', function () {
     $query = 'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.';
     $matches = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );

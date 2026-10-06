@@ -2,12 +2,14 @@
 
 use App\Services\RetrievalService;
 use App\Support\ChatFollowUpQuery;
+use App\Support\KnowledgeCorpus;
 
 test('seeded catalog retrieval includes the required policy slugs', function (string $query, array $requiredSlugs) {
     seedHarborKnowledgeCatalog();
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -26,6 +28,7 @@ test('unused return retrieval keeps box and prepaid headings with the deadline',
 
     $results = app(RetrievalService::class)->search(
         'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -44,6 +47,7 @@ test('embroidery retrieval does not invent a thread color list', function () {
 
     $results = app(RetrievalService::class)->search(
         'What thread colors are available for Driftwood Duffel embroidery?',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -62,6 +66,7 @@ test('an undocumented tax question does not retrieve exchange or return policies
 
     $results = app(RetrievalService::class)->search(
         'What is the sales tax rate in Ohio for Harbor orders?',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -78,6 +83,7 @@ test('which-one follow-up retrieval reuses the previous comparison subjects', fu
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -98,10 +104,10 @@ test('is-that-free follow-up retrieval covers the previous trail pack exchange',
     $limit = (int) config('supportflow.retrieval.limit');
     $min = (float) config('supportflow.retrieval.min_similarity');
 
-    $results = app(RetrievalService::class)->search($query, $limit, $min);
+    $results = app(RetrievalService::class)->search($query, KnowledgeCorpus::harbor(), $limit, $min);
 
     if ($results->isEmpty() && $query === $followUp) {
-        $results = app(RetrievalService::class)->search($previous."\n".$followUp, $limit, $min);
+        $results = app(RetrievalService::class)->search($previous."\n".$followUp, KnowledgeCorpus::harbor(), $limit, $min);
     }
 
     $slugs = $results->map(fn (array $row): string => $row['chunk']->article->slug)->unique()->values()->all();
@@ -119,6 +125,7 @@ test('can-i-exchange-it follow-up retrieval stays current-query and includes the
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );

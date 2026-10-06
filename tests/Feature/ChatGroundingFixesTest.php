@@ -9,6 +9,8 @@ use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
 use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
+use App\Support\ChatFollowUpPassages;
+use App\Support\KnowledgeCorpus;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -37,6 +39,7 @@ test('missing poles chat includes overnight replacement and store pickup with ge
 
     $results = app(RetrievalService::class)->search(
         $question,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -373,7 +376,7 @@ test('a comparison follow-up retrieves both policies from the previous safe turn
     $comparison = 'Compare the return period for an unused Harbor Trail Pack with the warranty period for a Summit trekking pole.';
     $followUp = 'Which one is longer?';
     $returnBody = 'Harbor Outfitters accepts unused returns within 30 days of delivery with tags attached.';
-    $warrantyBody = 'Harbor hardgoods carry a 2-year manufacturing warranty against seam and hardware failure in normal use.';
+    $warrantyBody = 'Harbor hardgoods carry a 2-year warranty for manufacturing defects that cause seam or hardware failure during normal use.';
     $comparisonAnswer = 'An unused Harbor Trail Pack may be returned within 30 days of delivery, with tags attached. A Summit trekking pole has a 2-year manufacturing warranty for covered failures in normal use.';
     $followUpAnswer = 'The 2-year manufacturing warranty for a Summit trekking pole is longer than the 30-day unused return window.';
 
@@ -599,4 +602,78 @@ test('a 36L exchange follow-up cites the exchanges intro for free and 30 days', 
         ->and($reply->cited_chunk_ids)->toContain($how->id)
         ->and($reply->cited_chunk_ids)->toContain($sizes->id)
         ->and($reply->cited_chunk_ids)->not->toContain($prepaid->id);
+});
+
+test('a short harbor follow-up keeps the previous answer citations when search prefers another document', function () {
+    $counterBody = 'Collect the kit at the North counter on Cedar Road. The counter is open Monday through Saturday, 9 a.m. to 5 p.m.';
+    $helpBody = 'Support hours are Monday through Friday, 10 a.m. to 4 p.m. local time.';
+    $counter = KnowledgeArticle::query()->create([
+        'title' => 'Field counter',
+        'slug' => 'harbor-follow-up-counter',
+        'category' => 'general',
+        'body' => $counterBody,
+        'is_published' => true,
+        'is_seeded' => true,
+    ])->chunks()->create([
+        'heading' => 'Counter',
+        'body' => $counterBody,
+        'token_count' => 20,
+        'embedding' => null,
+    ]);
+    $help = KnowledgeArticle::query()->create([
+        'title' => 'Help desk',
+        'slug' => 'harbor-follow-up-help',
+        'category' => 'general',
+        'body' => $helpBody,
+        'is_published' => true,
+        'is_seeded' => true,
+    ])->chunks()->create([
+        'heading' => 'Hours',
+        'body' => $helpBody,
+        'token_count' => 16,
+        'embedding' => null,
+    ]);
+    $counter->load('article');
+    $help->load('article');
+
+    $this->mock(RetrievalService::class, function (MockInterface $mock) use ($counter, $help): void {
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === 'where to pick up')
+            ->andReturn(collect([['chunk' => $counter, 'similarity' => 0.9]]));
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === "where to pick up\ntime")
+            ->andReturn(collect([['chunk' => $help, 'similarity' => 0.91]]));
+        $mock->shouldReceive('search')
+            ->once()
+            ->withArgs(fn (string $query): bool => $query === 'What are the support hours?')
+            ->andReturn(collect([['chunk' => $help, 'similarity' => 0.93]]));
+    });
+
+    $prompts = [];
+
+    fakeSupportAi();
+    SupportChatStreamAgent::fake(function (string $prompt) use (&$prompts, $counter): string {
+        $prompts[] = $prompt;
+
+        return "The counter is open Monday through Saturday, 9 a.m. to 5 p.m.\nCITES: {$counter->id}";
+    })->preventStrayPrompts();
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $chat = app(ChatService::class);
+
+    $chat->ask($session, 'where to pick up');
+    $chat->ask($session, 'time');
+    $chat->ask($session, 'What are the support hours?');
+
+    expect($prompts[1])->toContain('9 a.m. to 5 p.m.')
+        ->and($prompts[1])->toContain(ChatFollowUpPassages::CONTINUATION)
+        ->and($prompts[2])->toContain('local time')
+        ->and($prompts[2])->toContain('What are the support hours?')
+        ->and($prompts[2])->not->toContain(ChatFollowUpPassages::CONTINUATION)
+        ->and($prompts[2])->not->toContain('North counter');
 });
