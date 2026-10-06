@@ -43,7 +43,7 @@
             <ul class="space-y-3">
                 @foreach ($articles as $article)
                     <li wire:key="kb-article-{{ $article->id }}" class="rounded-xl border border-harbor-sand-deep bg-white p-4">
-                        <a href="{{ route('knowledge.show', $article->slug) }}" wire:navigate class="font-medium text-harbor-pine underline-offset-2 hover:underline">
+                        <a href="{{ route('knowledge.show', $article->slug) }}" wire:navigate class="policy-link">
                             {{ $article->title }}
                         </a>
                         <p class="mt-1.5 text-sm text-zinc-600">{{ $article->excerpt() }}</p>

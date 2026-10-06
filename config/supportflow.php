@@ -56,6 +56,7 @@ return [
     ],
 
     'rate_limits' => [
+        'workspace_chat_per_minute' => 30,
         'regenerate' => [
             'max_attempts' => 5,
             'decay_seconds' => 600,

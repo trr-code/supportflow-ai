@@ -15,6 +15,7 @@ use App\Models\KnowledgeChunk;
 use App\Models\SuggestedReply;
 use App\Services\DemoSessionService;
 use App\Services\KnowledgeIndexService;
+use App\Services\WorkspaceAccess;
 use Database\Seeders\KnowledgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -233,6 +234,23 @@ function postChatStream(string $question, ?string $demoSessionId = null): TestRe
         'Accept' => 'text/event-stream, application/json',
         'X-Requested-With' => 'XMLHttpRequest',
     ])->postJson(route('chat.stream'), ['question' => $question]);
+}
+
+/**
+ * @param  array<string, mixed>  $payload
+ */
+function postPreviewChat(array $payload, ?string $token = null): TestResponse
+{
+    $pending = test()->withHeaders([
+        'Accept' => 'text/event-stream, application/json',
+        'X-Requested-With' => 'XMLHttpRequest',
+    ]);
+
+    if (is_string($token) && $token !== '') {
+        $pending = $pending->withCookie(WorkspaceAccess::COOKIE, $token);
+    }
+
+    return $pending->postJson(route('workspaces.chat.stream'), $payload);
 }
 
 function completeWidgetChatTurn(mixed $component, ?string $question = null): TestResponse

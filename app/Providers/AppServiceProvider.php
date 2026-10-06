@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Policies\DemoResetPolicy;
 use App\Services\DemoSessionService;
+use App\Services\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -109,6 +110,17 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('demo.enter-agent', fn (Request $request) => Limit::perMinute(10)->by((string) $request->ip()));
+
+        RateLimiter::for('workspace.chat', function (Request $request) {
+            $ip = (string) $request->ip();
+            $cookie = $request->cookie(WorkspaceAccess::COOKIE);
+            $token = is_string($cookie) && $cookie !== '' ? hash('sha256', $cookie) : $ip;
+
+            return [
+                Limit::perMinute((int) config('supportflow.rate_limits.workspace_chat_per_minute'))->by('workspace-chat-ip:'.$ip),
+                Limit::perMinute((int) config('supportflow.rate_limits.workspace_chat_per_minute'))->by('workspace-chat:'.$token),
+            ];
+        });
 
         RateLimiter::for('demo.prune-stale', fn (Request $request) => Limit::perMinute(3)->by((string) ($request->user()?->id ?: $request->ip())));
     }

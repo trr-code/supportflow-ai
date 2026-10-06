@@ -3,6 +3,7 @@
 use App\Http\Controllers\EnterDemoAgentController;
 use App\Http\Controllers\StartDictationSessionController;
 use App\Http\Controllers\StreamChatController;
+use App\Http\Controllers\StreamWorkspaceChatController;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoEnvironment;
 use App\Livewire\Pages\DemoSafety;
@@ -14,6 +15,7 @@ use App\Livewire\Pages\TicketIndex;
 use App\Livewire\Pages\TicketShow;
 use App\Livewire\Pages\TicketStatus;
 use App\Livewire\Pages\Welcome;
+use App\Livewire\Pages\WorkspacePreview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,7 @@ Route::get('/', Welcome::class)->name('home');
 Route::get('/demo/workflow', DemoWorkflow::class)->name('demo.workflow');
 Route::get('/demo/safety', DemoSafety::class)->name('demo.safety');
 Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment');
+Route::get('/preview', WorkspacePreview::class)->name('workspaces.preview');
 
 Route::get('/knowledge', KnowledgeIndex::class)->name('knowledge.index');
 Route::get('/knowledge/{slug}', KnowledgeShow::class)->name('knowledge.show');
@@ -42,6 +45,10 @@ Route::post('/demo/dictation/session', StartDictationSessionController::class)
 Route::post('/chat/stream', StreamChatController::class)
     ->middleware('throttle:chat')
     ->name('chat.stream');
+
+Route::post('/preview/chat', StreamWorkspaceChatController::class)
+    ->middleware('throttle:workspace.chat')
+    ->name('workspaces.chat.stream');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');

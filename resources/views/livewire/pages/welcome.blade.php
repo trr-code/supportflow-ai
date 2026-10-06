@@ -6,7 +6,7 @@
             This is a working customer-support copilot built for potential clients to test.
         </h1>
         <p class="max-w-2xl text-base leading-relaxed text-zinc-600 sm:text-lg">
-            Ask prepared questions or quiz it with your own questions, review the business sources behind each answer, and see how uncertain or unsafe requests are handed to a human.
+            Upload your own documents and test the assistant against them, or ask prepared questions about Harbor &amp; Co. Review the sources behind each answer, and see how uncertain or unsafe requests are handed to a human.
         </p>
         <p class="max-w-2xl text-sm leading-relaxed text-zinc-500">
             Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.
@@ -15,7 +15,20 @@
 
     <section class="space-y-4" aria-labelledby="paths-heading">
         <h2 id="paths-heading" class="text-lg font-semibold text-harbor-ink">Choose how you want to test it</h2>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:col-span-2 sm:p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Private preview · 7 days</p>
+                <h3 class="mt-2 text-lg font-semibold text-harbor-ink">Test your documents</h3>
+                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                    Upload your own knowledge documents, adjust how the AI answers, and test it against your content. No account needed. The workspace expires seven days after it is created, then it is cleaned up automatically. Delete workspace removes it immediately.
+                </p>
+                <div class="mt-4">
+                    <flux:button variant="primary" :href="route('workspaces.preview')" wire:navigate class="w-full sm:w-auto">
+                        Preview your documents
+                    </flux:button>
+                </div>
+            </article>
+
             <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">About 1 minute</p>
                 <h3 class="mt-2 text-base font-semibold text-harbor-ink">Quick AI answer</h3>
@@ -23,7 +36,7 @@
                     Open the chat, choose a prepared question, or ask your own question about any Harbor policy.
                 </p>
                 <div class="mt-4">
-                    <flux:button type="button" variant="primary" wire:click="openChat" class="w-full justify-center">
+                    <flux:button type="button" variant="outline" wire:click="openChat" class="w-full justify-center">
                         Try a prepared question
                     </flux:button>
                 </div>
@@ -46,7 +59,7 @@
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Explore freely</p>
                 <h3 class="mt-2 text-base font-semibold text-harbor-ink">Business knowledge</h3>
                 <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
-                    Browse the policies that ground the AI’s answers, then quiz the assistant with your own questions.
+                    Browse Harbor &amp; Co. policies that ground the AI’s answers, then quiz the assistant with your own questions.
                 </p>
                 <div class="mt-4">
                     <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="w-full justify-center">

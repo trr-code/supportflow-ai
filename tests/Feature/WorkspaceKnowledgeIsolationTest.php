@@ -1,12 +1,15 @@
 <?php
 
+use App\Ai\Agents\WorkspaceChatAgent;
 use App\Enums\WorkspaceDocumentStatus;
 use App\Livewire\Pages\KnowledgeIndex;
 use App\Models\KnowledgeArticle;
 use App\Models\Workspace;
 use App\Models\WorkspaceDocument;
 use App\Services\RetrievalService;
+use App\Services\WorkspaceChatService;
 use App\Support\KnowledgeCorpus;
+use App\Support\WorkspaceAnswerControls;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
@@ -153,4 +156,138 @@ test('another workspace and a document that is not ready stay out of retrieval',
         ->and($firstHits->pluck('chunk.knowledge_article_id')->all())->not->toContain($pending->id)
         ->and($secondHits->pluck('chunk.knowledge_article_id')->all())->toContain($other->id)
         ->and($secondHits->pluck('chunk.knowledge_article_id')->all())->not->toContain($ready->id);
+});
+
+test('a multi-part question keeps the passage that uniquely covers the return rules', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.45]);
+
+    $workspace = Workspace::factory()->create();
+    $article = KnowledgeArticle::query()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Rental counter sheet',
+        'slug' => 'rental-counter-sheet-'.Str::lower(Str::random(6)),
+        'category' => 'general',
+        'body' => 'Counter prices and return rules.',
+        'is_published' => true,
+        'is_seeded' => false,
+    ]);
+    $article->chunks()->create([
+        'heading' => 'Prices',
+        'body' => 'Day prices start at 40 dollars. Counter pickup is required before noon.',
+        'token_count' => 16,
+    ]);
+    $article->chunks()->create([
+        'heading' => 'Returns',
+        'body' => 'A late fee applies after the due time. Return rules allow unused items back within 14 days.',
+        'token_count' => 18,
+    ]);
+    WorkspaceDocument::query()->create([
+        'workspace_id' => $workspace->id,
+        'original_name' => 'counter.txt',
+        'storage_path' => 'counter.txt',
+        'mime' => 'text/plain',
+        'extension' => 'txt',
+        'byte_size' => 120,
+        'status' => WorkspaceDocumentStatus::Ready,
+        'index_generation' => (string) Str::uuid(),
+        'knowledge_article_id' => $article->id,
+    ]);
+    assignDistinctKnowledgeEmbeddings();
+
+    $question = 'Explain the kit options, prices, pickup requirements, and return rules.';
+    $captured = null;
+
+    WorkspaceChatAgent::fake(function (string $prompt) use (&$captured): string {
+        $captured = $prompt;
+
+        return "See the passages.\nCITES: none";
+    });
+
+    app(WorkspaceChatService::class)->ask(
+        $workspace,
+        $question,
+        WorkspaceAnswerControls::fromWorkspace($workspace),
+    );
+
+    expect($captured)->toContain('late fee')
+        ->and($captured)->toContain('Day prices start at 40 dollars');
+});
+
+test('a crowded article keeps the passage that uniquely covers return rules', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.45]);
+
+    $workspace = Workspace::factory()->create();
+    $policies = KnowledgeArticle::query()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Counter policies',
+        'slug' => 'counter-policies-'.Str::lower(Str::random(6)),
+        'category' => 'general',
+        'body' => 'Pickup, cancellation, and return rules.',
+        'is_published' => true,
+        'is_seeded' => false,
+    ]);
+    $policies->chunks()->create([
+        'heading' => 'Booking and pickup',
+        'body' => 'Kit options are collected at pickup. Prices are listed at the counter. Pickup requirements include a reservation. Kit prices pickup kit prices pickup.',
+        'token_count' => 24,
+    ]);
+    $policies->chunks()->create([
+        'heading' => 'Cancellation and refunds',
+        'body' => 'Cancel before pickup. The refund returns to the original method. Kit prices stay listed. Kit prices pickup kit prices pickup.',
+        'token_count' => 24,
+    ]);
+    $policies->chunks()->create([
+        'heading' => 'Returns',
+        'body' => 'A late fee applies after the due time. Return rules allow unused items back within 14 days.',
+        'token_count' => 18,
+    ]);
+    $prices = KnowledgeArticle::query()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Price sheet',
+        'slug' => 'price-sheet-'.Str::lower(Str::random(6)),
+        'category' => 'general',
+        'body' => 'Listed kit prices.',
+        'is_published' => true,
+        'is_seeded' => false,
+    ]);
+    $prices->chunks()->create([
+        'heading' => 'Kit prices',
+        'body' => 'Day prices start at 40 dollars for the listed kit options.',
+        'token_count' => 12,
+    ]);
+
+    foreach ([$policies, $prices] as $article) {
+        WorkspaceDocument::query()->create([
+            'workspace_id' => $workspace->id,
+            'original_name' => $article->slug.'.txt',
+            'storage_path' => $article->slug.'.txt',
+            'mime' => 'text/plain',
+            'extension' => 'txt',
+            'byte_size' => 120,
+            'status' => WorkspaceDocumentStatus::Ready,
+            'index_generation' => (string) Str::uuid(),
+            'knowledge_article_id' => $article->id,
+        ]);
+    }
+
+    assignDistinctKnowledgeEmbeddings();
+
+    $question = 'Explain the kit options, prices, pickup requirements, and return rules.';
+    $captured = null;
+
+    WorkspaceChatAgent::fake(function (string $prompt) use (&$captured): string {
+        $captured = $prompt;
+
+        return "See the passages.\nCITES: none";
+    });
+
+    app(WorkspaceChatService::class)->ask(
+        $workspace,
+        $question,
+        WorkspaceAnswerControls::fromWorkspace($workspace),
+    );
+
+    expect($captured)->toContain('late fee')
+        ->and($captured)->toContain('Day prices start at 40 dollars')
+        ->and($captured)->toContain('Booking and pickup');
 });
