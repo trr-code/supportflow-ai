@@ -252,12 +252,31 @@ test('the customer status page says a human support agent must send the reply', 
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertOk()
-        ->assertSee('AI is drafting a reply. A human support agent still has to send it.')
+        ->assertSee('The AI is still working. This page updates when that changes. A person still has to send any reply.')
+        ->assertSee('Copy ticket link')
+        ->assertSee('This link returns to this ticket’s status and replies. Anyone with the link can view those customer-visible updates.')
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
         ->assertDontSee('This page does not refresh by itself')
         ->assertDontSee('When you are ready, open Agent → Tickets, filter Live demo, and approve the draft. Refresh this page after it is sent.')
         ->assertDontSee('An agent still has to approve any reply');
+
+    $escalated = Ticket::factory()->create([
+        'status' => TicketStatus::Escalated,
+    ]);
+    $failed = Ticket::factory()->create([
+        'status' => TicketStatus::AiFailed,
+    ]);
+
+    Livewire::test(TicketStatusPage::class, ['publicToken' => $escalated->public_token])
+        ->assertSee('A person has this ticket. There may be no draft. A reply appears here after they send it.')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('The AI is still working.');
+
+    Livewire::test(TicketStatusPage::class, ['publicToken' => $failed->public_token])
+        ->assertSee('The AI did not finish. A person will pick this up. You do not need to submit again.')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('The AI is still working.');
 });
 
 test('the customer status page polls while awaiting review until a public reply exists', function () {
@@ -267,29 +286,36 @@ test('the customer status page polls while awaiting review until a public reply 
     $sent = Ticket::factory()->create([
         'status' => TicketStatus::WaitingOnCustomer,
     ]);
+    TicketMessage::query()->create([
+        'ticket_id' => $sent->id,
+        'visibility' => MessageVisibility::Public,
+        'author_type' => MessageAuthorType::Agent,
+        'body' => 'Unused items can be returned within 30 days.',
+        'approved_at' => now(),
+    ]);
     $submitted = Ticket::factory()->create([
         'status' => TicketStatus::Submitted,
     ]);
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $awaiting->public_token])
         ->assertOk()
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.')
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.')
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
         ->assertDontSee('This page does not refresh by itself');
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $sent->public_token])
         ->assertOk()
-        ->assertDontSee('A human support agent is reviewing the draft. It will appear here after they send it.')
+        ->assertDontSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.')
         ->assertDontSee('Refresh status')
-        ->assertDontSee('AI is drafting a reply. A human support agent still has to send it.')
+        ->assertDontSee('The AI is still working. This page updates when that changes. A person still has to send any reply.')
         ->assertDontSeeHtml('wire:poll.5s.visible');
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $submitted->public_token])
         ->assertOk()
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
-        ->assertDontSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertDontSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 });
 
 test('customer status poll picks up a later awaiting-review state', function () {
@@ -299,13 +325,13 @@ test('customer status poll picks up a later awaiting-review state', function () 
 
     $component = Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertDontSee('A human support agent is reviewing the draft');
+        ->assertDontSee('A draft is ready for a person');
 
     $ticket->forceFill(['status' => TicketStatus::AwaitingReview])->save();
 
     $component->call('$refresh')
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 
     expect(file_get_contents(resource_path('views/livewire/pages/ticket-status.blade.php')))
         ->toContain('wire:poll.5s.visible')
@@ -327,7 +353,7 @@ test('customer status keeps polling awaiting review when only the customer messa
 
     $component = Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 
     TicketMessage::query()->create([
         'ticket_id' => $ticket->id,

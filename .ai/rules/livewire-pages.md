@@ -4,6 +4,7 @@ paths:
   - resources/views/livewire/pages/demo-safety.blade.php
   - resources/views/livewire/pages/demo-environment.blade.php
   - resources/views/livewire/pages/workspace-preview.blade.php
+  - resources/views/livewire/pages/ticket-index.blade.php
 ---
 
 # Livewire Pages
@@ -23,6 +24,8 @@ From md up, Preview chat is a closed bottom-right dock (preview-dock). The launc
 ## Phone Preview uses a closed Harbor launcher
 Below md, Preview is a closed fixed bottom dock with the same side margins as Harbor. The launcher says Preview chat when closed and Hide when open, including the phone circle. Close and Hide only clear the open flag. Expand stays hidden on phones. From md, the bottom-right size and expanded panel stay as they are, and reopening keeps the saved expanded size.
 
+## Poll the agent ticket list while it is visible
+The agent ticket list polls with wire:poll.5s.visible so a visible queue and a tab that returns from the background pick up a ticket submitted elsewhere. Do not change the customer status poll, which stops once a public approved agent reply is showing.
 
 ## Pace the visible Preview and Harbor answers together
 Store the latest server HTML in pacedTarget and reveal it into liveHtml about every 32ms, two characters at a time, without cutting a tag. Preview and Harbor use that same interval. Hold sources until that reveal catches the done HTML, then refresh or finish the turn. Stop clears the timer immediately. If done has already arrived, show the final HTML and sources at once. If it has not, abort and do not reveal the unseen target. Do not sleep in PHP.

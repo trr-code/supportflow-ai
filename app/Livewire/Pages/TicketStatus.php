@@ -3,7 +3,6 @@
 namespace App\Livewire\Pages;
 
 use App\Enums\MessageAuthorType;
-use App\Enums\TicketStatus as TicketStatusEnum;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\Ticket;
 use Illuminate\Contracts\View\View;
@@ -24,14 +23,6 @@ class TicketStatus extends Component
 
     public function shouldPoll(): bool
     {
-        if (in_array($this->ticket->status, [TicketStatusEnum::Submitted, TicketStatusEnum::Triaging], true)) {
-            return true;
-        }
-
-        if ($this->ticket->status !== TicketStatusEnum::AwaitingReview) {
-            return false;
-        }
-
         return ! $this->ticket->messages()
             ->where('visibility', 'public')
             ->where('author_type', MessageAuthorType::Agent)

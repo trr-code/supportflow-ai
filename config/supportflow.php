@@ -50,19 +50,20 @@ return [
 
     'demo' => [
         'stale_minutes' => (int) env('DEMO_STALE_MINUTES', 45),
-        'max_tickets_per_session' => 5,
-        'max_visitor_tickets' => 50,
-        'chat_turn_cap' => 10,
+        'max_tickets_per_session' => 30,
+        'max_visitor_tickets' => 200,
+        'chat_turn_cap' => 30,
     ],
 
     'rate_limits' => [
+        'tickets_per_minute' => 15,
+        'chat_per_minute' => 30,
         'workspace_chat_per_minute' => 30,
         'regenerate' => [
             'max_attempts' => 5,
             'decay_seconds' => 600,
         ],
     ],
-
 
     'workspaces' => [
         'lifetime_days' => 7,
@@ -76,4 +77,5 @@ return [
         'extract_seconds' => 30,
         'extract_memory_bytes' => 256 * 1024 * 1024,
     ],
+
 ];

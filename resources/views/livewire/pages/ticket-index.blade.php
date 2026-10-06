@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" wire:poll.5s.visible>
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <flux:heading size="lg">Ticket queue</flux:heading>

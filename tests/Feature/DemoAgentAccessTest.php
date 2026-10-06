@@ -31,6 +31,7 @@ test('demo agent login can open the visible scenario list', function () {
 
     $this->get(route('agent.tickets.index', ['scenarios' => 1]))
         ->assertOk()
+        ->assertSeeHtml('wire:poll.5s.visible')
         ->assertSee('id="agent-scenarios"', false)
         ->assertSee('Choose a prepared ticket to test.')
         ->assertSee('A shopper bought a Harbor Trail Pack 18 days ago.')

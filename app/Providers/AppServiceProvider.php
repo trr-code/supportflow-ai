@@ -73,8 +73,8 @@ class AppServiceProvider extends ServiceProvider
             $session = $request->cookie(DemoSessionService::COOKIE);
 
             return [
-                Limit::perMinute(5)->by($request->ip()),
-                Limit::perMinute(5)->by($session ?: $request->ip()),
+                Limit::perMinute((int) config('supportflow.rate_limits.tickets_per_minute'))->by($request->ip()),
+                Limit::perMinute((int) config('supportflow.rate_limits.tickets_per_minute'))->by($session ?: $request->ip()),
             ];
         });
 
@@ -96,8 +96,8 @@ class AppServiceProvider extends ServiceProvider
             };
 
             return [
-                Limit::perMinute(10)->by('ip:'.$ip)->response($tooMany),
-                Limit::perMinute(10)->by('session:'.$session)->response($tooMany),
+                Limit::perMinute((int) config('supportflow.rate_limits.chat_per_minute'))->by('ip:'.$ip)->response($tooMany),
+                Limit::perMinute((int) config('supportflow.rate_limits.chat_per_minute'))->by('session:'.$session)->response($tooMany),
             ];
         });
 

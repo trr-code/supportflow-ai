@@ -91,6 +91,48 @@ test('rejected drafts do not use the insufficient-knowledge panel message', func
         ->and($state->message)->not->toContain('Not enough knowledge');
 });
 
+test('a sent reply tells the agent the customer can already see it', function () {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::WaitingOnCustomer,
+        'needs_human' => false,
+    ]);
+    $reply = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => 'Unused items can be returned within 30 days.',
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Approved,
+        'cited_chunk_ids' => [],
+    ]);
+    $ticket->events()->create([
+        'type' => TicketEventType::ReplySent,
+        'actor' => 'Alex Rivera',
+        'payload' => ['simulated' => true],
+    ]);
+
+    $state = SuggestedReplyPanelState::for($ticket->refresh(), null, $reply->refresh());
+
+    expect($state->kind)->toBe(SuggestedReplyPanelKind::ReplySent)
+        ->and($state->message)->toBe('This reply was sent. The customer can see it on the status page. There is no new draft.')
+        ->and($state->message)->not->toContain('No pending draft yet');
+});
+
+test('a custom send is not described as a draft still in review', function () {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::WaitingOnCustomer,
+        'needs_human' => true,
+    ]);
+    $ticket->events()->create([
+        'type' => TicketEventType::ReplySent,
+        'actor' => 'Alex Rivera',
+        'payload' => ['simulated' => true, 'custom' => true],
+    ]);
+
+    $state = SuggestedReplyPanelState::for($ticket->refresh(), null, null);
+
+    expect($state->kind)->toBe(SuggestedReplyPanelKind::ReplySent)
+        ->and($state->message)->not->toContain('No pending draft yet');
+});
+
 test('knowledge match uses measured similarity not classification confidence', function () {
     expect(KnowledgeMatchLevel::fromSimilarity(0.80)->value)->toBe('high')
         ->and(KnowledgeMatchLevel::fromSimilarity(0.20)->value)->toBe('none');
