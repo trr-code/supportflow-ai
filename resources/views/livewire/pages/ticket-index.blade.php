@@ -103,10 +103,10 @@
     </div>
 
     <div class="hidden overflow-hidden rounded-xl border border-harbor-sand-deep md:block">
-        <table class="w-full text-left text-sm">
+        <table class="w-full table-fixed text-left text-sm">
             <thead class="bg-harbor-sand text-zinc-500">
                 <tr>
-                    <th class="px-4 py-2 font-medium">Reference</th>
+                    <th class="w-36 px-4 py-2 font-medium">Reference</th>
                     <th class="px-4 py-2 font-medium">Subject</th>
                     <th class="px-4 py-2 font-medium">Status</th>
                     <th class="px-4 py-2 font-medium">Priority</th>
@@ -115,11 +115,13 @@
             </thead>
             <tbody class="bg-white">
                 @forelse ($tickets as $ticket)
-                    <tr wire:key="queue-ticket-{{ $ticket->id }}" class="border-t border-harbor-sand-deep">
-                        <td class="px-4 py-3">
-                            <a href="{{ route('agent.tickets.show', $ticket) }}" wire:navigate class="font-medium underline-offset-2 hover:underline">{{ $ticket->reference }}</a>
+                    <tr wire:key="queue-ticket-{{ $ticket->id }}" class="border-t border-harbor-sand-deep hover:bg-harbor-sand">
+                        <td class="p-0" colspan="2">
+                            <a href="{{ route('agent.tickets.show', $ticket) }}" wire:navigate class="grid grid-cols-[9rem_minmax(0,1fr)] items-start">
+                                <span class="pine-hover px-4 py-3 font-medium text-harbor-pine underline underline-offset-2">{{ $ticket->reference }}</span>
+                                <span class="min-w-0 px-4 py-3 text-harbor-ink">{{ $ticket->subject }}</span>
+                            </a>
                         </td>
-                        <td class="px-4 py-3">{{ $ticket->subject }}</td>
                         <td class="px-4 py-3"><x-status-badge :status="$ticket->status" /></td>
                         <td class="px-4 py-3">{{ $ticket->priority?->label() ?? '—' }}</td>
                         <td class="px-4 py-3">

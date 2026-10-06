@@ -148,6 +148,24 @@ test('cancel closes the reset dialog without pruning', function () {
     expect(Ticket::query()->find($staleTicket->id))->not->toBeNull();
 });
 
+test('a desktop ticket row opens from the reference and the subject', function () {
+    $agent = User::factory()->create();
+    $this->actingAs($agent);
+    $ticket = Ticket::factory()->create(['subject' => 'Snapped trekking pole']);
+
+    $html = Livewire::test(TicketIndex::class)->html();
+    $desktop = substr($html, (int) strpos($html, 'md:block'));
+    $row = substr($desktop, (int) strpos($desktop, 'queue-ticket-'.$ticket->id));
+    $link = substr($row, (int) strpos($row, '<a '), (int) strpos($row, '</a>') + 4);
+
+    expect($html)
+        ->toContain('hover:bg-harbor-sand')
+        ->and($link)->toContain($ticket->reference)
+        ->and($link)->toContain('Snapped trekking pole')
+        ->and($link)->toContain(route('agent.tickets.show', $ticket))
+        ->and($link)->not->toContain('wire:key="status-');
+});
+
 test('the fourth queue reset within 60 seconds is blocked and still closes the dialog', function () {
     $agent = User::factory()->create();
     $this->actingAs($agent);
