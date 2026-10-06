@@ -32,6 +32,7 @@ test('knowledge index lists published seeded articles by category', function () 
         ->assertSee('These are the seeded articles retrieval uses.')
         ->assertSee('Return window')
         ->assertSee('Window')
+        ->assertSee('policy-link', false)
         ->assertDontSee('Internal draft');
 
     Livewire::test(KnowledgeIndex::class)
@@ -49,7 +50,7 @@ test('knowledge show renders a published seeded article', function () {
         'title' => 'Store pickup',
         'slug' => 'store-pickup-browser',
         'category' => TicketCategory::Shipping,
-        'body' => "Seattle Flagship can hold replacement parts.\n## Same-day\nAsk before 2pm local time.",
+        'body' => "Seattle Flagship can hold replacement parts. Email noreply@harborandco.example.\n## Same-day\nAsk before 2pm local time.",
         'is_published' => true,
         'is_seeded' => true,
     ]);
@@ -60,7 +61,10 @@ test('knowledge show renders a published seeded article', function () {
         ->assertSee('Seattle Flagship can hold replacement parts')
         ->assertSee('Same-day')
         ->assertSee('Back to all policies')
-        ->assertSee('Ask the assistant');
+        ->assertSee('Ask the assistant')
+        ->assertSee('href="mailto:noreply@harborandco.example"', false)
+        ->assertSee('policy-link', false)
+        ->assertSee('policy-prose', false);
 
     Livewire::test(KnowledgeShow::class, ['slug' => $article->slug])
         ->call('askAssistant')

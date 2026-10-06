@@ -20,6 +20,7 @@ use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
 use App\Services\SuggestedReplyService;
 use App\Support\CitedSources;
+use App\Support\KnowledgeCorpus;
 use App\Support\RetrievalQuery;
 use App\Support\SuggestedReplyPanelState;
 use Illuminate\Support\Collection;
@@ -90,6 +91,48 @@ test('rejected drafts do not use the insufficient-knowledge panel message', func
         ->and($state->message)->not->toContain('Not enough knowledge');
 });
 
+test('a sent reply tells the agent the customer can already see it', function () {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::WaitingOnCustomer,
+        'needs_human' => false,
+    ]);
+    $reply = SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => 'Unused items can be returned within 30 days.',
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Approved,
+        'cited_chunk_ids' => [],
+    ]);
+    $ticket->events()->create([
+        'type' => TicketEventType::ReplySent,
+        'actor' => 'Alex Rivera',
+        'payload' => ['simulated' => true],
+    ]);
+
+    $state = SuggestedReplyPanelState::for($ticket->refresh(), null, $reply->refresh());
+
+    expect($state->kind)->toBe(SuggestedReplyPanelKind::ReplySent)
+        ->and($state->message)->toBe('This reply was sent. The customer can see it on the status page. There is no new draft.')
+        ->and($state->message)->not->toContain('No pending draft yet');
+});
+
+test('a custom send is not described as a draft still in review', function () {
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::WaitingOnCustomer,
+        'needs_human' => true,
+    ]);
+    $ticket->events()->create([
+        'type' => TicketEventType::ReplySent,
+        'actor' => 'Alex Rivera',
+        'payload' => ['simulated' => true, 'custom' => true],
+    ]);
+
+    $state = SuggestedReplyPanelState::for($ticket->refresh(), null, null);
+
+    expect($state->kind)->toBe(SuggestedReplyPanelKind::ReplySent)
+        ->and($state->message)->not->toContain('No pending draft yet');
+});
+
 test('knowledge match uses measured similarity not classification confidence', function () {
     expect(KnowledgeMatchLevel::fromSimilarity(0.80)->value)->toBe('high')
         ->and(KnowledgeMatchLevel::fromSimilarity(0.20)->value)->toBe('none');
@@ -110,6 +153,7 @@ test('retrieval returns chunks above the minimum similarity gate', function () {
 
     $results = app(RetrievalService::class)->search(
         'Can I return an unused pack without the original box?',
+        KnowledgeCorpus::harbor(),
         4,
         0.05,
     );
@@ -317,6 +361,7 @@ test('billing dispute retrieval includes gift cards and billing splits at the pr
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );
@@ -734,6 +779,7 @@ test('multi-topic retrieval covers return, shipping, and warranty articles', fun
 
     $results = app(RetrievalService::class)->search(
         'Explain the complete return, shipping, and warranty policies',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -757,6 +803,7 @@ test('original-box retrieval includes return window and is not exchanges-only', 
 
     $results = app(RetrievalService::class)->search(
         'Can I return an unused pack without the original box and what are the next steps?',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -775,6 +822,7 @@ test('trail pack retrieval keeps box not required and prepaid labels with the de
 
     $results = app(RetrievalService::class)->search(
         'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -793,6 +841,7 @@ test('lexical retrieval binds visitor text instead of interpolating sql', functi
 
     $results = app(RetrievalService::class)->search(
         "return window'); DELETE FROM knowledge_chunks; --",
+        KnowledgeCorpus::harbor(),
         6,
         0.05,
     );
@@ -816,6 +865,7 @@ test('prepaid-label ticket that mentions the original box retrieves return-windo
 
     $results = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         (float) config('supportflow.retrieval.min_similarity'),
     );

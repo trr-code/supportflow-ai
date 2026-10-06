@@ -7,16 +7,28 @@
         <x-status-badge :status="$ticket->status" />
     </div>
 
-    <div class="space-y-3 text-sm text-zinc-600">
+    <div class="space-y-3 text-sm text-zinc-600" x-data="{ copied: false }">
         <p>
-            Bookmark this page. Anyone with the link can see public updates for this ticket only.
+            This link returns to this ticket’s status and replies. Anyone with the link can view those customer-visible updates.
+        </p>
+        <p>
+            <button
+                type="button"
+                class="policy-link"
+                x-on:click="navigator.clipboard.writeText(@js(route('tickets.status', $ticket->public_token))).then(() => { copied = true; window.setTimeout(() => { copied = false }, 2000) })"
+            >
+                Copy ticket link
+            </button>
+            <span x-show="copied" role="status" class="ms-2 text-harbor-ink" style="display: none;">Copied.</span>
         </p>
         @if ($ticket->status === \App\Enums\TicketStatus::Triaging || $ticket->status === \App\Enums\TicketStatus::Submitted)
-            <p>AI is drafting a reply. A human support agent still has to send it.</p>
+            <p>The AI is still working. This page updates when that changes. A person still has to send any reply.</p>
         @elseif ($ticket->status === \App\Enums\TicketStatus::AwaitingReview)
-            <p>A human support agent is reviewing the draft. It will appear here after they send it.</p>
+            <p>AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.</p>
+        @elseif ($ticket->status === \App\Enums\TicketStatus::Escalated)
+            <p>A person has this ticket. There may be no draft. A reply appears here after they send it.</p>
         @elseif ($ticket->status === \App\Enums\TicketStatus::AiFailed)
-            <p>Automation hit a snag. A human agent will pick this up—you don’t need to resubmit.</p>
+            <p>The AI did not finish. A person will pick this up. You do not need to submit again.</p>
         @endif
     </div>
 

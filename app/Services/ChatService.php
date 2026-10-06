@@ -9,9 +9,11 @@ use App\Models\ChatMessage;
 use App\Models\DemoSession;
 use App\Support\ChatAnswerCopy;
 use App\Support\ChatCitationTrailer;
+use App\Support\ChatFollowUpPassages;
 use App\Support\ChatFollowUpQuery;
 use App\Support\ChatInjectionGate;
 use App\Support\CitedChunkIds;
+use App\Support\KnowledgeCorpus;
 use App\Support\SupportingPassages;
 use App\Support\UntrustedContent;
 use Closure;
@@ -150,11 +152,21 @@ class ChatService
         $limit = (int) config('supportflow.retrieval.limit');
         $previous = $this->previousSafeUserTurn($conversation);
         $query = ChatFollowUpQuery::retrievalQuery($question, $previous);
-        $matches = $this->retrieval->search($query, $limit, $min);
+        $corpus = KnowledgeCorpus::harbor();
+        $matches = $this->retrieval->search($query, $corpus, $limit, $min);
 
         if ($matches->isEmpty() && $previous !== null && $query === $question) {
-            $matches = $this->retrieval->search($previous."\n".$question, $limit, $min);
+            $matches = $this->retrieval->search($previous."\n".$question, $corpus, $limit, $min);
         }
+
+        $contextual = $previous !== null && ChatFollowUpQuery::needsPreviousSubjects($question, $previous);
+        [$matches, $continuing] = ChatFollowUpPassages::mergePreviousCitations(
+            $matches,
+            $conversation,
+            $corpus,
+            $limit,
+            $contextual,
+        );
 
         $chunkIds = array_values($matches->map(fn (array $row): int => $row['chunk']->id)->all());
 
@@ -201,8 +213,10 @@ class ChatService
         $raw = '';
         $cancelled = false;
 
+        $continuation = $continuing ? ChatFollowUpPassages::CONTINUATION."\n" : '';
+
         $stream = SupportChatStreamAgent::make(conversation: $conversation)->stream(
-            "Answer only from these passages. CITES IDs must be a subset of: {$allowed}.\n\nQuestion:\n"
+            "Answer only from these passages. {$continuation}CITES IDs must be a subset of: {$allowed}.\n\nQuestion:\n"
             .UntrustedContent::wrap('chat_user', $question)
             ."\n\nPassages:\n{$passages}",
             provider: Lab::OpenAI,

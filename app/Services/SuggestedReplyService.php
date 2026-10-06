@@ -17,6 +17,7 @@ use App\Models\SuggestedReply;
 use App\Models\Ticket;
 use App\Support\ChatAnswerCopy;
 use App\Support\CitedChunkIds;
+use App\Support\KnowledgeCorpus;
 use App\Support\RetrievalQuery;
 use App\Support\SuggestedReplyCopy;
 use App\Support\SupportingPassages;
@@ -63,7 +64,7 @@ class SuggestedReplyService
 
         $min = (float) config('supportflow.retrieval.min_similarity');
         $limit = (int) config('supportflow.retrieval.limit');
-        $matches = $this->retrieval->search($query, $limit, $min);
+        $matches = $this->retrieval->search($query, KnowledgeCorpus::harbor(), $limit, $min);
 
         $topSimilarity = $matches->max('similarity');
         $ticket->forceFill([

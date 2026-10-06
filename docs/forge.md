@@ -148,6 +148,7 @@ php /home/forge/supportflow-ai-lqojsjr5.on-forge.com/artisan schedule:run
 App schedule:
 
 - `demo:prune-stale` every 15 minutes (idle visitor data only; seeded tickets stay)
+- `workspaces:purge-expired` every 15 minutes (expired private previews only; it does not call `demo:prune-stale`)
 - `queue:prune-failed` daily
 
 There is **no** hourly global wipe.
@@ -168,3 +169,11 @@ From a local checkout, with `STRESS=true`, `STRESS_URL=https://supportflow-ai-lq
 1. Start with `composer test:stress:smoke`. Stop if it fails.
 2. If smoke passes, you may run load, stress, stability, then capacity at that 16-VU safety rail.
 3. GET `/up`, `/`, `/knowledge`, and `/knowledge/return-window` only. Never hit ticket create, chat send, dictation, or regenerate.
+
+## Private preview uploads
+
+Before the first client document upload on this server:
+
+- Set Forge `OPENAI_STORE=false`. Leave model-feedback sharing, evaluation/fine-tuning sharing, and API input/output sharing Disabled in the OpenAI organization. This app has no switch that turns those on.
+- In `/etc/php/8.5/cli/php.ini`, set `upload_max_filesize` to `10M` and `post_max_size` to `12M`, then restart Octane. The same PHP 8.5 CLI binary serves Octane and the queue. Do not change CareerForge's worker.
+- Stored client originals are capped at 2 GiB, and an upload is refused when free space on `/` would fall below 8 GiB.

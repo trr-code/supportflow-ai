@@ -6,6 +6,10 @@ use App\Models\AiRun;
 use App\Models\ChatMessage;
 use Livewire\Livewire;
 
+beforeEach(function () {
+    config(['supportflow.rate_limits.chat_per_minute' => 10]);
+});
+
 test('chat allows ten requests per minute then blocks the eleventh with a retry message', function () {
     config(['supportflow.demo.chat_turn_cap' => 20]);
     fakeSupportAi();
@@ -131,13 +135,14 @@ test('empty chat validation stays distinct from the rate-limit message', functio
         ->assertDontSee('capped at');
 });
 
-test('ten-question chat cap stays distinct from the rate-limit message', function () {
+test('the conversation question cap stays distinct from the rate-limit message', function () {
     fakeSupportAi();
+    config(['supportflow.demo.chat_turn_cap' => 2]);
 
     $question = 'How long do I have to return an unused pack with tags?';
     $component = Livewire::test(Widget::class);
 
-    for ($i = 0; $i < 10; $i++) {
+    for ($i = 0; $i < 2; $i++) {
         $component->set('question', $question)->call('send')->streamTurn();
     }
 
@@ -149,9 +154,9 @@ test('ten-question chat cap stays distinct from the rate-limit message', functio
         ->streamTurn();
 
     expect($component->html())
-        ->toContain('capped at 10 questions')
+        ->toContain('capped at 2 questions')
         ->not->toContain('Chat limit reached')
-        ->and(ChatMessage::query()->where('role', 'user')->count())->toBe(11);
+        ->and(ChatMessage::query()->where('role', 'user')->count())->toBe(3);
 });
 
 test('a new conversation does not bypass the visitor chat rate limit', function () {

@@ -15,6 +15,7 @@ use App\Models\KnowledgeChunk;
 use App\Models\SuggestedReply;
 use App\Services\DemoSessionService;
 use App\Services\KnowledgeIndexService;
+use App\Services\WorkspaceAccess;
 use Database\Seeders\KnowledgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -169,7 +170,7 @@ function seedHarborPolicyArticles(): void
         ['Return window', 'return-window', 'returns', "## Window\nHarbor Outfitters accepts unused returns within 30 days of delivery with tags attached.\n## Box not required\nThe original shipping box is helpful but not required. A sturdy carton is fine.\n## Prepaid labels\nWe email a prepaid UPS label after the return is approved in the order portal."],
         ['Exchanges', 'exchanges', 'returns', "Size exchanges for packs, shells, and footwear are free within 30 days if the item is unused.\n## How to start\nStart an exchange from the order in the Harbor app or email support with the order number."],
         ['Shipping times', 'shipping-times', 'shipping', "Standard ground shipping is 3–6 business days inside the contiguous US.\n## Expedited\n2-day and overnight options appear at checkout when inventory is in the Kent warehouse."],
-        ['Warranty', 'warranty', 'general', "Harbor hardgoods carry a 2-year manufacturing warranty against seam and hardware failure in normal use.\n## Not covered\nImpacts, misuse, and normal wear are not covered. We may offer a discounted replacement."],
+        ['Warranty', 'warranty', 'general', "Harbor hardgoods carry a 2-year warranty for manufacturing defects that cause seam or hardware failure during normal use.\n## Not covered\nOrdinary wear, impacts, and misuse are not covered. We may offer a discounted replacement."],
     ];
 
     fakeMatchingKnowledgeEmbeddings();
@@ -233,6 +234,23 @@ function postChatStream(string $question, ?string $demoSessionId = null): TestRe
         'Accept' => 'text/event-stream, application/json',
         'X-Requested-With' => 'XMLHttpRequest',
     ])->postJson(route('chat.stream'), ['question' => $question]);
+}
+
+/**
+ * @param  array<string, mixed>  $payload
+ */
+function postPreviewChat(array $payload, ?string $token = null): TestResponse
+{
+    $pending = test()->withHeaders([
+        'Accept' => 'text/event-stream, application/json',
+        'X-Requested-With' => 'XMLHttpRequest',
+    ]);
+
+    if (is_string($token) && $token !== '') {
+        $pending = $pending->withCookie(WorkspaceAccess::COOKIE, $token);
+    }
+
+    return $pending->postJson(route('workspaces.chat.stream'), $payload);
 }
 
 function completeWidgetChatTurn(mixed $component, ?string $question = null): TestResponse

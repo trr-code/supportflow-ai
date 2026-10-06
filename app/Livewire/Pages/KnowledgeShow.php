@@ -14,6 +14,7 @@ class KnowledgeShow extends Component
     {
         $this->article = KnowledgeArticle::query()
             ->where('slug', $slug)
+            ->whereNull('workspace_id')
             ->where('is_published', true)
             ->where('is_seeded', true)
             ->firstOrFail();

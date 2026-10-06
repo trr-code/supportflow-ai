@@ -91,6 +91,135 @@ select:focus[data-flux-control] {
     }
 }
 
+/*
+ * Preview and Harbor are closed bottom docks. Phones use the full-width Harbor
+ * placement. From md, both share one bottom-right size and a wider expanded
+ * size that stays inside the viewport. Only the transcript scrolls.
+ */
+.preview-dock,
+.chat-dock {
+    min-width: 0;
+    pointer-events: none;
+}
+
+.preview-dock {
+    position: fixed;
+    z-index: 40;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+}
+
+.preview-chat,
+.preview-launcher,
+.chat-dock > * {
+    pointer-events: auto;
+}
+
+.preview-chat,
+.chat-dock-panel {
+    min-height: 0;
+    overflow: hidden;
+    overflow-anchor: none;
+}
+
+.preview-chat,
+.chat-dock-panel {
+    height: min(32rem, calc(100dvh - 8rem));
+    max-height: min(32rem, calc(100dvh - 8rem));
+}
+
+.preview-launcher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: var(--color-harbor-pine);
+    padding: 0.625rem 1rem;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+.preview-launcher.is-open {
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+}
+
+@media (min-width: 768px) {
+    .preview-dock,
+    .chat-dock {
+        position: fixed;
+        z-index: 40;
+        right: 1rem;
+        bottom: 1rem;
+        left: auto;
+        width: min(28rem, calc(100vw - 2rem));
+        max-width: calc(100vw - 2rem);
+    }
+
+    .preview-launcher,
+    .preview-launcher.is-open {
+        width: auto;
+        height: auto;
+        padding: 0.625rem 1rem;
+    }
+
+    .preview-dock:has(.is-expanded),
+    .chat-dock.is-expanded {
+        width: min(40rem, calc(100vw - 2rem));
+    }
+
+    .preview-chat,
+    .chat-dock-panel {
+        width: 100%;
+        height: min(42rem, calc(100dvh - 6.5rem));
+        max-height: min(42rem, calc(100dvh - 6.5rem));
+    }
+
+    .preview-chat.is-expanded,
+    .chat-dock.is-expanded .chat-dock-panel {
+        height: calc(100dvh - 5.5rem);
+        max-height: calc(100dvh - 5.5rem);
+        box-shadow: 0 20px 40px rgb(28 36 31 / 0.16);
+    }
+
+}
+
+@media (max-width: 767px) {
+    .preview-expand,
+    .preview-close,
+    .harbor-expand {
+        display: none !important;
+    }
+}
+
+.policy-link,
+.policy-prose a {
+    font-weight: 500;
+    color: var(--color-harbor-pine);
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+}
+
+.policy-link:hover,
+.policy-prose a:hover,
+.pine-hover:hover {
+    color: #217a4a;
+}
+
+.policy-link:focus-visible,
+.policy-prose a:focus-visible {
+    outline: 2px solid var(--color-harbor-ink);
+    outline-offset: 2px;
+}
+
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */

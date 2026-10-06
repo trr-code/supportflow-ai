@@ -16,6 +16,7 @@ use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
 use App\Support\ChatInjectionGate;
 use App\Support\DemoGuide;
+use App\Support\KnowledgeCorpus;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -357,8 +358,14 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('x-on:touchmove="onUserScrollIntent($event)"')
         ->toContain('x-on:pointerdown="onUserScrollIntent($event)"')
         ->toContain('event.deltaY < 0')
+        ->toContain('event.deltaY > 0')
         ->toContain('this.pinToBottom = false')
-        ->toContain('if (! awayFromBottom)')
+        ->toContain('resumeIfAtEnd()')
+        ->toContain('scrollingDown')
+        ->toContain('distance <= 96')
+        ->toContain('distance <= 24')
+        ->toContain('if (! this.pinToBottom)')
+        ->not->toContain('setTimeout(() => this.resumeIfAtEnd(), 0)')
         ->toContain("\$watch('\$wire.streaming'")
         ->toContain("\$watch('liveHtml'")
         ->toContain('startChatStream')
@@ -390,7 +397,33 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('x-on:submit="pinNewest();')
         ->toContain('x-on:wheel="onUserScrollIntent($event)"')
         ->toContain('start-4 end-4')
-        ->toContain('sm:start-auto sm:w-full sm:max-w-sm');
+        ->toContain('chat-dock')
+        ->toContain('harbor-expand')
+        ->not->toContain('sm:start-auto sm:w-full sm:max-w-sm');
+});
+
+test('preview re-pins on a downward scroll and reveals the answer on a timer', function () {
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+
+    expect($view)
+        ->toContain('scrollingDown')
+        ->toContain('this.$root')
+        ->toContain('distance <= 96')
+        ->toContain('if (! this.pinToBottom)')
+        ->toContain('this.pacedTarget = data.html || \'\'')
+        ->toContain('revealMs: 32')
+        ->toContain('revealStep: 2')
+        ->toContain('setInterval(() => this.stepReveal(), this.revealMs)')
+        ->toContain('this.liveHtml = this.htmlPrefix(target, this.revealedChars)')
+        ->toContain('this.$wire.requestStop()')
+        ->toContain('this.stopReveal()')
+        ->toMatch('/if \(this\.streamDone\) \{\s+this\.stopReveal\(\)\s+this\.liveHtml = this\.pacedTarget/')
+        ->toMatch('/this\.stopReveal\(\)\s+this\.abortController\?\.abort\(\)\s+this\.\$wire\.requestStop\(\)/')
+        ->not->toContain('this.liveHtml = data.html')
+        ->not->toContain('this.liveSources = data.sources')
+        ->not->toContain('setTimeout(() => this.resumeIfAtEnd(), 0)')
+        ->toMatch('/if \(this\.streamDone\) \{\s+this\.liveSources = this\.pacedSources/')
+        ->toMatch('/this\.pacedSources = data\.sources \|\| \[\]\s+this\.streamDone = true\s+this\.startReveal\(\)/');
 });
 
 test('done stream events keep the answer visible while painting sources', function () {
@@ -398,12 +431,20 @@ test('done stream events keep the answer visible while painting sources', functi
 
     expect($view)
         ->toContain('liveSources: []')
-        ->toContain('this.liveSources = payload.sources')
+        ->toContain('this.$root')
+        ->toContain("querySelector('[data-chat-transcript]')")
+        ->toContain('this.pacedTarget = payload.html')
+        ->toContain('revealMs: 32')
+        ->toContain('revealStep: 2')
+        ->toContain('setInterval(() => this.stepReveal(), this.revealMs)')
+        ->toContain('this.liveHtml = this.htmlPrefix(target, this.revealedChars)')
+        ->toMatch('/if \(this\.streamDone\) \{\s+this\.liveSources = this\.pacedSources/')
         ->toContain("item.event === 'done'")
         ->toContain("item.event === 'stopped'")
         ->toContain('x-for="group in liveSources"')
-        ->toContain("await this.\$wire.finishTurn()\n                            this.liveHtml = ''\n                            this.liveSources = []")
-        ->toContain("this.liveHtml = ''\n                            this.liveSources = []\n                            await this.\$wire.finishTurn()")
+        ->toMatch('/await this\.\$wire\.finishTurn\(\)\s+this\.liveHtml = \'\'\s+this\.liveSources = \[\]/')
+        ->not->toContain('this.liveHtml = payload.html')
+        ->not->toContain('this.liveSources = payload.sources')
         ->not->toContain("item.event === 'done' || item.event === 'stopped'");
 });
 
@@ -429,6 +470,7 @@ test('chat covers and cites return, shipping, and warranty when all three are re
 
     $matches = app(RetrievalService::class)->search(
         'Explain the complete return, shipping, and warranty policies',
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );
@@ -675,6 +717,7 @@ test('trail pack chat cites box not required and prepaid labels', function () {
     $query = 'I have an unused Trail Pack with its tags, but no original box. Explain the return deadline, packaging requirements, prepaid-label process, and next steps.';
     $matches = app(RetrievalService::class)->search(
         $query,
+        KnowledgeCorpus::harbor(),
         (int) config('supportflow.retrieval.limit'),
         0.05,
     );

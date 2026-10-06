@@ -23,7 +23,7 @@ class ChatAnswerHtml
         }
 
         $text = self::replace('/[ \t]+-\s+(?=(?:\*\*)?[A-Za-z][A-Za-z0-9 \/&-]{0,39}:)/', "\n- ", $text);
-        $text = self::replace('/(?<=\S)[ \t]+(?=(?:\*\*)?[A-Z][a-z][A-Za-z0-9 \/&-]{0,37}:\s+\S)/', "\n", $text);
+        $text = self::splitBeforeLabels($text);
 
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $escaped = self::replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $escaped);
@@ -78,6 +78,30 @@ class ChatAnswerHtml
         self::appendList($html, $items);
 
         return implode('', $html);
+    }
+
+    /**
+     * Start a new line before a label, but keep a multi-word name such as "Field Kit:" intact.
+     */
+    protected static function splitBeforeLabels(string $text): string
+    {
+        $pattern = '/(?<=\S)[ \t]+(?=(?:\*\*)?[A-Z][a-z][A-Za-z0-9 \/&-]{0,37}:\s+\S)/';
+
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $text;
+        }
+
+        $result = '';
+        $offset = 0;
+
+        foreach ($matches[0] as [$whitespace, $position]) {
+            $prefix = substr($text, 0, $position);
+            $result .= substr($text, $offset, $position - $offset);
+            $result .= preg_match('/[A-Z][A-Za-z]{1,40}$/', $prefix) === 1 ? $whitespace : "\n";
+            $offset = $position + strlen($whitespace);
+        }
+
+        return $result.substr($text, $offset);
     }
 
     protected static function startsWithLabel(string $text): bool

@@ -27,6 +27,7 @@ class KnowledgeIndex extends Component
     public function render(): View
     {
         $articles = KnowledgeArticle::query()
+            ->whereNull('workspace_id')
             ->where('is_published', true)
             ->where('is_seeded', true)
             ->orderBy('title')

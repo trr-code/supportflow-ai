@@ -39,3 +39,9 @@ OR-expanded lexical search must not rank on Harbor, Outfitters, order, or orders
 
 ## Stop force-releases the chat stream lock
 Stop and new conversation must interruptStream: requestStop, bump chat-gen, and forceRelease chat-stream:{session}. Aborting the browser fetch does not release the SSE lock. In-flight ask must not write if the generation no longer matches.
+
+## Pass a knowledge corpus into retrieval
+RetrievalService::search() requires a KnowledgeCorpus. Harbor is workspace-null, published, and seeded. A workspace corpus is that workspace id plus a ready workspace document. Do not search published chunks without a corpus, or client text can enter Harbor chat and ticket drafts.
+
+## Follow-up retrieval keeps the previous citations
+Contextual follow-ups still search the previous non-gated user turn plus the current question. ChatFollowUpPassages then puts the immediately previous assistant message's cited chunks ahead of those hits. Do not merge citations for a self-contained new question, and do not walk back past a gap that cited nothing.

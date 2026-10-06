@@ -106,7 +106,7 @@ test('seeded titles and landing copy use closed em dashes', function () {
         ->not->toContain('live product—they are not a second script')
         ->not->toContain('live product —')
         ->and(file_get_contents(resource_path('views/livewire/pages/demo-workflow.blade.php')))
-        ->toContain('Customer → submit a ticket → Agent reviews the AI draft → a human approves it → the customer status page shows the sent reply.')
+        ->toContain('Go to Tickets → Live demo and find the same SF- reference.')
         ->not->toContain('Customer→')
         ->and(file_get_contents(resource_path('views/livewire/pages/ticket-index.blade.php')))
         ->toContain('Choose a prepared ticket to test.')

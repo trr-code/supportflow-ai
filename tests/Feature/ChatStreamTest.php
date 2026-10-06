@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
-use RuntimeException;
 
 test('the chat stream route records one user message without a livewire send', function () {
     fakeSupportAi();
@@ -239,6 +238,7 @@ test('a stopped chat stream does not attach source labels', function () {
 
 test('stop generating does not consume a chat rate-limit attempt', function () {
     fakeSupportAi();
+    config(['supportflow.rate_limits.chat_per_minute' => 10]);
 
     $component = Livewire::test(Widget::class)->set('open', true);
     $sessionId = (string) $component->get('demoSessionId');

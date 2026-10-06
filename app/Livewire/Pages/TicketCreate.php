@@ -78,7 +78,7 @@ class TicketCreate extends Component
 
         $key = 'tickets|'.request()->ip();
 
-        if (RateLimiter::tooManyAttempts($key, 5)) {
+        if (RateLimiter::tooManyAttempts($key, (int) config('supportflow.rate_limits.tickets_per_minute'))) {
             $this->addError('subject', 'Too many tickets from this network. Please wait a minute.');
 
             return null;

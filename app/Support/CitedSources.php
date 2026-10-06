@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\KnowledgeChunk;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class CitedSources
 {
@@ -63,6 +64,27 @@ class CitedSources
             ],
             self::groupByArticle(self::inCitationOrder($chunks, $citedIds)),
         );
+    }
+
+    /**
+     * @param  iterable<int, KnowledgeChunk>  $chunks
+     * @param  list<int>  $citedIds
+     * @return list<array{chunk_id: int, title: string, heading: string|null, excerpt: string}>
+     */
+    public static function workspaceInspector(iterable $chunks, array $citedIds): array
+    {
+        return array_values(self::inCitationOrder($chunks, $citedIds)
+            ->map(function (KnowledgeChunk $chunk): array {
+                $excerpt = preg_replace('/\s+/', ' ', trim($chunk->body)) ?? '';
+
+                return [
+                    'chunk_id' => $chunk->id,
+                    'title' => $chunk->article?->title ?: 'Document',
+                    'heading' => $chunk->heading,
+                    'excerpt' => Str::limit($excerpt, 240),
+                ];
+            })
+            ->all());
     }
 
     /**

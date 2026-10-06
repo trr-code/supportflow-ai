@@ -11,6 +11,7 @@ enum SuggestedReplyPanelKind: string
     case AiFailed = 'ai_failed';
     case Regenerating = 'regenerating';
     case Escalated = 'escalated';
+    case ReplySent = 'reply_sent';
     case NoDraftYet = 'no_draft_yet';
 
     public function message(): string
@@ -23,6 +24,7 @@ enum SuggestedReplyPanelKind: string
             self::AiFailed => 'AI is unavailable. Retry intake, or write a human reply.',
             self::Regenerating => 'A grounded draft is being generated. This page will show it when it is ready.',
             self::Escalated => 'This ticket is assigned to a human. Write a custom reply below.',
+            self::ReplySent => 'This reply was sent. The customer can see it on the status page. There is no new draft.',
             self::NoDraftYet => 'No pending draft yet. AI may still be reviewing this ticket.',
         };
     }

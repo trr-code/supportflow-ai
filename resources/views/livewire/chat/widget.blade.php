@@ -1,12 +1,25 @@
 <div
-    class="fixed bottom-4 start-4 end-4 z-40 min-w-0 sm:start-auto sm:w-full sm:max-w-sm"
+    class="chat-dock fixed bottom-4 start-4 end-4 z-40 min-w-0"
+    :class="{ 'is-expanded': expanded && ! phone }"
     x-data="{
+        expanded: false,
+        phone: false,
         fieldFocused: false,
         pinToBottom: true,
         ignoreScroll: false,
         userScrolling: false,
+        scrollingDown: false,
+        lastScrollTop: 0,
         liveHtml: '',
         liveSources: [],
+        pacedTarget: '',
+        pacedSources: [],
+        revealedChars: 0,
+        streamDone: false,
+        revealTimer: null,
+        revealMs: 32,
+        revealStep: 2,
+        finishStarted: false,
         abortController: null,
         abortReason: null,
         streamFailed: false,
@@ -18,7 +31,110 @@
         streamProbeUrl: @js(url('/robots.txt')),
         streamStallMs: 20000,
         transcriptEl() {
-            return this.$el.querySelector('[data-chat-transcript]')
+            const root = this.$root ?? this.$el
+            if (! root) {
+                return null
+            }
+            if (root.hasAttribute('data-chat-transcript')) {
+                return root
+            }
+            return root.querySelector('[data-chat-transcript]')
+        },
+        textLength(html) {
+            return html.replace(/<[^>]*>/g, '').replace(/&[^;]{1,10};/g, ' ').length
+        },
+        closingTags(html) {
+            const open = []
+            const pattern = /<\/?([a-zA-Z0-9]+)[^>]*>/g
+            let match
+            while ((match = pattern.exec(html))) {
+                const tag = match[1].toLowerCase()
+                if (match[0].startsWith('</')) {
+                    const index = open.lastIndexOf(tag)
+                    if (index !== -1) {
+                        open.splice(index, 1)
+                    }
+                    continue
+                }
+                if (match[0].endsWith('/>') || ['br', 'hr', 'img', 'input'].includes(tag)) {
+                    continue
+                }
+                open.push(tag)
+            }
+            return open.reverse().map((tag) => `</${tag}>`).join('')
+        },
+        htmlPrefix(html, textChars) {
+            let text = 0
+            let index = 0
+            while (index < html.length && text < textChars) {
+                if (html[index] === '<') {
+                    const close = html.indexOf('>', index)
+                    if (close === -1) {
+                        break
+                    }
+                    index = close + 1
+                    continue
+                }
+                if (html[index] === '&') {
+                    const close = html.indexOf(';', index)
+                    if (close !== -1 && close - index < 12) {
+                        index = close + 1
+                        text++
+                        continue
+                    }
+                }
+                text++
+                index++
+            }
+            const slice = html.slice(0, index)
+            return slice + this.closingTags(slice)
+        },
+        stopReveal() {
+            clearInterval(this.revealTimer)
+            this.revealTimer = null
+        },
+        startReveal() {
+            if (this.revealTimer !== null) {
+                return
+            }
+            this.revealTimer = setInterval(() => this.stepReveal(), this.revealMs)
+        },
+        stepReveal() {
+            if (this.abortReason === 'stop' && ! this.streamDone) {
+                this.stopReveal()
+                return
+            }
+            const target = this.pacedTarget
+            const total = this.textLength(target)
+            if (this.revealedChars >= total) {
+                this.liveHtml = target
+                if (this.streamDone) {
+                    this.liveSources = this.pacedSources
+                    this.stopReveal()
+                    this.finishStream()
+                }
+                return
+            }
+            this.revealedChars = Math.min(total, this.revealedChars + this.revealStep)
+            this.liveHtml = this.htmlPrefix(target, this.revealedChars)
+        },
+        async finishStream() {
+            if (this.finishStarted) {
+                return
+            }
+            this.finishStarted = true
+            this.stopReveal()
+            try {
+                await this.$wire.finishTurn()
+            } finally {
+                this.liveHtml = ''
+                this.liveSources = []
+                this.pacedTarget = ''
+                this.pacedSources = []
+                this.streamDone = false
+                this.revealedChars = 0
+                this.finishStarted = false
+            }
         },
         pinNewest() {
             this.pinToBottom = true
@@ -37,35 +153,66 @@
             this.ignoreScroll = true
             el.scrollTop = el.scrollHeight
             requestAnimationFrame(() => {
-                el.scrollTop = el.scrollHeight
-                requestAnimationFrame(() => {
-                    el.scrollTop = el.scrollHeight
+                if (! this.pinToBottom) {
                     this.ignoreScroll = false
-                })
+                    return
+                }
+                el.scrollTop = el.scrollHeight
+                this.ignoreScroll = false
             })
         },
+        distanceFromBottom(el) {
+            return el.scrollHeight - el.scrollTop - el.clientHeight
+        },
+        resumeIfAtEnd() {
+            const el = this.transcriptEl()
+            if (! el || ! this.scrollingDown || this.distanceFromBottom(el) > 96) {
+                return
+            }
+            this.scrollingDown = false
+            this.pinToBottom = true
+            this.userScrolling = false
+            this.scrollTranscript()
+        },
         onUserScrollIntent(event) {
+            if (event && typeof event.deltaY === 'number' && event.deltaY < 0) {
+                this.ignoreScroll = false
+                this.scrollingDown = false
+                this.userScrolling = true
+                this.pinToBottom = false
+                return
+            }
             if (event && typeof event.deltaY === 'number' && event.deltaY > 0) {
+                this.ignoreScroll = false
+                this.scrollingDown = true
+                this.userScrolling = false
                 return
             }
             this.ignoreScroll = false
             this.userScrolling = true
-            if (event && typeof event.deltaY === 'number' && event.deltaY < 0) {
-                this.pinToBottom = false
-            }
         },
         onTranscriptScroll() {
             const el = this.transcriptEl()
-            if (! el) {
+            if (! el || this.ignoreScroll) {
                 return
             }
-            const awayFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 24
-            if (! awayFromBottom) {
+            const distance = this.distanceFromBottom(el)
+            const previous = this.lastScrollTop
+            const movedDown = el.scrollTop > previous + 1
+            if (el.scrollTop < previous - 1) {
+                this.scrollingDown = false
+            }
+            this.lastScrollTop = el.scrollTop
+            if ((this.scrollingDown || movedDown) && distance <= 96) {
+                this.scrollingDown = false
                 this.pinToBottom = true
                 this.userScrolling = false
+                this.scrollTranscript()
                 return
             }
-            if (this.ignoreScroll) {
+            if (distance <= 24) {
+                this.pinToBottom = true
+                this.userScrolling = false
                 return
             }
             if (this.userScrolling) {
@@ -167,6 +314,7 @@
             this.abortReason = 'network'
             this.streamFailed = true
             this.livewireRecoveryPending = true
+            this.stopReveal()
             this.liveHtml = ''
             this.liveSources = []
             this.abortController?.abort()
@@ -200,6 +348,11 @@
             }
             this.liveHtml = ''
             this.liveSources = []
+            this.pacedTarget = ''
+            this.pacedSources = []
+            this.revealedChars = 0
+            this.streamDone = false
+            this.stopReveal()
             this.abortReason = null
             this.streamFailed = false
             this.livewireRecoveryPending = false
@@ -294,29 +447,27 @@
                             continue
                         }
                         if (item.event === 'delta' && typeof payload.html === 'string') {
-                            this.liveHtml = payload.html
-                            this.scrollTranscript()
+                            this.pacedTarget = payload.html
+                            this.startReveal()
                         } else if (item.event === 'error' && payload.message) {
+                            this.stopReveal()
                             await this.$wire.reportStreamError(payload.message)
                             terminal = true
                             break
                         } else if (item.event === 'done') {
                             if (typeof payload.html === 'string' && payload.html !== '') {
-                                this.liveHtml = payload.html
+                                this.pacedTarget = payload.html
                             }
-                            if (Array.isArray(payload.sources)) {
-                                this.liveSources = payload.sources
-                            }
-                            this.scrollTranscript()
-                            await this.$wire.finishTurn()
-                            this.liveHtml = ''
-                            this.liveSources = []
+                            this.pacedSources = Array.isArray(payload.sources) ? payload.sources : []
+                            this.streamDone = true
+                            this.startReveal()
                             terminal = true
                             break
                         } else if (item.event === 'stopped') {
+                            this.stopReveal()
+                            await this.$wire.finishTurn()
                             this.liveHtml = ''
                             this.liveSources = []
-                            await this.$wire.finishTurn()
                             terminal = true
                             break
                         }
@@ -332,10 +483,19 @@
                 await this.failOpenStream()
             } finally {
                 stopProbe()
+                if (this.abortReason === 'stop' && this.streamDone) {
+                    this.liveHtml = this.pacedTarget
+                    this.liveSources = this.pacedSources
+                    await this.finishStream()
+                }
             }
         },
     }"
     x-init="
+        const query = window.matchMedia('(max-width: 767px)')
+        const syncPhone = () => { phone = query.matches }
+        syncPhone()
+        query.addEventListener('change', syncPhone)
         const afterMorph = (hooks) => {
             scrollTranscript()
             if (hooks && typeof hooks === 'object') {
@@ -349,7 +509,19 @@
             onFinish?.(() => scrollTranscript())
         })
         $wire.$js.startStream = () => { startChatStream() }
-        $wire.$js.stop = () => { abortReason = 'stop'; abortController?.abort(); $wire.stopGenerating() }
+        $wire.$js.stop = () => {
+            abortReason = 'stop'
+            if (streamDone) {
+                stopReveal()
+                liveHtml = pacedTarget
+                liveSources = pacedSources
+                finishStream()
+                return
+            }
+            stopReveal()
+            abortController?.abort()
+            $wire.stopGenerating()
+        }
         const focusChatQuestion = () => {
             const root = document.getElementById('chat-question')
             if (! root) return
@@ -393,7 +565,7 @@
     @online.window="commitLivewireRecovery()"
 >
     @if ($open)
-        <div class="mb-3 flex h-[min(32rem,calc(100dvh-8rem))] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl sm:h-[min(42rem,calc(100dvh-5.5rem))]">
+        <div class="chat-dock-panel mb-3 flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl">
             <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
                 <p class="min-w-0 text-sm font-medium text-harbor-ink">Harbor &amp; Co knowledge assistant</p>
                 <div class="flex shrink-0 items-center gap-3">
@@ -402,6 +574,13 @@
                             <button type="button" class="text-sm text-zinc-500 hover:text-harbor-ink">New conversation</button>
                         </flux:modal.trigger>
                     @endif
+                    <button
+                        type="button"
+                        class="harbor-expand text-sm text-zinc-500 hover:text-harbor-ink"
+                        x-on:click="expanded = ! expanded"
+                        x-text="expanded ? 'Collapse' : 'Expand'"
+                        :aria-expanded="expanded"
+                    >Expand</button>
                     <button type="button" wire:click="$set('open', false)" class="text-sm text-zinc-500 hover:text-harbor-ink">Close</button>
                 </div>
             </div>
@@ -413,6 +592,8 @@
                 x-on:wheel="onUserScrollIntent($event)"
                 x-on:touchmove="onUserScrollIntent($event)"
                 x-on:pointerdown="onUserScrollIntent($event)"
+                x-on:pointerup="resumeIfAtEnd()"
+                x-on:touchend="resumeIfAtEnd()"
             >
                 @forelse ($messages as $message)
                     <div wire:key="chat-{{ $message->id }}">

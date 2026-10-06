@@ -70,6 +70,14 @@ class SuggestedReplyPanelState
             }
         }
 
+        if ($latest?->status === SuggestedReplyStatus::Approved) {
+            return self::of(SuggestedReplyPanelKind::ReplySent);
+        }
+
+        if ($latestEvent instanceof TicketEvent && $latestEvent->type === TicketEventType::ReplySent) {
+            return self::of(SuggestedReplyPanelKind::ReplySent);
+        }
+
         if ($ticket->status === TicketStatus::Escalated || $ticket->needs_human) {
             return self::of(SuggestedReplyPanelKind::Escalated);
         }

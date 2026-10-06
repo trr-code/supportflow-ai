@@ -8,6 +8,7 @@ use App\Livewire\Pages\TicketShow;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\User;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
 test('guest can create a ticket and receive an unguessable status url', function () {
@@ -96,4 +97,63 @@ test('agent can add an internal note from the ticket workspace', function () {
         ->assertHasNoErrors();
 
     expect($ticket->messages()->where('visibility', MessageVisibility::Internal)->count())->toBe(1);
+});
+
+test('the visitor ticket limit explains the browser cap and idle cleanup', function () {
+    config(['supportflow.demo.max_tickets_per_session' => 2]);
+
+    $component = Livewire::test(TicketCreate::class);
+    Ticket::factory()->count(2)->create([
+        'demo_session_id' => $component->get('demoSessionId'),
+    ]);
+
+    $component
+        ->set('customer_name', 'Maya Chen')
+        ->set('customer_email', 'maya@example.test')
+        ->set('subject', 'Can I still return the Harbor Trail Pack?')
+        ->set('description', 'I bought a Harbor Trail Pack 18 days ago.')
+        ->call('submit')
+        ->assertSee('This browser can submit 2 tickets.')
+        ->assertSee('Prepared examples count')
+        ->assertSee('idle for 45 minutes')
+        ->assertSee('open a private window')
+        ->assertDontSee('prune');
+});
+
+test('demo ticket and chat allowances stay at the raised limits', function () {
+    expect(config('supportflow.demo.max_tickets_per_session'))->toBe(30)
+        ->and(config('supportflow.demo.max_visitor_tickets'))->toBe(200)
+        ->and(config('supportflow.demo.chat_turn_cap'))->toBe(30)
+        ->and(config('supportflow.rate_limits.tickets_per_minute'))->toBe(15)
+        ->and(config('supportflow.rate_limits.chat_per_minute'))->toBe(30)
+        ->and(config('supportflow.rate_limits.workspace_chat_per_minute'))->toBe(30);
+});
+
+test('the ticket submit network limiter uses the configured allowance', function () {
+    config(['supportflow.rate_limits.tickets_per_minute' => 1]);
+
+    $component = Livewire::test(TicketCreate::class);
+    RateLimiter::hit('tickets|'.request()->ip(), 60);
+
+    $component
+        ->set('customer_name', 'Maya Chen')
+        ->set('customer_email', 'maya@example.test')
+        ->set('subject', 'Can I still return the Harbor Trail Pack?')
+        ->set('description', 'I bought a Harbor Trail Pack 18 days ago.')
+        ->call('submit')
+        ->assertSee('Too many tickets from this network. Please wait a minute.');
+});
+
+test('the shared demo capacity message does not tell a visitor to reset it', function () {
+    config(['supportflow.demo.max_visitor_tickets' => 0]);
+
+    Livewire::test(TicketCreate::class)
+        ->set('customer_name', 'Maya Chen')
+        ->set('customer_email', 'maya@example.test')
+        ->set('subject', 'Can I still return the Harbor Trail Pack?')
+        ->set('description', 'I bought a Harbor Trail Pack 18 days ago.')
+        ->call('submit')
+        ->assertSee('The shared demo is full.')
+        ->assertSee('does not reset')
+        ->assertDontSee('prune');
 });

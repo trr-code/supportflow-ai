@@ -9,4 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('demo:prune-stale')->everyFifteenMinutes();
+Schedule::command('workspaces:purge-expired')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('queue:prune-failed')->daily();

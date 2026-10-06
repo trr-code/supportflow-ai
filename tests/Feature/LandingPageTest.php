@@ -53,9 +53,9 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->toContain('href="'.route('demo.environment'))
         ->not->toContain('Harbor &amp; Co <span class="font-normal text-zinc-400">/</span> SupportFlow')
         ->and($widget)
-        ->toContain('fixed bottom-4 start-4 end-4 z-40 min-w-0 sm:start-auto sm:w-full sm:max-w-sm')
-        ->toContain('h-[min(32rem,calc(100dvh-8rem))]')
-        ->toContain('sm:h-[min(42rem,calc(100dvh-5.5rem))]')
+        ->toContain('chat-dock fixed bottom-4 start-4 end-4 z-40 min-w-0')
+        ->toContain('chat-dock-panel')
+        ->toContain('harbor-expand')
         ->toContain('min-h-0 flex-1')
         ->toContain('overflow-y-auto')
         ->toContain('<div class="text-end">')
@@ -75,12 +75,16 @@ test('the landing page invites clients to test a working copilot', function () {
         ->assertSee('Live portfolio demo')
         ->assertSee('Harbor & Co')
         ->assertSee('This is a working customer-support copilot built for potential clients to test.')
-        ->assertSee('Ask prepared questions or quiz it with your own questions, review the business sources behind each answer, and see how uncertain or unsafe requests are handed to a human.')
+        ->assertSee('Upload your own documents and test the assistant against them, or ask prepared questions about Harbor & Co. Review the sources behind each answer, and see how uncertain or unsafe requests are handed to a human.')
+        ->assertSee('No account needed. The workspace expires seven days after it is created, then it is cleaned up automatically. Delete workspace removes it immediately.')
         ->assertSee('Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.')
         ->assertSee('Choose how you want to test it')
         ->assertSee('Try a prepared question')
+        ->assertSee('Test your documents')
+        ->assertSee('Upload your own knowledge documents, adjust how the AI answers, and test it against your content.')
+        ->assertSee('Preview your documents')
         ->assertSee('Open the chat, choose a prepared question, or ask your own question about any Harbor policy.')
-        ->assertSee('Browse the policies that ground the AI’s answers, then quiz the assistant with your own questions.')
+        ->assertSee('Browse Harbor & Co. policies that ground the AI’s answers, then quiz the assistant with your own questions.')
         ->assertSee('Test the full workflow')
         ->assertSee('Try advanced tests')
         ->assertSee('Try refusals, missing knowledge, and Agent examples')
@@ -142,11 +146,14 @@ test('the landing hero styles Browse policies as an outlined button and leaves t
     $layout = file_get_contents(resource_path('views/components/layouts/public.blade.php'));
 
     expect($welcome)
-        ->toContain('flux:button type="button" variant="primary" wire:click="openChat"')
+        ->toContain('flux:button type="button" variant="outline" wire:click="openChat"')
         ->toContain('flux:button variant="outline" :href="route(\'knowledge.index\')"')
         ->toContain('flux:button variant="outline" :href="route(\'demo.workflow\')"')
         ->toContain('flux:button variant="outline" :href="route(\'demo.safety\')"')
-        ->toContain('lg:grid-cols-4')
+        ->toContain('flux:button variant="primary" :href="route(\'workspaces.preview\')" wire:navigate class="w-full sm:w-auto"')
+        ->toContain('sm:grid-cols-2')
+        ->toContain('sm:col-span-2')
+        ->not->toContain('lg:grid-cols-4')
         ->toContain('text-harbor-pine')
         ->not->toContain("route('tickets.create', ['sample' => 1])")
         ->not->toContain("route('demo.enter-agent')")
@@ -174,6 +181,8 @@ test('the demo environment page holds the limitations instead of the landing pag
         ->assertSee('Real orders or email')
         ->assertSee('speech-to-text dictation')
         ->assertSee('This is a live portfolio demo of a customer-support copilot.')
+        ->assertDontSee('Start a private preview')
+        ->assertDontSee('Your documents')
         ->assertDontSee('Coming soon')
         ->assertDontSee('Open agent view');
 
@@ -184,11 +193,16 @@ test('the demo environment page holds the limitations instead of the landing pag
 test('the workflow page walks through customer submission to an approved answer', function () {
     $this->get(route('demo.workflow'))
         ->assertOk()
-        ->assertSee('Follow one ticket from customer question to approved answer')
-        ->assertSee('Customer → submit a ticket → Agent reviews the AI draft → a human approves it → the customer status page shows the sent reply.')
-        ->assertSee('Use prepared ticket')
-        ->assertSee('Write my own ticket')
-        ->assertSee('Open Agent → Tickets → filter Live demo to review its category, priority, knowledge match, sources, and suggested reply.')
+        ->assertSee('Follow a ticket from customer question to sent reply')
+        ->assertSee('Choose Use prepared ticket or Write my own ticket, complete the form, and submit.')
+        ->assertSee('Watch the upper-right status as AI reviews the ticket and prepares a suggested reply.')
+        ->assertSee('Use Copy ticket link to return later.')
+        ->assertSee('Go to Tickets → Live demo and find the same SF- reference.')
+        ->assertSee('Acting as the human support agent, review the suggested reply, then approve and send it.')
+        ->assertSee('Return to the customer page. The sent reply appears there automatically without refreshing.')
+        ->assertDontSee('The reply appears automatically on the customer page without refreshing.')
+        ->assertDontSee('There is no need to hurry back')
+        ->assertDontSee('A second window is enough.')
         ->assertDontSee('Coming soon')
         ->assertDontSee('Open agent view');
 
@@ -238,12 +252,31 @@ test('the customer status page says a human support agent must send the reply', 
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertOk()
-        ->assertSee('AI is drafting a reply. A human support agent still has to send it.')
+        ->assertSee('The AI is still working. This page updates when that changes. A person still has to send any reply.')
+        ->assertSee('Copy ticket link')
+        ->assertSee('This link returns to this ticket’s status and replies. Anyone with the link can view those customer-visible updates.')
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
         ->assertDontSee('This page does not refresh by itself')
         ->assertDontSee('When you are ready, open Agent → Tickets, filter Live demo, and approve the draft. Refresh this page after it is sent.')
         ->assertDontSee('An agent still has to approve any reply');
+
+    $escalated = Ticket::factory()->create([
+        'status' => TicketStatus::Escalated,
+    ]);
+    $failed = Ticket::factory()->create([
+        'status' => TicketStatus::AiFailed,
+    ]);
+
+    Livewire::test(TicketStatusPage::class, ['publicToken' => $escalated->public_token])
+        ->assertSee('A person has this ticket. There may be no draft. A reply appears here after they send it.')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('The AI is still working.');
+
+    Livewire::test(TicketStatusPage::class, ['publicToken' => $failed->public_token])
+        ->assertSee('The AI did not finish. A person will pick this up. You do not need to submit again.')
+        ->assertSeeHtml('wire:poll.5s.visible')
+        ->assertDontSee('The AI is still working.');
 });
 
 test('the customer status page polls while awaiting review until a public reply exists', function () {
@@ -253,29 +286,36 @@ test('the customer status page polls while awaiting review until a public reply 
     $sent = Ticket::factory()->create([
         'status' => TicketStatus::WaitingOnCustomer,
     ]);
+    TicketMessage::query()->create([
+        'ticket_id' => $sent->id,
+        'visibility' => MessageVisibility::Public,
+        'author_type' => MessageAuthorType::Agent,
+        'body' => 'Unused items can be returned within 30 days.',
+        'approved_at' => now(),
+    ]);
     $submitted = Ticket::factory()->create([
         'status' => TicketStatus::Submitted,
     ]);
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $awaiting->public_token])
         ->assertOk()
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.')
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.')
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
         ->assertDontSee('This page does not refresh by itself');
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $sent->public_token])
         ->assertOk()
-        ->assertDontSee('A human support agent is reviewing the draft. It will appear here after they send it.')
+        ->assertDontSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.')
         ->assertDontSee('Refresh status')
-        ->assertDontSee('AI is drafting a reply. A human support agent still has to send it.')
+        ->assertDontSee('The AI is still working. This page updates when that changes. A person still has to send any reply.')
         ->assertDontSeeHtml('wire:poll.5s.visible');
 
     Livewire::test(TicketStatusPage::class, ['publicToken' => $submitted->public_token])
         ->assertOk()
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertDontSee('Refresh status')
-        ->assertDontSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertDontSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 });
 
 test('customer status poll picks up a later awaiting-review state', function () {
@@ -285,13 +325,13 @@ test('customer status poll picks up a later awaiting-review state', function () 
 
     $component = Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertDontSee('A human support agent is reviewing the draft');
+        ->assertDontSee('A draft is ready for a person');
 
     $ticket->forceFill(['status' => TicketStatus::AwaitingReview])->save();
 
     $component->call('$refresh')
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 
     expect(file_get_contents(resource_path('views/livewire/pages/ticket-status.blade.php')))
         ->toContain('wire:poll.5s.visible')
@@ -313,7 +353,7 @@ test('customer status keeps polling awaiting review when only the customer messa
 
     $component = Livewire::test(TicketStatusPage::class, ['publicToken' => $ticket->public_token])
         ->assertSeeHtml('wire:poll.5s.visible')
-        ->assertSee('A human support agent is reviewing the draft. It will appear here after they send it.');
+        ->assertSee('AI prepared a reply. A support agent still has to review and send it. You will not see that reply here until they send it.');
 
     TicketMessage::query()->create([
         'ticket_id' => $ticket->id,
