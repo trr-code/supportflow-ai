@@ -90,7 +90,7 @@
                             <li wire:key="workspace-document-{{ $document->id }}" class="rounded-xl border border-harbor-sand-deep p-3 text-sm">
                                 <div class="flex items-start justify-between gap-3">
                                     <p class="font-medium text-harbor-ink">{{ $document->original_name }}</p>
-                                    <button type="button" class="pine-hover text-harbor-pine underline underline-offset-2" wire:click="removeDocument('{{ $document->id }}')">
+                                    <button type="button" class="pine-hover text-harbor-pine underline underline-offset-2" wire:click="removeDocument('{{ $document->id }}')" wire:confirm="Delete this document now. The file and its answers are removed.">
                                         Delete
                                     </button>
                                 </div>
@@ -564,7 +564,9 @@
                             class="preview-close pine-hover text-sm font-medium text-harbor-pine underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-harbor-ink"
                             x-on:click="open = false"
                         >Close</button>
-                        <button type="button" class="pine-hover text-sm text-harbor-pine underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-harbor-ink" wire:click="newChat">New chat</button>
+                        <flux:modal.trigger name="confirm-preview-new-chat">
+                            <button type="button" class="pine-hover text-sm text-harbor-pine underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-harbor-ink">New chat</button>
+                        </flux:modal.trigger>
                     </div>
                 </div>
                 <aside x-show="inspector" class="max-h-40 shrink-0 space-y-2 overflow-y-auto border-b border-harbor-sand-deep bg-harbor-sand px-4 py-3 text-sm" style="display: none;">
@@ -648,6 +650,22 @@
                     </div>
                 </form>
                 </section>
+                <flux:modal name="confirm-preview-new-chat" class="max-w-lg">
+                    <div class="space-y-4">
+                        <div>
+                            <flux:heading size="lg">Start a new conversation?</flux:heading>
+                            <flux:subheading class="mt-2">
+                                This permanently deletes the current thread. This demo does not keep a conversation history list.
+                            </flux:subheading>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <flux:modal.close>
+                                <flux:button variant="filled">Cancel</flux:button>
+                            </flux:modal.close>
+                            <flux:button variant="danger" wire:click="newChat">Delete and start new</flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
                 <button
                     type="button"
                     class="preview-launcher"

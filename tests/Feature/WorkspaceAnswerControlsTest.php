@@ -9,6 +9,7 @@ use App\Models\ChatMessage;
 use App\Models\KnowledgeChunk;
 use App\Models\Ticket;
 use App\Models\Workspace;
+use App\Models\WorkspaceDocument;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceChatService;
 use App\Services\WorkspaceDocumentStore;
@@ -18,6 +19,7 @@ use App\Support\WorkspaceAnswerControls;
 use App\Support\WorkspaceCopy;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Js;
 use Laravel\Ai\Embeddings;
 use Livewire\Livewire;
 
@@ -96,7 +98,12 @@ test('unsaved answer controls are what the preview sends', function () {
         ->call('addGuidance')
         ->set('guidanceNotes.0.body', 'Keep the handoff short.')
         ->call('saveControls')
-        ->assertSet('tone', WorkspaceTone::MatterOfFact->value);
+        ->assertSet('tone', WorkspaceTone::MatterOfFact->value)
+        ->assertJs('$flux.toast('.Js::from([
+            'text' => 'Settings saved.',
+            'variant' => 'success',
+            'duration' => 3000,
+        ]).')');
 
     expect($workspace->fresh()->tone)->toBe(WorkspaceTone::MatterOfFact)
         ->and($workspace->guidances()->first()->body)->toBe('Keep the handoff short.');
@@ -220,6 +227,34 @@ test('a preview question over 500 characters is rejected and stays in the box', 
         ->toContain('body.errors?.question?.[0] || body.message')
         ->toContain('this.question = question')
         ->toMatch('/if \(rejected\) \{\s+return\s+\}/');
+});
+
+test('deleting a document confirms first and new chat uses the same confirmation as Harbor', function () {
+    $access = app(WorkspaceAccess::class);
+    $workspace = $access->start();
+    app(WorkspaceDocumentStore::class)->storeMany($workspace, [
+        UploadedFile::fake()->createWithContent('returns.txt', 'Unused items can be returned within 30 days.'),
+    ]);
+    $document = $workspace->documents()->first();
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+
+    expect($view)
+        ->toContain('wire:confirm="Delete this document now. The file and its answers are removed."')
+        ->toContain('name="confirm-preview-new-chat"')
+        ->toContain('Start a new conversation?')
+        ->toContain('This permanently deletes the current thread. This demo does not keep a conversation history list.')
+        ->toContain('wire:click="newChat"');
+
+    Livewire::test(WorkspacePreview::class)
+        ->call('removeDocument', $document->id)
+        ->assertJs('$flux.toast('.Js::from([
+            'text' => 'Deleted returns.txt.',
+            'variant' => 'success',
+            'duration' => 3000,
+        ]).')')
+        ->assertDontSee('returns.txt');
+
+    expect(WorkspaceDocument::query()->find($document->id))->toBeNull();
 });
 
 test('a stopped preview stream does not attach sources', function () {

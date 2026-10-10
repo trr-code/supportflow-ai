@@ -20,6 +20,7 @@ use App\Support\ChatAnswerHtml;
 use App\Support\CitedSources;
 use App\Support\WorkspaceCopy;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -124,6 +125,11 @@ class WorkspacePreview extends Component
         }
 
         $this->fillFromWorkspace($access);
+        $this->js('$flux.toast('.Js::from([
+            'text' => 'Settings saved.',
+            'variant' => 'success',
+            'duration' => 3000,
+        ]).')');
     }
 
     public function addGuidance(): void
@@ -172,11 +178,21 @@ class WorkspacePreview extends Component
             return;
         }
 
+        $name = $document->original_name;
+
         try {
             $store->delete($workspace, $document);
         } catch (WorkspaceUploadException $exception) {
             $this->addError('uploads', $exception->getMessage());
+
+            return;
         }
+
+        $this->js('$flux.toast('.Js::from([
+            'text' => 'Deleted '.$name.'.',
+            'variant' => 'success',
+            'duration' => 3000,
+        ]).')');
     }
 
     public function leave(WorkspaceAccess $access): void
@@ -233,6 +249,7 @@ class WorkspacePreview extends Component
 
         $chat->startNewConversation($workspace);
         $this->finishTurn();
+        $this->dispatch('modal-close', name: 'confirm-preview-new-chat');
     }
 
     public function render(WorkspaceAccess $access, WorkspaceChatService $chat): View
