@@ -97,12 +97,12 @@ class WorkspaceChatService
 
         if (ChatInjectionGate::blocks($question)) {
             if ($onDelta) {
-                $onDelta(ChatInjectionGate::REFUSAL);
+                $onDelta(ChatInjectionGate::PREVIEW_REFUSAL);
             }
 
             return $conversation->messages()->create([
                 'role' => 'assistant',
-                'body' => ChatInjectionGate::REFUSAL,
+                'body' => ChatInjectionGate::PREVIEW_REFUSAL,
                 'cited_chunk_ids' => [],
             ]);
         }

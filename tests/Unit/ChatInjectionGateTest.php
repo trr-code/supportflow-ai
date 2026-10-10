@@ -28,6 +28,7 @@ test('quoted jailbreak text fails closed rather than retrieving', function () {
 
 test('instruction-override refusals are recognized without treating ordinary support answers as refusals', function () {
     expect(ChatInjectionGate::isRefusal(ChatInjectionGate::REFUSAL))->toBeTrue()
+        ->and(ChatInjectionGate::isRefusal(ChatInjectionGate::PREVIEW_REFUSAL))->toBeTrue()
         ->and(ChatInjectionGate::isRefusal('I cannot override internal instructions or reveal hidden prompts.'))->toBeTrue()
         ->and(ChatInjectionGate::isRefusal('Unused returns are accepted within 30 days with tags attached.'))->toBeFalse()
         ->and(ChatInjectionGate::isRefusal(''))->toBeFalse();

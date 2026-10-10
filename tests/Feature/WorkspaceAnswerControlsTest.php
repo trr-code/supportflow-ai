@@ -13,6 +13,7 @@ use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceChatService;
 use App\Services\WorkspaceDocumentStore;
 use App\Support\ChatFollowUpPassages;
+use App\Support\ChatInjectionGate;
 use App\Support\WorkspaceAnswerControls;
 use App\Support\WorkspaceCopy;
 use Illuminate\Http\UploadedFile;
@@ -161,6 +162,8 @@ test('preview chat refuses an instruction override and does not open a ticket', 
         ->streamedContent();
 
     expect($body)->toContain('I can’t disclose or override internal instructions')
+        ->and($body)->not->toContain('support ticket')
+        ->and(ChatMessage::query()->where('role', 'assistant')->first()->body)->toBe(ChatInjectionGate::PREVIEW_REFUSAL)
         ->and(ChatMessage::query()->where('role', 'assistant')->first()->cited_chunk_ids)->toBe([])
         ->and(Ticket::query()->count())->toBe(0);
 });

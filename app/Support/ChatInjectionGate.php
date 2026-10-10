@@ -6,6 +6,8 @@ class ChatInjectionGate
 {
     public const REFUSAL = 'I can’t disclose or override internal instructions. If you have a product question, ask it directly or submit a support ticket and a human agent can help.';
 
+    public const PREVIEW_REFUSAL = 'I can’t disclose or override internal instructions. Ask a question about these documents directly.';
+
     /**
      * @var list<string>
      */
