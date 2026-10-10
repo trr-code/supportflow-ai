@@ -335,6 +335,8 @@ test('customer status poll picks up a later awaiting-review state', function () 
 
     expect(file_get_contents(resource_path('views/livewire/pages/ticket-status.blade.php')))
         ->toContain('wire:poll.5s.visible')
+        ->toContain('$flux.toast({ text: \'Copied.\', variant: \'success\', duration: 3000 })')
+        ->not->toContain('x-show="copied"')
         ->not->toContain('Refresh status');
 });
 

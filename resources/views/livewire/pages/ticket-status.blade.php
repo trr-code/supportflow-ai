@@ -7,7 +7,7 @@
         <x-status-badge :status="$ticket->status" />
     </div>
 
-    <div class="space-y-3 text-sm text-zinc-600" x-data="{ copied: false }">
+    <div class="space-y-3 text-sm text-zinc-600">
         <p>
             This link returns to this ticket’s status and replies. Anyone with the link can view those customer-visible updates.
         </p>
@@ -15,11 +15,11 @@
             <button
                 type="button"
                 class="policy-link"
-                x-on:click="navigator.clipboard.writeText(@js(route('tickets.status', $ticket->public_token))).then(() => { copied = true; window.setTimeout(() => { copied = false }, 2000) })"
+                x-data
+                x-on:click="navigator.clipboard.writeText(@js(route('tickets.status', $ticket->public_token))).then(() => { $flux.toast({ text: 'Copied.', variant: 'success', duration: 3000 }) })"
             >
                 Copy ticket link
             </button>
-            <span x-show="copied" role="status" class="ms-2 text-harbor-ink" style="display: none;">Copied.</span>
         </p>
         @if ($ticket->status === \App\Enums\TicketStatus::Triaging || $ticket->status === \App\Enums\TicketStatus::Submitted)
             <p>The AI is still working. This page updates when that changes. A person still has to send any reply.</p>

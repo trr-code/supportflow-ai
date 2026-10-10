@@ -44,7 +44,19 @@ test('the preview toast uses its own top-right group', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('x-persist="toast"', false)
+        ->assertSee('position="top end"', false)
         ->assertDontSee('x-persist="workspace-toast"', false);
+
+    foreach ([
+        'views/layouts/app/sidebar.blade.php',
+        'views/layouts/app/header.blade.php',
+        'views/layouts/auth/simple.blade.php',
+        'views/layouts/auth/split.blade.php',
+        'views/layouts/auth/card.blade.php',
+        'views/components/layouts/public.blade.php',
+    ] as $layout) {
+        expect(file_get_contents(resource_path($layout)))->toContain('<flux:toast.group position="top end">');
+    }
 });
 
 test('a visitor gets a return code once and this browser can reopen the workspace', function () {
