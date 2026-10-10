@@ -196,6 +196,29 @@ test('preview chat rejects a missing workspace, a short question, and a second s
     expect(ChatMessage::query()->count())->toBe(0);
 });
 
+test('a preview question over 500 characters is rejected and stays in the box', function () {
+    $access = app(WorkspaceAccess::class);
+    $access->start();
+    $token = cookie()->queued(WorkspaceAccess::COOKIE)->getValue();
+
+    postPreviewChat([
+        'question' => str_repeat('a', 501),
+    ], $token)
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.question.0', 'The question field must not be greater than 500 characters.');
+
+    expect(ChatMessage::query()->count())->toBe(0);
+
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+
+    expect($view)
+        ->toContain('if (question.length > 500)')
+        ->toContain("this.error = 'The question field must not be greater than 500 characters.'")
+        ->toContain('body.errors?.question?.[0] || body.message')
+        ->toContain('this.question = question')
+        ->toMatch('/if \(rejected\) \{\s+return\s+\}/');
+});
+
 test('a stopped preview stream does not attach sources', function () {
     $access = app(WorkspaceAccess::class);
     $workspace = $access->start();

@@ -443,6 +443,10 @@
                         if (question.length < 4 || this.pending) {
                             return
                         }
+                        if (question.length > 500) {
+                            this.error = 'The question field must not be greater than 500 characters.'
+                            return
+                        }
                         this.pinNewest()
                         this.question = ''
                         this.pending = question
@@ -458,6 +462,7 @@
                         this.abortReason = null
                         this.abortController = new AbortController()
                         const csrf = document.querySelector('meta[name=csrf-token]')?.getAttribute('content')
+                        let rejected = false
                         try {
                             const response = await this.withStall(fetch(this.streamUrl, {
                                 method: 'POST',
@@ -478,8 +483,10 @@
                             }))
                             if (! response.ok) {
                                 const body = await response.json().catch(() => ({}))
-                                this.error = body.message || 'The assistant could not finish that answer. Try again.'
+                                this.error = body.errors?.question?.[0] || body.message || 'The assistant could not finish that answer. Try again.'
+                                this.question = question
                                 this.pending = ''
+                                rejected = true
                                 return
                             }
                             const reader = response.body.getReader()
@@ -513,8 +520,14 @@
                         } catch (error) {
                             if (this.abortReason !== 'stop') {
                                 this.error = 'The assistant could not finish that answer. Try again.'
+                                this.question = question
+                                this.pending = ''
+                                rejected = true
                             }
                         } finally {
+                            if (rejected) {
+                                return
+                            }
                             if (this.abortReason === 'stop' && this.streamDone) {
                                 this.liveHtml = this.pacedTarget
                                 this.liveSources = this.pacedSources
