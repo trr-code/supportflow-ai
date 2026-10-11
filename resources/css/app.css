@@ -116,6 +116,7 @@ select:focus[data-flux-control] {
 
 .preview-chat,
 .preview-launcher,
+.preview-dock [data-flux-modal],
 .chat-dock > * {
     pointer-events: auto;
 }

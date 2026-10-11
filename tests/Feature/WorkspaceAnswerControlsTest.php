@@ -257,6 +257,44 @@ test('deleting a document confirms first and new chat uses the same confirmation
     expect(WorkspaceDocument::query()->find($document->id))->toBeNull();
 });
 
+test('the preview new chat dialog receives clicks and confirmation clears only the thread', function () {
+    $css = file_get_contents(base_path('resources/css/app.css'));
+
+    expect($css)->toContain(<<<'CSS'
+.preview-chat,
+.preview-launcher,
+.preview-dock [data-flux-modal],
+.chat-dock > * {
+    pointer-events: auto;
+}
+CSS);
+
+    $access = app(WorkspaceAccess::class);
+    $workspace = $access->start();
+    app(WorkspaceDocumentStore::class)->storeMany($workspace, [
+        UploadedFile::fake()->createWithContent('returns.txt', 'Unused items can be returned within 30 days.'),
+    ]);
+    $document = $workspace->documents()->first();
+    app(WorkspaceChatService::class)->conversationFor($workspace)->messages()->create([
+        'role' => 'user',
+        'body' => 'How long is the return window?',
+    ]);
+
+    $html = Livewire::test(WorkspacePreview::class)
+        ->call('newChat')
+        ->assertNoJs()
+        ->html();
+    $dock = strpos($html, 'class="preview-dock"');
+    $modal = strpos($html, 'data-modal="confirm-preview-new-chat"');
+    $launcher = strpos($html, 'class="preview-launcher"');
+
+    expect($dock)->toBeInt()
+        ->and($modal)->toBeGreaterThan($dock)
+        ->and($launcher)->toBeGreaterThan($modal)
+        ->and(ChatMessage::query()->count())->toBe(0)
+        ->and(WorkspaceDocument::query()->find($document->id))->not->toBeNull();
+});
+
 test('a stopped preview stream does not attach sources', function () {
     $access = app(WorkspaceAccess::class);
     $workspace = $access->start();
