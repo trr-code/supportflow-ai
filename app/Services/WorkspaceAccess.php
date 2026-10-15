@@ -16,6 +16,8 @@ class WorkspaceAccess
 
     public const string RETURN_CODE_KEY = 'workspace_return_code';
 
+    public function __construct(private readonly WorkspacePurgeService $purge) {}
+
     public function start(): Workspace
     {
         $raw = bin2hex(random_bytes(16));
@@ -61,7 +63,17 @@ class WorkspaceAccess
     {
         $workspace = $this->findByBrowserToken($this->tokenFromRequest($request));
 
-        if ($workspace === null || ! $workspace->isOpen()) {
+        if ($workspace === null) {
+            return null;
+        }
+
+        if ($workspace->purged_at === null && $workspace->expires_at->isPast()) {
+            $this->purge->purge($workspace);
+
+            return null;
+        }
+
+        if (! $workspace->isOpen()) {
             return null;
         }
 
@@ -95,6 +107,8 @@ class WorkspaceAccess
         }
 
         if ($workspace->expires_at->isPast()) {
+            $this->purge->purge($workspace);
+
             throw new WorkspaceUploadException(WorkspaceCopy::EXPIRED);
         }
 

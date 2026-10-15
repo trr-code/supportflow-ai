@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property string $id
@@ -37,6 +38,19 @@ class Workspace extends Model
             'tone' => WorkspaceTone::class,
             'answer_length' => WorkspaceAnswerLength::class,
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Workspace $workspace): void {
+            foreach ($workspace->documents()->get() as $document) {
+                $path = $document->storage_path;
+
+                if ($path !== '' && Storage::disk('knowledge')->exists($path)) {
+                    Storage::disk('knowledge')->delete($path);
+                }
+            }
+        });
     }
 
     public function isOpen(): bool

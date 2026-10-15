@@ -11,11 +11,15 @@ use App\Models\Ticket;
 
 class DemoPruneService
 {
+    public function __construct(private readonly AiUsageRecorder $runs) {}
+
     /**
      * @return array{sessions: int, tickets: int}
      */
     public function pruneStale(): array
     {
+        $this->runs->failAbandoned();
+
         $cutoff = now()->subMinutes((int) config('supportflow.demo.stale_minutes'));
 
         $staleIds = DemoSession::query()

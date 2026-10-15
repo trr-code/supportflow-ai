@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Ai\Agents\WorkspaceChatAgent;
 use App\Enums\AiRunFeature;
+use App\Models\AiRun;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
+use App\Models\KnowledgeChunk;
 use App\Models\Workspace;
 use App\Support\ChatAnswerCopy;
 use App\Support\ChatCitationTrailer;
@@ -20,11 +22,13 @@ use App\Support\WorkspaceAnswerControls;
 use App\Support\WorkspaceCopy;
 use Closure;
 use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamEvent;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use Throwable;
 
 class WorkspaceChatService
 {
@@ -135,6 +139,32 @@ class WorkspaceChatService
 
         $run = $this->recorder->start(AiRunFeature::WorkspaceChat, null, $model);
 
+        try {
+            return $this->finishWorkspaceReply($workspace, $conversation, $question, $matches, $chunkIds, $continuing, $generation, $controls, $onDelta, $run, $model);
+        } catch (Throwable $exception) {
+            $this->recorder->fail($run, $exception->getMessage());
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param  Collection<int, array{chunk: KnowledgeChunk, similarity: float}>  $matches
+     * @param  list<int>  $chunkIds
+     */
+    private function finishWorkspaceReply(
+        Workspace $workspace,
+        ChatConversation $conversation,
+        string $question,
+        Collection $matches,
+        array $chunkIds,
+        bool $continuing,
+        int $generation,
+        WorkspaceAnswerControls $controls,
+        ?Closure $onDelta,
+        AiRun $run,
+        string $model,
+    ): ChatMessage {
         if ($matches->isEmpty()) {
             $this->recorder->complete($run, payload: ['grounded' => false], retrievedChunkIds: []);
 

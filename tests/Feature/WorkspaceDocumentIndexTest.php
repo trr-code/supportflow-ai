@@ -282,3 +282,59 @@ test('orphan workspace articles are swept and harbor articles stay', function ()
         ->and(KnowledgeArticle::query()->whereKey($leftover->id)->exists())->toBeFalse()
         ->and(KnowledgeArticle::query()->whereKey($harbor->id)->exists())->toBeTrue();
 });
+
+test('the detached sweep keeps an unpublished harbor draft and deletes private text with no workspace', function () {
+    $detached = KnowledgeArticle::query()->create([
+        'title' => 'Detached',
+        'slug' => 'detached-private',
+        'category' => 'general',
+        'body' => 'Private text with no workspace.',
+        'is_published' => false,
+        'is_seeded' => false,
+    ]);
+    $draft = KnowledgeArticle::query()->create([
+        'title' => 'Internal draft',
+        'slug' => 'internal-draft-sweep',
+        'category' => 'general',
+        'body' => 'Should not appear on the public browser.',
+        'is_published' => false,
+        'is_seeded' => true,
+    ]);
+    $harbor = KnowledgeArticle::query()->create([
+        'title' => 'Harbor stays',
+        'slug' => 'harbor-stays-detached',
+        'category' => 'general',
+        'body' => 'Harbor policies stay published.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+
+    app(WorkspacePurgeService::class)->sweepOrphans();
+
+    expect(KnowledgeArticle::query()->whereKey($detached->id)->exists())->toBeFalse()
+        ->and(KnowledgeArticle::query()->whereKey($draft->id)->exists())->toBeTrue()
+        ->and(KnowledgeArticle::query()->whereKey($harbor->id)->exists())->toBeTrue();
+});
+
+test('deleting a workspace removes its private text and a late index job cannot restore it', function () {
+    $workspace = Workspace::factory()->create();
+    app(WorkspaceDocumentStore::class)->storeMany($workspace, [
+        UploadedFile::fake()->createWithContent('secret.txt', 'Secret overnight pole sentence.'),
+    ]);
+
+    $document = $workspace->documents()->first();
+    $id = $document->id;
+    $generation = $document->index_generation;
+
+    $workspace->delete();
+
+    expect(KnowledgeArticle::query()->count())->toBe(0)
+        ->and(KnowledgeChunk::query()->count())->toBe(0)
+        ->and(WorkspaceDocument::query()->count())->toBe(0);
+
+    (new IndexWorkspaceDocument($id, $generation))
+        ->handle(app(DocumentTextExtractor::class), app(RetrievalService::class));
+
+    expect(KnowledgeArticle::query()->count())->toBe(0)
+        ->and(KnowledgeChunk::query()->where('body', 'like', '%Secret overnight%')->exists())->toBeFalse();
+});

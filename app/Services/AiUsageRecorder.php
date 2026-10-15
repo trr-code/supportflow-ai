@@ -109,15 +109,55 @@ class AiUsageRecorder
 
     public function fail(AiRun $run, string $error): AiRun
     {
-        $run->forceFill([
-            'status' => AiRunStatus::Failed,
-            'completed_at' => now(),
-            'error' => Str::limit($error, 2000),
-        ])->save();
+        $updated = AiRun::query()
+            ->whereKey($run->id)
+            ->whereIn('status', [AiRunStatus::Queued, AiRunStatus::Running])
+            ->update([
+                'status' => AiRunStatus::Failed,
+                'completed_at' => now(),
+                'error' => Str::limit($error, 2000),
+                'updated_at' => now(),
+            ]);
 
+        if ($updated === 0) {
+            return $run->fresh() ?? $run;
+        }
+
+        $run->refresh();
         $this->discardQueuedFor($run);
 
         return $run;
+    }
+
+    /**
+     * Close open rows this job queued before it was dispatched.
+     *
+     * start() refreshes updated_at, so ownership uses the id captured at dispatch.
+     */
+    public function failOwned(?int $runId, string $error): void
+    {
+        if ($runId === null) {
+            return;
+        }
+
+        $run = AiRun::query()->find($runId);
+
+        if ($run instanceof AiRun) {
+            $this->fail($run, $error);
+        }
+    }
+
+    public function failAbandoned(int $minutes = 20): int
+    {
+        return AiRun::query()
+            ->whereIn('status', [AiRunStatus::Queued, AiRunStatus::Running])
+            ->where('updated_at', '<', now()->subMinutes($minutes))
+            ->update([
+                'status' => AiRunStatus::Failed,
+                'completed_at' => now(),
+                'error' => 'Closed as stale.',
+                'updated_at' => now(),
+            ]);
     }
 
     protected function discardQueuedFor(AiRun $run): void

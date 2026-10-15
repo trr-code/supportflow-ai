@@ -157,7 +157,30 @@ test('a wrong code and a deleted code look the same, and an expired code says it
 
     expect(fn () => $access->returnWithCode(request(), $expiredCode))
         ->toThrow(WorkspaceUploadException::class, WorkspaceCopy::EXPIRED)
-        ->and($expired->fresh()->purged_at)->toBeNull();
+        ->and($expired->fresh()->purged_at)->not->toBeNull()
+        ->and(WorkspaceDocument::query()->where('workspace_id', $expired->id)->count())->toBe(0);
+});
+
+test('opening an expired workspace purges that workspace only', function () {
+    $open = Workspace::factory()->create(['expires_at' => now()->addYear()]);
+    app(WorkspaceDocumentStore::class)->storeMany($open, [
+        UploadedFile::fake()->createWithContent('open.txt', 'This open note stays.'),
+    ]);
+
+    $access = app(WorkspaceAccess::class);
+    $expired = $access->start();
+    app(WorkspaceDocumentStore::class)->storeMany($expired, [
+        UploadedFile::fake()->createWithContent('expired.txt', 'This expired note goes.'),
+    ]);
+
+    $this->travel(8)->days();
+
+    expect($access->current(request()))->toBeNull()
+        ->and($expired->fresh()->purged_at)->not->toBeNull()
+        ->and(WorkspaceDocument::query()->where('workspace_id', $expired->id)->exists())->toBeFalse()
+        ->and(KnowledgeArticle::query()->where('workspace_id', $expired->id)->exists())->toBeFalse()
+        ->and($open->fresh()->purged_at)->toBeNull()
+        ->and(WorkspaceDocument::query()->where('workspace_id', $open->id)->count())->toBe(1);
 });
 
 test('return attempts are rate limited', function () {

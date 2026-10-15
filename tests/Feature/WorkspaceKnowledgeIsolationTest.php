@@ -291,3 +291,71 @@ test('a crowded article keeps the passage that uniquely covers return rules', fu
         ->and($captured)->toContain('Day prices start at 40 dollars')
         ->and($captured)->toContain('Booking and pickup');
 });
+
+test('an expired workspace is excluded from retrieval while harbor and an open workspace stay', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+
+    $expired = Workspace::factory()->create(['expires_at' => now()->subMinute()]);
+    $open = Workspace::factory()->create();
+
+    $harbor = KnowledgeArticle::query()->create([
+        'title' => 'Harbor poles',
+        'slug' => 'harbor-poles-expiry',
+        'category' => 'shipping',
+        'body' => 'Harbor poles ship from the Kent warehouse.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $closed = KnowledgeArticle::query()->create([
+        'workspace_id' => $expired->id,
+        'title' => 'Closed poles',
+        'slug' => 'closed-poles-expiry',
+        'category' => 'general',
+        'body' => 'Closed poles ship overnight from a private note.',
+        'is_published' => false,
+        'is_seeded' => false,
+    ]);
+    $available = KnowledgeArticle::query()->create([
+        'workspace_id' => $open->id,
+        'title' => 'Open poles',
+        'slug' => 'open-poles-expiry',
+        'category' => 'general',
+        'body' => 'Open poles ship overnight from the current preview.',
+        'is_published' => false,
+        'is_seeded' => false,
+    ]);
+
+    foreach ([$harbor, $closed, $available] as $article) {
+        $article->chunks()->create([
+            'heading' => null,
+            'body' => $article->body,
+            'token_count' => 6,
+        ]);
+    }
+
+    foreach ([$closed, $available] as $article) {
+        WorkspaceDocument::query()->create([
+            'workspace_id' => $article->workspace_id,
+            'original_name' => $article->slug.'.txt',
+            'storage_path' => $article->slug.'.txt',
+            'mime' => 'text/plain',
+            'extension' => 'txt',
+            'byte_size' => 40,
+            'status' => WorkspaceDocumentStatus::Ready,
+            'index_generation' => (string) Str::uuid(),
+            'knowledge_article_id' => $article->id,
+        ]);
+    }
+
+    fakeMatchingKnowledgeEmbeddings();
+
+    $retrieval = app(RetrievalService::class);
+    $harborIds = $retrieval->search('poles', KnowledgeCorpus::harbor(), 6, 0.05)->pluck('chunk.knowledge_article_id')->all();
+    $openIds = $retrieval->search('poles', KnowledgeCorpus::workspace($open->id), 6, 0.05)->pluck('chunk.knowledge_article_id')->all();
+
+    expect($retrieval->search('poles', KnowledgeCorpus::workspace($expired->id), 6, 0.05))->toBeEmpty()
+        ->and($openIds)->toContain($available->id)
+        ->and($openIds)->not->toContain($closed->id)
+        ->and($harborIds)->toContain($harbor->id)
+        ->and($harborIds)->not->toContain($closed->id);
+});

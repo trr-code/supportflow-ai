@@ -64,6 +64,13 @@ class WorkspacePurgeService
             })
             ->orderBy('id')
             ->each(fn (KnowledgeArticle $article) => $article->delete());
+
+        KnowledgeArticle::query()
+            ->whereNull('workspace_id')
+            ->where('is_published', false)
+            ->where('is_seeded', false)
+            ->orderBy('id')
+            ->each(fn (KnowledgeArticle $article) => $article->delete());
     }
 
     private function deleteStoredFile(string $path): void

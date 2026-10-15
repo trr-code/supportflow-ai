@@ -44,6 +44,13 @@ final readonly class KnowledgeCorpus
         }
 
         $query->where($id, $this->workspaceId)
+            ->whereExists(function ($subquery) use ($id): void {
+                $subquery->selectRaw('1')
+                    ->from('workspaces')
+                    ->whereColumn('workspaces.id', $id)
+                    ->whereNull('workspaces.purged_at')
+                    ->where('workspaces.expires_at', '>', now());
+            })
             ->whereExists(function ($subquery) use ($table): void {
                 $subquery->selectRaw('1')
                     ->from('workspace_documents')

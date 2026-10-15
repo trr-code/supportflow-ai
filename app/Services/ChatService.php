@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Ai\Agents\SupportChatStreamAgent;
 use App\Enums\AiRunFeature;
+use App\Models\AiRun;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\DemoSession;
+use App\Models\KnowledgeChunk;
 use App\Support\ChatAnswerCopy;
 use App\Support\ChatCitationTrailer;
 use App\Support\ChatFollowUpPassages;
@@ -18,11 +20,13 @@ use App\Support\SupportingPassages;
 use App\Support\UntrustedContent;
 use Closure;
 use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamEvent;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use Throwable;
 
 class ChatService
 {
@@ -180,6 +184,30 @@ class ChatService
             (string) config('supportflow.models.chat'),
         );
 
+        try {
+            return $this->finishHarborReply($session, $conversation, $question, $matches, $chunkIds, $continuing, $generation, $onDelta, $run);
+        } catch (Throwable $exception) {
+            $this->recorder->fail($run, $exception->getMessage());
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param  Collection<int, array{chunk: KnowledgeChunk, similarity: float}>  $matches
+     * @param  list<int>  $chunkIds
+     */
+    private function finishHarborReply(
+        DemoSession $session,
+        ChatConversation $conversation,
+        string $question,
+        Collection $matches,
+        array $chunkIds,
+        bool $continuing,
+        int $generation,
+        ?Closure $onDelta,
+        AiRun $run,
+    ): ChatMessage {
         $refusal = 'I don’t have a documented answer in the Harbor & Co knowledge base. Submit a support ticket and a human agent will take it from here.';
 
         if ($matches->isEmpty()) {
