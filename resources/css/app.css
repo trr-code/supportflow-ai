@@ -216,7 +216,8 @@ select:focus[data-flux-control] {
 }
 
 .policy-link:focus-visible,
-.policy-prose a:focus-visible {
+.policy-prose a:focus-visible,
+.file-choose:focus-within {
     outline: 2px solid var(--color-harbor-ink);
     outline-offset: 2px;
 }

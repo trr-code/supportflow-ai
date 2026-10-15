@@ -3,6 +3,7 @@ paths:
   - app/Livewire/Pages/TicketCreate.php
   - app/Livewire/Pages/TicketShow.php
   - app/Livewire/Pages/TicketStatus.php
+  - app/Livewire/Pages/SupplierInvoicePage.php
 ---
 
 # Pages
@@ -21,3 +22,7 @@ Processing flashes “Regenerating a grounded draft…” and “Retrying AI int
 
 ## Show kept-draft regenerate notice and remount editor
 After regenerate settles, if the latest event is SuggestionRegenerated with unchanged true, show “The regenerated draft matched the previous one. The current draft was kept.” Do not present that result as a new draft. When the pending suggested-reply id changes, replace draftBody so the editor shows the new text.
+
+## Invoice form uses decimal amounts and does not toast
+Show and accept decimal amounts such as $32.00. Convert with InvoiceMoney string arithmetic and store integer cents. Reject floats and more than two decimal places. CSV uses readable headings and decimal amounts such as 32.00, with the currency code in its own column. JSON stays integer cents.
+Do not toast on save, confirm, extraction finish, refresh, or poll. The checklist, review form, and confirmed heading already show that state. Keep validation beside the fields.

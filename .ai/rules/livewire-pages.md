@@ -5,6 +5,7 @@ paths:
   - resources/views/livewire/pages/demo-environment.blade.php
   - resources/views/livewire/pages/workspace-preview.blade.php
   - resources/views/livewire/pages/ticket-index.blade.php
+  - resources/views/livewire/pages/supplier-invoice.blade.php
 ---
 
 # Livewire Pages
@@ -29,3 +30,9 @@ The agent ticket list polls with wire:poll.5s.visible so a visible queue and a t
 
 ## Pace the visible Preview and Harbor answers together
 Store the latest server HTML in pacedTarget and reveal it into liveHtml about every 32ms, two characters at a time, without cutting a tag. Preview and Harbor use that same interval. Hold sources until that reveal catches the done HTML, then refresh or finish the turn. Stop clears the timer immediately. If done has already arrived, show the final HTML and sources at once. If it has not, abort and do not reveal the unseen target. Do not sleep in PHP.
+
+## Invoice controls reuse the upload button and policy link
+The file control is the preview Choose files label button, labeled Choose file, with file-choose so keyboard focus uses the policy-link outline. Download CSV and JSON use class policy-link. Action buttons stay flux:button. Do not toast from this page.
+
+## Invoice confidence is the model's extraction estimate
+Confidence is the extraction model's own 0–1 estimate that it copied the printed fields. It is not a math check and it does not change after correction or confirmation. Before confirmation say to review the fields and that the score does not guarantee accuracy. After confirmation, say it is the model's estimate from extraction and does not guarantee accuracy.

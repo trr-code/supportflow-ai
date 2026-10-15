@@ -13,6 +13,7 @@ return [
         'triage' => env('OPENAI_TRIAGE_MODEL', 'gpt-5.6-luna'),
         'reply' => env('OPENAI_REPLY_MODEL', 'gpt-5.6-terra'),
         'chat' => env('OPENAI_CHAT_MODEL', 'gpt-5.6-luna'),
+        'invoice' => env('OPENAI_INVOICE_MODEL', 'gpt-5.6-luna'),
         'embeddings' => env('OPENAI_EMBEDDINGS_MODEL', 'text-embedding-3-small'),
     ],
 
@@ -76,6 +77,11 @@ return [
         'max_extracted_characters' => 150_000,
         'extract_seconds' => 30,
         'extract_memory_bytes' => 256 * 1024 * 1024,
+    ],
+
+    'invoices' => [
+        'lifetime_days' => 7,
+        'max_file_bytes' => 8 * 1024 * 1024,
     ],
 
 ];

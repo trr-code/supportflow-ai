@@ -4,12 +4,14 @@ use App\Http\Controllers\EnterDemoAgentController;
 use App\Http\Controllers\StartDictationSessionController;
 use App\Http\Controllers\StreamChatController;
 use App\Http\Controllers\StreamWorkspaceChatController;
+use App\Http\Controllers\SupplierInvoiceExportController;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoEnvironment;
 use App\Livewire\Pages\DemoSafety;
 use App\Livewire\Pages\DemoWorkflow;
 use App\Livewire\Pages\KnowledgeIndex;
 use App\Livewire\Pages\KnowledgeShow;
+use App\Livewire\Pages\SupplierInvoicePage;
 use App\Livewire\Pages\TicketCreate;
 use App\Livewire\Pages\TicketIndex;
 use App\Livewire\Pages\TicketShow;
@@ -25,6 +27,14 @@ Route::get('/demo/workflow', DemoWorkflow::class)->name('demo.workflow');
 Route::get('/demo/safety', DemoSafety::class)->name('demo.safety');
 Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment');
 Route::get('/preview', WorkspacePreview::class)->name('workspaces.preview');
+
+Route::get('/invoices/{invoice}/export.csv', [SupplierInvoiceExportController::class, 'csv'])
+    ->where('invoice', '[0-9a-fA-F-]{36}')
+    ->name('documents.invoices.export.csv');
+Route::get('/invoices/{invoice}/export.json', [SupplierInvoiceExportController::class, 'json'])
+    ->where('invoice', '[0-9a-fA-F-]{36}')
+    ->name('documents.invoices.export.json');
+Route::get('/invoices', SupplierInvoicePage::class)->name('documents.invoices');
 
 Route::get('/knowledge', KnowledgeIndex::class)->name('knowledge.index');
 Route::get('/knowledge/{slug}', KnowledgeShow::class)->name('knowledge.show');

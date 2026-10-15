@@ -10,4 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('demo:prune-stale')->everyFifteenMinutes();
 Schedule::command('workspaces:purge-expired')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('invoices:purge-expired')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('queue:prune-failed')->daily();

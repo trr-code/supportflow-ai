@@ -10,4 +10,5 @@ enum AiRunFeature: string
     case WorkspaceChat = 'workspace_chat';
     case Embedding = 'embedding';
     case Transcription = 'transcription';
+    case InvoiceExtraction = 'invoice_extraction';
 }
