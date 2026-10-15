@@ -3,101 +3,95 @@
 
     <section class="space-y-5">
         <h1 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">
-            This is a working customer-support copilot built for potential clients to test.
+            Try demos for faster customer support, your own files, and less invoice typing.
         </h1>
         <p class="max-w-2xl text-base leading-relaxed text-zinc-600 sm:text-lg">
-            Upload your own documents and test the assistant against them, or ask prepared questions about Harbor &amp; Co. Review the sources behind each answer, and see how uncertain or unsafe requests are handed to a human.
+            SupportFlow shows three jobs a business already does. Answer customers with a person still in charge, find answers in documents you upload, and review invoice details instead of typing them.
         </p>
         <p class="max-w-2xl text-sm leading-relaxed text-zinc-500">
             Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.
         </p>
     </section>
 
-    <section class="space-y-4" aria-labelledby="paths-heading">
-        <h2 id="paths-heading" class="text-lg font-semibold text-harbor-ink">Choose how you want to test it</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
-            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:col-span-2 sm:p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Private preview · 7 days</p>
-                <h3 class="mt-2 text-lg font-semibold text-harbor-ink">Test your documents</h3>
-                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
-                    Upload your own knowledge documents, adjust how the AI answers, and test it against your content. No account needed. The workspace expires seven days after it is created, then it is cleaned up automatically. Delete workspace removes it immediately.
-                </p>
-                <div class="mt-4">
-                    <flux:button variant="primary" :href="route('workspaces.preview')" wire:navigate class="w-full sm:w-auto">
-                        Preview your documents
-                    </flux:button>
+    <section class="space-y-4" aria-label="Demos">
+        <article class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Customer support</p>
+            <h2 class="mt-2 text-lg font-semibold text-harbor-ink">Harbor &amp; Co.</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                Answer customers faster, with a person still in charge. Ask about Harbor &amp; Co policies and check the source behind each answer. Incoming requests are sorted automatically. The assistant prepares a summary and a draft reply for staff to review. A person still chooses what is sent. If the assistant is unsure, or a request is unsafe, it hands the work to a person instead of guessing. AI drafts stay internal until a support agent chooses to send them.
+            </p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <p class="text-sm font-medium text-harbor-ink">Quick answer</p>
+                    <p class="mt-1 text-sm leading-relaxed text-zinc-700">Open the chat and ask a prepared question, or ask your own.</p>
+                    <div class="mt-3">
+                        <flux:button type="button" variant="outline" wire:click="openChat" class="w-full justify-center sm:w-auto">
+                            Try a prepared question
+                        </flux:button>
+                    </div>
                 </div>
-            </article>
-
-            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">About 1 minute</p>
-                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Quick AI answer</h3>
-                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
-                    Open the chat, choose a prepared question, or ask your own question about any Harbor policy.
-                </p>
-                <div class="mt-4">
-                    <flux:button type="button" variant="outline" wire:click="openChat" class="w-full justify-center">
-                        Try a prepared question
-                    </flux:button>
+                <div>
+                    <p class="text-sm font-medium text-harbor-ink">Full workflow</p>
+                    <p class="mt-1 text-sm leading-relaxed text-zinc-700">See a request sorted automatically, then review the summary and draft reply before you send it.</p>
+                    <div class="mt-3">
+                        <flux:button variant="outline" :href="route('demo.workflow')" wire:navigate class="w-full justify-center sm:w-auto">
+                            Test the full workflow
+                        </flux:button>
+                    </div>
                 </div>
-            </article>
-
-            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">About 3 minutes</p>
-                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Complete support workflow</h3>
-                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
-                    Submit a prepared or custom ticket, inspect the AI triage, and send a human-approved reply.
-                </p>
-                <div class="mt-4">
-                    <flux:button variant="outline" :href="route('demo.workflow')" wire:navigate class="w-full justify-center">
-                        Test the full workflow
-                    </flux:button>
+                <div>
+                    <p class="text-sm font-medium text-harbor-ink">Policies</p>
+                    <p class="mt-1 text-sm leading-relaxed text-zinc-700">Read the Harbor &amp; Co policies the answers use.</p>
+                    <div class="mt-3">
+                        <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="w-full justify-center sm:w-auto">
+                            Browse policies
+                        </flux:button>
+                    </div>
                 </div>
-            </article>
-
-            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Explore freely</p>
-                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Business knowledge</h3>
-                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
-                    Browse Harbor &amp; Co. policies that ground the AI’s answers, then quiz the assistant with your own questions.
-                </p>
-                <div class="mt-4">
-                    <flux:button variant="outline" :href="route('knowledge.index')" wire:navigate class="w-full justify-center">
-                        Browse policies
-                    </flux:button>
+                <div>
+                    <p class="text-sm font-medium text-harbor-ink">Safety tests</p>
+                    <p class="mt-1 text-sm leading-relaxed text-zinc-700">See refusals, missing information, and examples that need a person.</p>
+                    <div class="mt-3">
+                        <flux:button variant="outline" :href="route('demo.safety')" wire:navigate class="w-full justify-center sm:w-auto">
+                            Try safety tests
+                        </flux:button>
+                    </div>
                 </div>
-            </article>
+            </div>
+        </article>
 
-            <article class="flex flex-col rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Optional</p>
-                <h3 class="mt-2 text-base font-semibold text-harbor-ink">Advanced safety tests</h3>
-                <p class="mt-2 flex-1 text-sm leading-relaxed text-zinc-700">
-                    Try refusals, missing knowledge, and Agent examples.
-                </p>
-                <div class="mt-4">
-                    <flux:button variant="outline" :href="route('demo.safety')" wire:navigate class="w-full justify-center">
-                        Try advanced tests
-                    </flux:button>
-                </div>
-            </article>
-        </div>
-    </section>
+        <article class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Private preview · 7 days</p>
+            <h2 class="mt-2 text-lg font-semibold text-harbor-ink">Your Documents</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                Find answers in your own files. Upload your own documents, adjust how the assistant answers, and ask questions about that content. No account needed. The workspace expires seven days after it is created, then it is cleaned up automatically. Delete workspace removes it immediately.
+            </p>
+            <div class="mt-4">
+                <flux:button variant="primary" :href="route('workspaces.preview')" wire:navigate class="w-full sm:w-auto">
+                    Try your documents
+                </flux:button>
+            </div>
+        </article>
 
-    <section class="space-y-4" aria-labelledby="demonstrates-heading">
-        <h2 id="demonstrates-heading" class="text-lg font-semibold text-harbor-ink">What this demonstrates</h2>
-        <ul class="grid gap-4 sm:grid-cols-3">
-            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
-                <p class="font-semibold text-harbor-ink">Answers backed by your business information</p>
-                <p class="mt-1.5 text-sm text-zinc-700">Each reply cites the Harbor policies it used, so you can check the source.</p>
-            </li>
-            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
-                <p class="font-semibold text-harbor-ink">Uncertain or unsafe requests go to a person</p>
-                <p class="mt-1.5 text-sm text-zinc-700">When knowledge is missing or a request is unsafe, the assistant hands the work to a human instead of guessing.</p>
-            </li>
-            <li class="rounded-2xl border border-harbor-sand-deep bg-white p-5">
-                <p class="font-semibold text-harbor-ink">A person sends every customer reply</p>
-                <p class="mt-1.5 text-sm text-zinc-700">AI drafts stay internal until a support agent chooses to send them.</p>
-            </li>
-        </ul>
+        <article class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Supplier invoices</p>
+            <h2 class="mt-2 text-lg font-semibold text-harbor-ink">Document Processing</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                Spend less time typing invoice details. Upload a PDF with selectable text. The assistant reads the invoice and proposes the fields. The page checks the amounts. You review and correct them, confirm, then download CSV or JSON. It does not pay the invoice.
+            </p>
+            <div class="mt-4">
+                <flux:button variant="outline" :href="route('documents.invoices')" wire:navigate class="w-full justify-center sm:w-auto">
+                    Review an invoice
+                </flux:button>
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Planned</p>
+            <h2 class="mt-2 text-lg font-semibold text-harbor-ink">AI Tools</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                Explore how an assistant could look up orders, check policies and stock, and prepare a replacement request for a person to approve. This is planned. Nothing on this card can be tried yet. Looking up an order, a policy, or stock would not need approval. Preparing a replacement request would wait for a person.
+            </p>
+        </article>
     </section>
 </div>

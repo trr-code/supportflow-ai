@@ -307,7 +307,7 @@ test('choosing a file shows its name and upload indexes it', function () {
 
 test('the landing page links to the document preview and the demo environment does not repeat it', function () {
     Livewire::test(Welcome::class)
-        ->assertSee('Preview your documents')
+        ->assertSee('Try your documents')
         ->assertSee('No account needed.')
         ->assertSee(route('workspaces.preview'));
 

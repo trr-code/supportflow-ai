@@ -10,14 +10,14 @@ paths:
 
 # Livewire Pages
 
-## Landing page features the document preview
-The public landing page leads with one full-width card for the private document preview (`/preview`, no account, 7 days). Below it, four Harbor paths (quick chat, workflow page, knowledge, safety page) sit in one column on small screens and a two-by-two grid from `sm` (`sm:grid-cols-2`). Never show a Coming soon placeholder. Business knowledge is Browse policies only—Agent stays in the chrome. Keep one primary button on the featured preview card. The four Harbor cards are outlined. wire:key belongs on the safety-page test foreach, not on static landing cards.
+## Landing page stacks four demo cards
+The public landing page stacks four full-width cards: Harbor & Co., Your Documents, Document Processing, and AI Tools. Harbor combines quick chat, the workflow page, Browse policies, and the safety page as outlined actions. Your Documents links to `/preview` and keeps the no-account, seven-day cleanup text. Document Processing links to `/invoices`. AI Tools is the only Planned card and has no link or button. Never use the words Coming soon. Business knowledge is Browse policies only—Agent stays in the chrome. Keep one primary button, on Your Documents. Harbor’s four actions may use `sm:grid-cols-2` inside that card. wire:key belongs on the safety-page test foreach, not on static landing cards.
 
 ## Safety page omits the chat cap and deep-links Agent scenarios
 Keep the conversation question cap in config, read by ChatService. Do not mention that limit on the visitor Advanced Safety page or the landing safety card. Open Agent scenarios must land on the already-visible catalog (query scenarios=1 and #agent-scenarios) so visitors do not hunt through Agent navigation.
 
 ## Demo home stays sales-focused
-Demo home leads with the live-portfolio kicker, a working-copilot intro, and a smaller stack line. Keep one primary button on the featured document-preview card, and four outlined Harbor cards beneath it. “What this demonstrates” uses client language. Do not put “What this shows” or “What this is not” on home. Limitations and dictation live on the Demo environment page.
+Demo home leads with the live-portfolio kicker, an intro for customer support, documents, and invoices, and a smaller stack line. Fold source-checking and human approval into the Harbor card. Do not put “What this demonstrates”, “What this shows”, or “What this is not” on home. Limitations and dictation live on the Demo environment page.
 
 ## Dock preview chat bottom-right from md
 From md up, Preview chat is a closed bottom-right dock (preview-dock). The dock ignores pointer events so it does not cover the page. The chat panel, launcher, and New chat dialog turn them back on; a dialog left without that stays open because the click falls through onto the page. The launcher opens the same panel; Close only hides it and does not start a new chat. Expand stays on that corner and grows the panel inside the viewport. Only [data-preview-transcript] scrolls, so the panel cannot lengthen the page. Enter sends; Shift+Enter inserts a newline; ignore Enter while an IME composition is active.
