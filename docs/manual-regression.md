@@ -5,7 +5,7 @@ Run this after automated Pest Feature/Unit tests and local `composer test:evals`
 Local: [https://supportflow-ai.test](https://supportflow-ai.test)
 Forge staging (off-peak): [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com)
 
-Queue worker required for tickets: `php artisan queue:work --queue=ai,default --timeout=120`.
+Local tickets need `composer run dev`, which listens on `ai,default`. Forge staging already runs its queue worker.
 
 Authority for product claims:
 
