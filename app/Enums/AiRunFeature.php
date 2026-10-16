@@ -11,4 +11,5 @@ enum AiRunFeature: string
     case Embedding = 'embedding';
     case Transcription = 'transcription';
     case InvoiceExtraction = 'invoice_extraction';
+    case Replacement = 'replacement';
 }

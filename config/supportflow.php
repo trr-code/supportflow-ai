@@ -56,6 +56,12 @@ return [
         'chat_turn_cap' => 30,
     ],
 
+    'replacement' => [
+        'per_minute' => 20,
+        'message_cap' => 12,
+        'proposal_minutes' => 15,
+    ],
+
     'rate_limits' => [
         'tickets_per_minute' => 15,
         'chat_per_minute' => 30,

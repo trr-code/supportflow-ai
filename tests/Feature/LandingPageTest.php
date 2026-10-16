@@ -90,8 +90,8 @@ test('the landing page invites clients to test a working copilot', function () {
         ->assertSee('Try safety tests')
         ->assertSee('Review an invoice')
         ->assertSee('It does not pay the invoice.')
-        ->assertSee('This is planned. Nothing on this card can be tried yet.')
-        ->assertSee('Looking up an order, a policy, or stock would not need approval.')
+        ->assertSee('Try a replacement')
+        ->assertSee('The orders are fictional. Nothing is shipped.')
         ->assertSee('AI drafts stay internal until a support agent chooses to send them.')
         ->assertSee('Browse policies')
         ->assertDontSee('What this demonstrates')
@@ -153,6 +153,7 @@ test('the landing hero styles Browse policies as an outlined button and leaves t
         ->toContain('flux:button variant="outline" :href="route(\'demo.workflow\')"')
         ->toContain('flux:button variant="outline" :href="route(\'demo.safety\')"')
         ->toContain('flux:button variant="outline" :href="route(\'documents.invoices\')"')
+        ->toContain('flux:button variant="outline" :href="route(\'demo.tools\')"')
         ->toContain('flux:button variant="primary" :href="route(\'workspaces.preview\')" wire:navigate class="w-full sm:w-auto"')
         ->toContain('sm:grid-cols-2')
         ->not->toContain('sm:col-span-2')
@@ -172,10 +173,11 @@ test('the landing hero styles Browse policies as an outlined button and leaves t
         ->toContain('<a href="{{ route(\'knowledge.index\') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>')
         ->and($home)
         ->toContain('Browse policies')
+        ->toContain('Try a replacement')
         ->toContain('data-flux-button')
-        ->and(substr($welcome, (int) strpos($welcome, '>Planned<')))
-        ->not->toContain('flux:button')
-        ->not->toContain('href=');
+        ->and(substr($welcome, (int) strpos($welcome, '>Fictional orders<')))
+        ->toContain('route(\'demo.tools\')')
+        ->toContain('Try a replacement');
 });
 
 test('the demo environment page holds the limitations instead of the landing page', function () {

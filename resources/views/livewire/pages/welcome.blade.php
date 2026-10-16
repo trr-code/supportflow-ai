@@ -87,11 +87,16 @@
         </article>
 
         <article class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Planned</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Fictional orders</p>
             <h2 class="mt-2 text-lg font-semibold text-harbor-ink">AI Tools</h2>
             <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
-                Explore how an assistant could look up orders, check policies and stock, and prepare a replacement request for a person to approve. This is planned. Nothing on this card can be tried yet. Looking up an order, a policy, or stock would not need approval. Preparing a replacement request would wait for a person.
+                See how the assistant looks up an order, checks the damage policy and stock, and prepares a replacement for you to confirm. The orders are fictional. Nothing is shipped.
             </p>
+            <div class="mt-4">
+                <flux:button variant="outline" :href="route('demo.tools')" wire:navigate class="w-full justify-center sm:w-auto">
+                    Try a replacement
+                </flux:button>
+            </div>
         </article>
     </section>
 </div>

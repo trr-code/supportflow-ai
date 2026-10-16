@@ -154,4 +154,8 @@ return [
         ],
     ],
 
+    'conversations' => [
+        'generate_title' => false,
+    ],
+
 ];

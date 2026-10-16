@@ -39,6 +39,8 @@ class DemoPruneService
 
         $prunable = $staleIds->reject(fn (string $id): bool => in_array($id, $protectedSessionIds, true));
 
+        app(ReplacementCaseService::class)->invalidateSessions($this->sessionIds($prunable->values()->all()));
+
         $tickets = Ticket::query()
             ->whereIn('demo_session_id', $prunable)
             ->where('is_seeded', false)
@@ -68,6 +70,10 @@ class DemoPruneService
      */
     public function forceReset(): array
     {
+        app(ReplacementCaseService::class)->invalidateSessions(
+            $this->sessionIds(DemoSession::query()->pluck('id')->all()),
+        );
+
         $tickets = Ticket::query()->where('is_seeded', false)->get();
         $ticketCount = $tickets->count();
 
@@ -82,5 +88,22 @@ class DemoPruneService
             'tickets' => $ticketCount,
             'sessions' => $sessionCount,
         ];
+    }
+
+    /**
+     * @param  array<mixed>  $ids
+     * @return list<string>
+     */
+    private function sessionIds(array $ids): array
+    {
+        $sessionIds = [];
+
+        foreach ($ids as $id) {
+            if (is_string($id) && $id !== '') {
+                $sessionIds[] = $id;
+            }
+        }
+
+        return $sessionIds;
     }
 }

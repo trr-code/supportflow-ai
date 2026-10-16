@@ -11,6 +11,7 @@ use App\Livewire\Pages\DemoSafety;
 use App\Livewire\Pages\DemoWorkflow;
 use App\Livewire\Pages\KnowledgeIndex;
 use App\Livewire\Pages\KnowledgeShow;
+use App\Livewire\Pages\ReplacementTools;
 use App\Livewire\Pages\SupplierInvoicePage;
 use App\Livewire\Pages\TicketCreate;
 use App\Livewire\Pages\TicketIndex;
@@ -26,6 +27,7 @@ Route::get('/', Welcome::class)->name('home');
 Route::get('/demo/workflow', DemoWorkflow::class)->name('demo.workflow');
 Route::get('/demo/safety', DemoSafety::class)->name('demo.safety');
 Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment');
+Route::get('/tools', ReplacementTools::class)->name('demo.tools');
 Route::get('/preview', WorkspacePreview::class)->name('workspaces.preview');
 
 Route::get('/invoices/{invoice}/export.csv', [SupplierInvoiceExportController::class, 'csv'])
