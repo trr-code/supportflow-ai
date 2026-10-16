@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\TicketCategory;
 use App\Models\KnowledgeArticle;
+use App\Services\DamagedOnArrivalArticle;
 use App\Services\KnowledgeIndexService;
 use Illuminate\Database\Seeder;
 
@@ -101,9 +102,7 @@ MD],
             ['International shipping', 'international-shipping', TicketCategory::Shipping, <<<'MD'
 We ship to Canada. Duties are collected at checkout. We do not ship fuel canisters to Canada.
 MD],
-            ['Damaged on arrival', 'damaged-on-arrival', TicketCategory::Shipping, <<<'MD'
-Photograph the outer carton and the damaged item before disposing of packaging. File within 5 days of delivery.
-MD],
+            ['Damaged on arrival', 'damaged-on-arrival', TicketCategory::Shipping, "Photograph the outer carton and the damaged item before disposing of packaging. File within 5 days of delivery.\n".DamagedOnArrivalArticle::REPLACEMENT_SENTENCE."\n"],
             ['Loyalty points', 'loyalty-points', TicketCategory::Account, <<<'MD'
 Harbor Circle points post 14 days after delivery. Returns reverse unredeemed points.
 MD],
