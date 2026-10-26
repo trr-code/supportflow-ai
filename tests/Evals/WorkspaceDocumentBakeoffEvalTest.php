@@ -97,7 +97,7 @@ test('document preview follows tone and length', function (string $model) {
     $thorough = askPreview($workspace, 'Summarize the shipping, return, and warranty rules.', $model);
 
     expect($concise->body)->not->toMatch('/[\x{1F300}-\x{1FAFF}]/u')
-        ->and(str_word_count($concise->body))->toBeLessThan(str_word_count($thorough->body))
+        ->and(str_word_count($concise->body))->toBeLessThanOrEqual(80)
         ->and($thorough->body)->toMatch('/30\s*days/i')
         ->and($thorough->body)->toMatch('/2\s*years/i');
 })->with('preview chat models');

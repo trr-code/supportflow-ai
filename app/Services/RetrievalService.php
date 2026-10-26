@@ -76,7 +76,7 @@ class RetrievalService
             ->get()
             ->keyBy('id');
 
-        return $this->selectDiverse($orderedIds, $chunks, $topics, $similarities, $limit, $maxPerArticle, $minSimilarity, $query);
+        return $this->selectDiverse($orderedIds, $chunks, $topics, $similarities, $limit, $maxPerArticle, $minSimilarity, $query, $corpus);
     }
 
     /**
@@ -305,12 +305,13 @@ class RetrievalService
         int $maxPerArticle,
         float $minSimilarity,
         string $query,
+        KnowledgeCorpus $corpus,
     ): Collection {
         $selected = [];
         $perArticle = [];
         $facets = RetrievalFacets::matching($query);
 
-        $articleCap = function (int $articleId) use ($facets, $chunks, $maxPerArticle): int {
+        $articleCap = function (int $articleId) use ($facets, $chunks, $maxPerArticle, $corpus, $query, $limit): int {
             $covered = 0;
 
             foreach ($facets as $facet) {
@@ -326,7 +327,26 @@ class RetrievalService
                 }
             }
 
-            return max($maxPerArticle, min(3, $covered));
+            $cap = max($maxPerArticle, min(3, $covered));
+
+            if ($corpus->isHarbor()) {
+                return $cap;
+            }
+
+            $asked = $this->askedPartWords($query);
+            $headingHits = 0;
+
+            foreach ($chunks as $chunk) {
+                if ((int) $chunk->knowledge_article_id !== $articleId) {
+                    continue;
+                }
+
+                if ($asked !== [] && array_any($asked, fn (array $words): bool => $this->headingCoversAskedPart($chunk, $words))) {
+                    $headingHits++;
+                }
+            }
+
+            return max($cap, min($limit, $headingHits));
         };
 
         $tryAdd = function (int $id) use (&$selected, &$perArticle, $chunks, $articleCap, $limit): bool {
