@@ -37,7 +37,7 @@ Local paid Evals (live OpenAI, seeded Harbor catalog):
 composer test:evals
 ```
 
-After those pass, use the [manual regression checklist](docs/manual-regression.md) before any deploy. Do not ship from this change set.
+Release status for Stages 0–7 and P0–P3 lives in the [release-readiness checklist](docs/release-readiness.md). After `composer test` and local `composer test:evals`, use the [manual regression checklist](docs/manual-regression.md) for click-paths. A local pass is not Forge verification. A Forge deploy is not readiness to show clients.
 
 ### HTTP performance (Pest Stressless)
 
@@ -73,7 +73,7 @@ Ad-hoc (no assertions): `./vendor/bin/pest stress supportflow-ai.test/up --concu
 
 ## Deploy
 
-Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That site is non-ZDD Octane on port 8001. CareerForge stays untouched.
+Forge staging notes live in [docs/forge.md](docs/forge.md). Staging URL: [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That site is non-ZDD Octane on port 8001. CareerForge is unused: do not shrink Forge checks for it; if `worker-987181` contends, stop that worker. Do not delete CareerForge or shared Lucid resources without a separate approval.
 
 ## License
 

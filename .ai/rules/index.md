@@ -10,9 +10,10 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/components/dictation-button.blade.php | .ai/rules/components.md |
 | config/supportflow.php | .ai/rules/config.md |
 | app/Http/Controllers/StreamChatController.php | .ai/rules/controllers.md |
-| docs/forge.md, docs/performance.md, docs/manual-regression.md, README.md | .ai/rules/docs.md |
+| docs/forge.md, docs/performance.md, docs/manual-regression.md, README.md, docs/release-readiness.md | .ai/rules/docs.md |
 | tests/Evals/** | .ai/rules/evals.md |
 | rector.php, composer.json | .ai/rules/general.md |
+| app/Jobs/** | .ai/rules/jobs.md |
 | resources/views/components/layouts/public.blade.php, resources/views/components/layouts/workspace.blade.php, resources/views/components/layouts/lucid.blade.php | .ai/rules/layouts.md |
 | resources/views/livewire/chat/widget.blade.php | .ai/rules/livewire-chat.md |
 | resources/views/livewire/pages/welcome.blade.php, resources/views/livewire/pages/demo-safety.blade.php, resources/views/livewire/pages/demo-environment.blade.php, resources/views/livewire/pages/workspace-preview.blade.php, resources/views/livewire/pages/ticket-index.blade.php, resources/views/livewire/pages/supplier-invoice.blade.php, resources/views/livewire/pages/dashboard.blade.php, resources/views/livewire/pages/demo-workspace.blade.php, resources/views/livewire/pages/ticket-show.blade.php | .ai/rules/livewire-pages.md |

@@ -4,6 +4,7 @@ paths:
   - docs/performance.md
   - docs/manual-regression.md
   - README.md
+  - docs/release-readiness.md
 ---
 
 # Docs
@@ -34,3 +35,24 @@ Do not use Forge CLI commands that shell out to SSH (`ssh:test`, `php:status`, `
 
 ## Manual regression is a post-eval checklist, not a deploy
 The complete customer/agent/Forge manual checklist lives at docs/manual-regression.md. Run it only after composer test and local composer test:evals pass. Do not treat it as a deploy. Harbor KB is the authority: unused size exchanges are free within 30 days; prepaid UPS labels belong to approved returns, not exchanges; Ohio tax and embroidery thread colors are undocumented. Local URL is https://supportflow-ai.test; Forge staging is https://supportflow-ai-lqojsjr5.on-forge.com (off-peak, no Stressless writes).
+
+## CareerForge stays unused during Forge verification
+CareerForge on the shared VM is unused. Do not skip or shrink Forge verification for it. If worker-987181 contends, stop that worker rather than reducing tests. Do not delete CareerForge or shared Lucid/SupportFlow resources without a separate approval. Process table: docs/forge.md.
+
+## Forge live checklist is verification after local tests
+Run the Live Forge staging checklist in docs/manual-regression.md only after local composer test and composer test:evals pass. It is verification, not a deploy.
+
+## Chat TTFB is a separate live check
+Live AI-chat TTFB and concurrency use concurrent POST /chat/stream. They are not Stressless and not a single quality turn. See docs/performance.md chat streaming notes.
+
+## queue:listen --timeout is a child-process wall clock
+Local composer run dev uses queue:listen --queue=ai,default --timeout=120. That 120s is Symfony Process wall-clock on each queue:work --once child, not Laravel job $timeout. Laravel --timeout has no effect with --once, and job timeouts need PCNTL (not on Windows). Forge uses queue:work --timeout=120. Do not raise either limit because a listen child froze after screen lock or sleep. retry_after stays 150.
+
+## Release-readiness is the living gate
+Status of Stages 0–7 and P0–P3 lives in docs/release-readiness.md. Link it from README, AGENTS.md, the showroom plan, and docs/manual-regression.md. A local Feature pass is not Forge verification. A Forge deploy is not readiness to show clients. Do not mark Forge, GitHub CI, device, or file-picker checks passed from local tests. Push to main deploys because Forge push-to-deploy is on.
+
+## Chat TTFB is required release verification
+Concurrent POST /chat/stream is required for release verification (local current-path numbers, then Forge). It is not Stressless, not a single quality turn, and not optional because you are not claiming concurrency. 2026-09-19 numbers do not close it. GET Stressless does not close it.
+
+## Forge push-to-deploy does not wait for GitHub CI
+Site 3397748 push-to-deploy is on for main. Forge starts git pull on the GitHub push webhook. GitHub Actions tests.yml runs in parallel and does not gate or roll back that deploy. There is no deploy.yml and main is not branch-protected. To wait for CI, turn push-to-deploy off and trigger forge deploy from Actions after Tests.

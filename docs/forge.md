@@ -10,7 +10,7 @@ Do **not** publish deployment-hook tokens. Rotate a token in Forge if it was pas
 
 ## Status (2026-09-24)
 
-The non-ZDD SupportFlow site is **live**. Cutover is complete. CareerForge on the same server is untouched.
+The non-ZDD SupportFlow site is **live**. Cutover is complete. CareerForge on the same server is unused (not deleted).
 
 Forge CLI is **2.0.3**. Organization `terry-lafferty`, server `careerforge` (`1228434`, `167.172.14.46`).
 
@@ -36,7 +36,7 @@ Rector `--dry-run` is in both `composer test` and GitHub Actions.
 | Hostname/root | `supportflow-ai-lqojsjr5.on-forge.com` (`/home/forge/supportflow-ai-lqojsjr5.on-forge.com`) |
 | Framework | Laravel, PHP **8.5** |
 | Zero-downtime | **Off** |
-| Push to deploy | **On** for `main` |
+| Push to deploy | **On** for `main`. Forge starts `git pull` on the GitHub push webhook. It does **not** wait for GitHub Actions. This site has no `deploy.yml`; `main` is not branch-protected. Tests.yml runs in parallel and does not gate or roll back this deploy. To wait for CI, turn push-to-deploy off and trigger `forge deploy` from Actions after Tests. |
 | Database | Existing PostgreSQL `supportflow_ai` (pgvector already enabled) |
 | Layout | Standard site root (no `current`/`releases` symlink) |
 | Octane | **SupportFlow Octane**, running, one process, site-root working directory, graceful shutdown 120s |
@@ -54,9 +54,9 @@ Manual deployment succeeded. `/up` passed. Chat streaming passed. A complete pro
 
 PHP-FPM 8.5 remains installed. This site does not use it for HTTPS. `index index.html` with official `try_files $uri $uri/ @octane` returns nginx 403 on `/`.
 
-### CareerForge (do not touch)
+### CareerForge (unused, not deleted)
 
-Same VM. Supervisor `worker-987181` runs CareerForge queues (`careerforge-vec7voun.on-forge.com`, `--timeout=600 --queue=default`). Leave that worker, that site, its Nginx, scheduler, database, and deploys unchanged.
+Same VM. Supervisor `worker-987181` runs CareerForge queues (`careerforge-vec7voun.on-forge.com`, `--timeout=600 --queue=default`). CareerForge is unused. Do not skip or shrink SupportFlow verification, GET Stressless, health, or workflow checks to accommodate it. If that worker contends, stop `worker-987181` rather than reducing tests. Do not delete CareerForge or shared Lucid/SupportFlow resources without a separate approval. Before stopping anything beyond that worker, list Forge sites (`site:list` / SSH) and treat unknown vhosts as keep-until-identified.
 
 ### Former ZDD site (deleted)
 

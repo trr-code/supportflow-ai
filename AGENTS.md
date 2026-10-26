@@ -1,3 +1,7 @@
+# SupportFlow AI
+
+Release-readiness: [docs/release-readiness.md](docs/release-readiness.md). Open [.ai/rules/index.md](.ai/rules/index.md) before planning or editing.
+
 <laravel-boost-guidelines>
 === .ai/livewire-loop-keys rules ===
 

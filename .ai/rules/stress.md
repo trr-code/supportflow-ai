@@ -13,3 +13,9 @@ Stressless starts k6 via Symfony Process without setTimeout, so the process defa
 
 ## Persist k6 cookies across Stressless iterations
 k6 resets the per-VU cookie jar after each iteration unless K6_NO_COOKIES_RESET=true. Stressless GET helpers and the Stress Pest beforeEach set that env so HTML routes measure returning visitors, not one demo_sessions insert per request. Ad-hoc `pest stress` must set the env itself. Do not disable Laravel cookie encryption to chase Stressless row growth.
+
+## Keep Forge load tests separate
+GET Stressless against Forge is off-peak, smoke-first, and targets the SupportFlow public hostname only. Local Herd GET Stressless is the default capacity check before that. Never loop POST /chat/stream, ticket create, dictation, or regenerate in Stressless. Do not run Stressless against CareerForge.
+
+## Forge GET Stressless is the post-deploy GET check
+After deploy, Forge GET Stressless is the GET capacity check: smoke first, then load/stress/stability/capacity against the public hostname. Do not copy 16 Octane workers. Do not reduce the run because CareerForge is unused. GET Stressless does not close chat TTFB. See docs/performance.md.
