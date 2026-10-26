@@ -14,6 +14,9 @@ Below md, pin the widget with `start-4 end-4` so both side margins stay equal an
 ## Chat tokens stream over fetch SSE
 Token paint is Alpine fetch of chat.stream plus AbortController, not wire:stream or completeTurn. send/fetch morph, liveHtml, and $wire.streaming may only call scrollTranscript() while pinToBottom is true. Stop aborts the fetch and calls stopGenerating.
 
+## Inline Harbor citations are numbered circles
+The inline workspace chat places a numbered circle beside a sentence only when `CitedChunkIds::usesChunk` matches that sentence. Numbers restart on each answer. Sources & actions lists that answer’s passages with the same numbers, in citation order; clicking an older answer’s circle shows that answer’s passages. A title stays expanded until its arrow is collapsed. Hover and keyboard focus preview the policy title and excerpt. The preview stays open while the pointer or keyboard focus is on the circle or the preview, and Escape closes it. A click opens that passage without dismissing or pinning the preview. Do not put a circle on an unsupported sentence, and do not wrap the number in brackets. The floating widget still lists `Source:` lines. Browse policies stays the title index.
+
 ## Done events paint sources before morph
 The SSE done payload includes html and sources. Hold sources until the visible reveal catches that HTML, then finishTurn, then clear the live fields. Never blank liveHtml while $wire.streaming is still true—that flashes Thinking… and jumps the Source: list in after morph. A stop before done still clears without sources. failOpenStream and startChatStream still reset liveSources.
 

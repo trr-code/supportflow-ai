@@ -8,6 +8,7 @@ use App\Services\ChatService;
 use App\Support\CitedSources;
 use App\Support\DemoGuide;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Async;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Validate;
@@ -24,9 +25,18 @@ class Widget extends Component
 
     public bool $open = false;
 
+    public bool $inline = false;
+
     public bool $streaming = false;
 
     public string $streamText = '';
+
+    public function mount(): void
+    {
+        if ($this->inline) {
+            $this->open = true;
+        }
+    }
 
     public function send(ChatService $chat): void
     {
@@ -68,11 +78,38 @@ class Widget extends Component
         $this->reportStreamError($message);
     }
 
+    #[On('request-harbor-escalate')]
+    public function escalate(ChatService $chat): void
+    {
+        $transcript = $chat->conversationFor($this->demoSession())
+            ->messages()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($message): string => ($message->role === 'user' ? 'Customer' : 'Assistant').': '.$message->body)
+            ->implode("\n\n");
+
+        if ($transcript !== '') {
+            session([
+                'supportflow.ticket.subject' => 'Follow-up from Harbor chat',
+                'supportflow.ticket.description' => Str::limit("Conversation from the Harbor support demo:\n\n".$transcript, 4000, ''),
+            ]);
+        }
+
+        if ($this->inline) {
+            $this->dispatch('harbor-open-ticket');
+
+            return;
+        }
+
+        $this->redirectRoute('tickets.create', navigate: true);
+    }
+
     public function finishTurn(): void
     {
         $this->pendingQuestion = '';
         $this->streaming = false;
         $this->streamText = '';
+        $this->notifyWorkspace();
     }
 
     #[On('demo-open-chat')]
@@ -139,6 +176,7 @@ class Widget extends Component
         $this->pendingQuestion = '';
         $this->streamText = '';
         $this->dispatch('modal-close', name: 'confirm-new-conversation');
+        $this->notifyWorkspace();
     }
 
     #[Async]
@@ -171,19 +209,28 @@ class Widget extends Component
             : KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get()->keyBy('id');
 
         $sourceGroups = [];
+        $citedChunks = [];
 
         foreach ($messages as $message) {
             /** @var list<int> $ids */
             $ids = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
-            $sourceGroups[$message->id] = CitedSources::groupByArticle(
-                CitedSources::inCitationOrder($chunks->only($ids), $ids),
-            );
+            $ordered = CitedSources::inCitationOrder($chunks->only($ids), $ids);
+            $sourceGroups[$message->id] = CitedSources::groupByArticle($ordered);
+            $citedChunks[$message->id] = $ordered->all();
         }
 
         return view('livewire.chat.widget', [
             'messages' => $messages,
             'sourceGroups' => $sourceGroups,
+            'citedChunks' => $citedChunks,
             'primaryPrompts' => DemoGuide::primaryChatPrompts(),
         ]);
+    }
+
+    private function notifyWorkspace(): void
+    {
+        if ($this->inline) {
+            $this->dispatch('harbor-thread-changed');
+        }
     }
 }

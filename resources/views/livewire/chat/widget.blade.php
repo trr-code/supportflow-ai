@@ -1,6 +1,11 @@
 <div
-    class="chat-dock fixed bottom-4 start-4 end-4 z-40 min-w-0"
+    @class([
+        'chat-dock z-40 min-w-0',
+        'fixed bottom-4 start-4 end-4' => ! $inline,
+        'lucid-inline relative flex h-full min-h-0 flex-col' => $inline,
+    ])
     :class="{ 'is-expanded': expanded && ! phone }"
+    x-on:keydown.escape.window="closeCite()"
     x-data="{
         expanded: false,
         phone: false,
@@ -30,6 +35,71 @@
         streamUrl: @js(route('chat.stream')),
         streamProbeUrl: @js(url('/robots.txt')),
         streamStallMs: 20000,
+        citeOpen: false,
+        citeHover: false,
+        citeFocus: false,
+        citeCloseTimer: null,
+        citeTitle: '',
+        citeExcerpt: '',
+        citeTop: 0,
+        citeLeft: 0,
+        openCite(event) {
+            const el = event.currentTarget
+            if (! el) {
+                return
+            }
+            clearTimeout(this.citeCloseTimer)
+            const rect = el.getBoundingClientRect()
+            const width = 256
+            this.citeTitle = el.dataset.citeTitle || ''
+            this.citeExcerpt = el.dataset.citeExcerpt || ''
+            this.citeLeft = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+            const below = rect.bottom + 8
+            this.citeTop = below + 160 > window.innerHeight ? Math.max(8, rect.top - 160) : below
+            this.citeOpen = true
+        },
+        pointerOverCite(event) {
+            this.citeHover = true
+            this.openCite(event)
+        },
+        focusCite(event) {
+            const el = event.currentTarget
+            if (! el || ! el.matches(':focus-visible')) {
+                return
+            }
+            this.citeFocus = true
+            this.openCite(event)
+        },
+        pointerLeftCite() {
+            this.citeHover = false
+            this.queueCiteClose()
+        },
+        focusLeftCite() {
+            this.citeFocus = false
+            this.queueCiteClose()
+        },
+        pointerOverPreview() {
+            this.citeHover = true
+            clearTimeout(this.citeCloseTimer)
+        },
+        pointerLeftPreview() {
+            this.citeHover = false
+            this.queueCiteClose()
+        },
+        queueCiteClose() {
+            clearTimeout(this.citeCloseTimer)
+            this.citeCloseTimer = setTimeout(() => {
+                if (! this.citeHover && ! this.citeFocus) {
+                    this.citeOpen = false
+                }
+            }, 120)
+        },
+        closeCite() {
+            clearTimeout(this.citeCloseTimer)
+            this.citeHover = false
+            this.citeFocus = false
+            this.citeOpen = false
+        },
         transcriptEl() {
             const root = this.$root ?? this.$el
             if (! root) {
@@ -39,6 +109,17 @@
                 return root
             }
             return root.querySelector('[data-chat-transcript]')
+        },
+        resizeComposer(field) {
+            if (! field || field.tagName !== 'TEXTAREA') {
+                return
+            }
+            field.style.height = 'auto'
+            const line = parseFloat(getComputedStyle(field).lineHeight) || 24
+            const max = line * 7
+            const next = Math.min(field.scrollHeight, max)
+            field.style.height = next + 'px'
+            field.style.overflowY = field.scrollHeight > max + 1 ? 'auto' : 'hidden'
         },
         textLength(html) {
             return html.replace(/<[^>]*>/g, '').replace(/&[^;]{1,10};/g, ' ').length
@@ -492,6 +573,18 @@
         },
     }"
     x-init="
+        const closeStaleCite = () => {
+            const active = document.activeElement
+            const overPreview = $root.querySelector('[data-cite-preview]:hover')
+            if (active?.classList?.contains('harbor-cite') || $root.querySelector('.harbor-cite:hover') || overPreview) {
+                return
+            }
+            closeCite()
+        }
+        const transcript = $root.querySelector('[data-chat-transcript]')
+        if (transcript) {
+            new MutationObserver(closeStaleCite).observe(transcript, { childList: true, subtree: true })
+        }
         const query = window.matchMedia('(max-width: 767px)')
         const syncPhone = () => { phone = query.matches }
         syncPhone()
@@ -565,23 +658,44 @@
     @online.window="commitLivewireRecovery()"
 >
     @if ($open)
-        <div class="chat-dock-panel mb-3 flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-harbor-sand-deep bg-white shadow-xl">
-            <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-harbor-sand-deep px-4 py-2">
-                <p class="min-w-0 text-sm font-medium text-harbor-ink">Harbor &amp; Co knowledge assistant</p>
+        <div @class([
+            'chat-dock-panel flex w-full min-w-0 flex-col overflow-hidden',
+            'mb-3 rounded-2xl border border-harbor-sand-deep bg-white shadow-xl' => ! $inline,
+            'h-full min-h-0 border-0 bg-transparent shadow-none' => $inline,
+        ])>
+            <div @class([
+                'flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-harbor-sand-deep',
+                'h-16 px-5' => $inline,
+                'px-4 py-2' => ! $inline,
+            ])>
+                <p class="flex min-w-0 items-center gap-2.5 text-sm font-medium text-harbor-ink">
+                    @if ($inline)
+                        <svg class="size-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 12H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h3v-7H4Zm16 0h1a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-3v-7h2ZM18 19c0 2-2 3-5 3"/></svg>
+                        <span class="font-semibold">Harbor support</span>
+                        <span class="ms-1 inline-flex items-center gap-2 text-xs font-normal text-[#64617d]">
+                            <span class="size-2 rounded-full bg-[#3d9a5d]" aria-hidden="true"></span>
+                            Demo
+                        </span>
+                    @else
+                        Harbor &amp; Co knowledge assistant
+                    @endif
+                </p>
                 <div class="flex shrink-0 items-center gap-3">
                     @if ($messages->isNotEmpty() && ! $streaming)
                         <flux:modal.trigger name="confirm-new-conversation">
-                            <button type="button" class="text-sm text-zinc-500 hover:text-harbor-ink">New conversation</button>
+                            <button type="button" class="rounded-lg px-2 py-1 text-sm text-[#64617d] hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">New conversation</button>
                         </flux:modal.trigger>
                     @endif
-                    <button
-                        type="button"
-                        class="harbor-expand text-sm text-zinc-500 hover:text-harbor-ink"
-                        x-on:click="expanded = ! expanded"
-                        x-text="expanded ? 'Collapse' : 'Expand'"
-                        :aria-expanded="expanded"
-                    >Expand</button>
-                    <button type="button" wire:click="$set('open', false)" class="text-sm text-zinc-500 hover:text-harbor-ink">Close</button>
+                    @unless ($inline)
+                        <button
+                            type="button"
+                            class="harbor-expand rounded-lg px-2 py-1 text-sm text-[#64617d] hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]"
+                            x-on:click="expanded = ! expanded"
+                            x-text="expanded ? 'Collapse' : 'Expand'"
+                            :aria-expanded="expanded"
+                        >Expand</button>
+                        <button type="button" wire:click="$set('open', false)" class="rounded-lg px-2 py-1 text-sm text-[#64617d] hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">Close</button>
+                    @endunless
                 </div>
             </div>
             <div
@@ -599,14 +713,26 @@
                     <div wire:key="chat-{{ $message->id }}">
                         @if ($message->role === 'user')
                             <div class="text-end">
-                                <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $message->body }}</p>
+                                @if ($inline)
+                                    <p class="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eee7ff] px-3 py-2 text-left text-harbor-ink">{{ $message->body }}</p>
+                                @else
+                                    <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $message->body }}</p>
+                                @endif
                             </div>
                         @else
-                            <div class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4">
-                                {!! \App\Support\ChatAnswerHtml::render($message->body) !!}
+                            <div @class([
+                                'inline-block break-words px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4',
+                                'max-w-[85%] rounded-2xl bg-harbor-sand' => $inline,
+                                'max-w-full rounded-lg bg-harbor-sand' => ! $inline,
+                            ])>
+                                @if ($inline)
+                                    {!! \App\Support\ChatInlineCitations::render($message->body, $citedChunks[$message->id] ?? [], $message->id) !!}
+                                @else
+                                    {!! \App\Support\ChatAnswerHtml::render($message->body) !!}
+                                @endif
                             </div>
                         @endif
-                        @if (($sourceGroups[$message->id] ?? []) !== [])
+                        @if (! $inline && ($sourceGroups[$message->id] ?? []) !== [])
                             <ul class="mt-1 text-start text-xs text-zinc-500">
                                 @foreach ($sourceGroups[$message->id] as $group)
                                     <li wire:key="cite-{{ $message->id }}-{{ $group['article_id'] }}">
@@ -621,37 +747,51 @@
                     </div>
                 @empty
                     @unless ($streaming)
-                        <p class="text-zinc-500">Ask a question about Harbor Outfitters policies. If it isn’t in the knowledge base, I’ll suggest a ticket.</p>
-                        <p class="text-xs text-zinc-400">History stays for this visit unless you start a new conversation.</p>
-                        <p id="chat-widget-fill-hint" class="text-xs text-zinc-400">Suggested questions fill the box. Press Send to ask.</p>
-                        <div class="flex flex-col gap-2" role="group" aria-label="Suggested questions" aria-describedby="chat-widget-fill-hint">
-                            @foreach ($primaryPrompts as $key => $prompt)
-                                <div wire:key="chat-prompt-{{ $key }}">
-                                    <flux:button
-                                        type="button"
-                                        size="sm"
-                                        variant="filled"
-                                        wire:click="fillQuestion('{{ $key }}')"
-                                        :disabled="$streaming"
-                                        class="w-full justify-center"
-                                    >
-                                        {{ $prompt['label'] }}
-                                    </flux:button>
-                                </div>
-                            @endforeach
-                        </div>
+                        @if ($inline)
+                            <div class="text-start">
+                                <p class="inline-block max-w-[85%] rounded-2xl bg-harbor-sand px-3 py-2 text-start text-harbor-ink">{{ "Hi, I'm Lucid, the AI support assistant for Harbor & Co., a fictional outdoor retailer." }}</p>
+                            </div>
+                        @else
+                            <p class="text-zinc-500">Ask a question about Harbor Outfitters policies. If it isn’t in the knowledge base, I’ll suggest a ticket.</p>
+                            <p class="text-xs text-zinc-400">History stays for this visit unless you start a new conversation.</p>
+                            <p id="chat-widget-fill-hint" class="text-xs text-zinc-400">Suggested questions fill the box. Press Send to ask.</p>
+                            <div class="flex flex-col gap-2" role="group" aria-label="Suggested questions" aria-describedby="chat-widget-fill-hint">
+                                @foreach ($primaryPrompts as $key => $prompt)
+                                    <div wire:key="chat-prompt-{{ $key }}">
+                                        <flux:button
+                                            type="button"
+                                            size="sm"
+                                            variant="filled"
+                                            wire:click="fillQuestion('{{ $key }}')"
+                                            :disabled="$streaming"
+                                            class="w-full justify-center"
+                                        >
+                                            {{ $prompt['label'] }}
+                                        </flux:button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     @endunless
                 @endforelse
                 @if ($streaming && $pendingQuestion !== '')
                     <div wire:key="chat-pending-user" class="text-end" x-show="!streamFailed">
-                        <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $pendingQuestion }}</p>
+                        @if ($inline)
+                            <p class="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eee7ff] px-3 py-2 text-left text-harbor-ink">{{ $pendingQuestion }}</p>
+                        @else
+                            <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $pendingQuestion }}</p>
+                        @endif
                     </div>
                 @endif
                 @if ($streaming)
                     <div wire:key="chat-stream" class="text-start" x-show="!streamFailed">
                         <p class="sr-only">Assistant is writing</p>
-                        <div class="inline-block max-w-full break-words rounded-lg bg-harbor-sand px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4" x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
-                        <ul class="mt-1 text-start text-xs text-zinc-500" x-show="liveSources.length > 0">
+                        <div @class([
+                            'inline-block break-words px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4',
+                            'max-w-[85%] rounded-2xl bg-harbor-sand' => $inline,
+                            'max-w-full rounded-lg bg-harbor-sand' => ! $inline,
+                        ]) x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
+                        <ul class="mt-1 text-start text-xs text-zinc-500" x-show="! {{ $inline ? 'true' : 'false' }} && liveSources.length > 0">
                             <template x-for="group in liveSources" :key="'live-cite-' + group.article_id">
                                 <li>
                                     Source: <span x-text="group.title"></span>
@@ -662,14 +802,98 @@
                     </div>
                 @endif
             </div>
-            <form wire:submit="send" class="shrink-0 border-t border-harbor-sand-deep p-3" x-on:submit="pinNewest(); if (livewireRecoveryPending) { $event.preventDefault(); $event.stopImmediatePropagation(); commitLivewireRecovery() }">
-                <flux:input
-                    id="chat-question"
-                    wire:model="question"
-                    placeholder="Ask about returns, shipping, warranty…"
-                    x-bind:disabled="$wire.streaming && !streamFailed"
-                    :aria-describedby="$errors->has('question') ? 'chat-question-error' : null"
-                />
+            @if ($inline && $messages->isEmpty() && ! $streaming)
+                <div class="flex shrink-0 flex-col items-start gap-1.5 px-3 pt-1" role="group" aria-label="Suggested questions">
+                    @foreach ($primaryPrompts as $key => $prompt)
+                        <button
+                            type="button"
+                            wire:key="inline-prompt-{{ $key }}"
+                            wire:click="fillQuestion('{{ $key }}')"
+                            class="max-w-full rounded-2xl bg-harbor-sand px-3 py-1.5 text-left text-xs leading-snug text-harbor-ink hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]"
+                        >{{ $prompt['question'] }}</button>
+                    @endforeach
+                </div>
+            @endif
+            <form wire:submit="send" @class([
+                'shrink-0',
+                'border-t border-harbor-sand-deep p-3' => ! $inline,
+                'px-3 pt-2 pb-3' => $inline,
+            ]) x-on:submit="pinNewest(); if (livewireRecoveryPending) { $event.preventDefault(); $event.stopImmediatePropagation(); commitLivewireRecovery() }">
+                @if ($inline)
+                    <label for="chat-question" class="sr-only">Ask about returns, shipping, warranty</label>
+                    <div class="relative -top-0.5 flex items-end gap-1 rounded-[22px] border border-harbor-sand-deep bg-white py-1.5 ps-3 pe-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#8764cb]">
+                        <textarea
+                            id="chat-question"
+                            rows="1"
+                            wire:model="question"
+                            placeholder="Ask about returns, shipping, warranty…"
+                            x-bind:disabled="$wire.streaming && !streamFailed"
+                            @if ($errors->has('question')) aria-describedby="chat-question-error" @endif
+                            class="lucid-composer-field max-h-[calc(1.5rem*7)] min-h-[1.5rem] w-full min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm leading-6 text-harbor-ink outline-none placeholder:text-[#64617d]"
+                            x-on:input="resizeComposer($event.target)"
+                            x-effect="$wire.question; resizeComposer($el)"
+                            x-on:keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $el.form?.requestSubmit() }"
+                        ></textarea>
+                        <x-dictation-button target="question" noun="question" variant="icon" />
+                        @if ($streaming)
+                            <button
+                                wire:key="chat-stop"
+                                type="button"
+                                wire:click.async="$js.stop"
+                                x-show="!streamFailed"
+                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb]"
+                                aria-label="Stop"
+                            >
+                                <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                            </button>
+                            <button
+                                wire:key="chat-send-retry"
+                                type="submit"
+                                x-show="streamFailed"
+                                style="display: none;"
+                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
+                                aria-label="Send"
+                            >
+                                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6" /></svg>
+                            </button>
+                        @else
+                            <button
+                                wire:key="chat-send"
+                                type="submit"
+                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
+                                aria-label="Send"
+                            >
+                                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6" /></svg>
+                            </button>
+                        @endif
+                    </div>
+                @else
+                    <flux:input
+                        id="chat-question"
+                        wire:model="question"
+                        placeholder="Ask about returns, shipping, warranty…"
+                        x-bind:disabled="$wire.streaming && !streamFailed"
+                        :aria-describedby="$errors->has('question') ? 'chat-question-error' : null"
+                    />
+                    <x-dictation-button target="question" noun="question" />
+                    <div class="mt-2 flex items-center justify-between">
+                        <span class="flex items-center gap-3">
+                            <button type="button" wire:click="escalate" class="text-xs underline">Escalate to a ticket</button>
+                        </span>
+                        @if ($streaming)
+                            <div wire:key="chat-stop" x-show="!streamFailed">
+                                <flux:button size="sm" type="button" wire:click.async="$js.stop">Stop</flux:button>
+                            </div>
+                            <div wire:key="chat-send-retry" x-show="streamFailed" style="display: none;">
+                                <flux:button size="sm" type="submit">Send</flux:button>
+                            </div>
+                        @else
+                            <div wire:key="chat-send">
+                                <flux:button size="sm" type="submit">Send</flux:button>
+                            </div>
+                        @endif
+                    </div>
+                @endif
                 <p
                     wire:key="chat-stream-failed"
                     class="mt-3 text-sm font-medium text-red-500 dark:text-red-400"
@@ -679,22 +903,6 @@
                     style="display: none;"
                 ></p>
                 <flux:error name="question" id="chat-question-error" />
-                <x-dictation-button target="question" noun="question" />
-                <div class="mt-2 flex items-center justify-between">
-                    <a href="{{ route('tickets.create') }}" wire:navigate class="text-xs underline">Escalate to a ticket</a>
-                    @if ($streaming)
-                        <div wire:key="chat-stop" x-show="!streamFailed">
-                            <flux:button size="sm" type="button" wire:click.async="$js.stop">Stop</flux:button>
-                        </div>
-                        <div wire:key="chat-send-retry" x-show="streamFailed" style="display: none;">
-                            <flux:button size="sm" type="submit">Send</flux:button>
-                        </div>
-                    @else
-                        <div wire:key="chat-send">
-                            <flux:button size="sm" type="submit">Send</flux:button>
-                        </div>
-                    @endif
-                </div>
             </form>
         </div>
 
@@ -716,6 +924,7 @@
         </flux:modal>
     @endif
 
+    @unless ($inline)
     <div class="flex justify-end" x-show="!fieldFocused || {{ $open ? 'true' : 'false' }}">
         <button
             type="button"
@@ -737,5 +946,22 @@
             <span class="hidden px-4 py-2.5 text-sm font-medium sm:inline">{{ $open ? 'Hide chat' : 'Ask Harbor & Co' }}</span>
         </button>
     </div>
+    @endunless
+
+    @if ($inline)
+        <div
+            x-cloak
+            x-show="citeOpen"
+            data-cite-preview
+            class="pointer-events-auto fixed z-50 w-64 rounded-xl border border-harbor-sand-deep bg-white p-3 shadow-lg"
+            :style="{ top: citeTop + 'px', left: citeLeft + 'px' }"
+            x-on:mouseenter="pointerOverPreview()"
+            x-on:mouseleave="pointerLeftPreview()"
+            role="tooltip"
+        >
+            <p class="text-sm font-semibold text-harbor-ink" x-text="citeTitle"></p>
+            <p class="mt-1 text-sm leading-snug text-harbor-ink" x-text="citeExcerpt"></p>
+        </div>
+    @endif
 
 </div>

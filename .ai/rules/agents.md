@@ -14,3 +14,6 @@ When a previous draft is in the prompt, rewrite with different wording or paragr
 
 ## Chat history uses Conversational, not RemembersConversations
 Use Conversational + messages() from chat_messages for the anonymous DemoSession thread. Do not use RemembersConversations, forUser(), or continue(). Omit gated injection turns and their refusal assistants from messages(); they stay in the UI store. Prior turns resolve follow-ups; facts and CITES come only from the current passages.
+
+## Order tools join Harbor chat only for an order turn
+Policy questions stay on passages and CITES, with no order tools. A question that names a fictional order or asks for a replacement attaches LookupOrder, CheckDamagePolicy, CheckStock, and CreateReplacementRequest for that demo session. Order facts come only from those tools. A proposal still waits for confirm or cancel. Text with no citation and no tool result stays the documented refusal. Private workspace chunks stay out of this prompt.

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -31,6 +32,12 @@ class DemoSession extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'demo_session_id');
+    }
+
+    /** @return HasOne<ReplacementCase, $this> */
+    public function replacementCase(): HasOne
+    {
+        return $this->hasOne(ReplacementCase::class, 'demo_session_id');
     }
 
     public function isStale(): bool

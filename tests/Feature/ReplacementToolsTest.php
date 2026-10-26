@@ -432,6 +432,29 @@ test('prune and reset leave tickets knowledge and workspaces in place', function
         ->and($activeCase->fresh()->stock()->count())->toBe(2);
 });
 
+test('replacement questions stop at the per-minute limit before another lookup', function () {
+    config(['supportflow.replacement.per_minute' => 1]);
+    ReplacementAgent::fake(['Which order should I look up?'])->preventStrayPrompts();
+
+    $session = replacementDemoSession();
+
+    Livewire::withCookies([
+        DemoSessionService::COOKIE => $session->id,
+    ])->test(ReplacementTools::class)
+        ->set('draft', 'My bag arrived damaged.')
+        ->call('ask')
+        ->set('draft', 'Please look up HB-10482.')
+        ->call('ask')
+        ->assertSee('Please wait a moment and try again.');
+
+    $case = ReplacementCase::query()->where('demo_session_id', $session->id)->first();
+
+    expect($case)->not->toBeNull()
+        ->and($case->visitor_messages)->toBe(1)
+        ->and($case->messages()->where('role', 'user')->count())->toBe(1)
+        ->and(ReplacementRequest::query()->count())->toBe(0);
+});
+
 test('the tools page names the sample order and the confirmation buttons', function () {
     $this->get(route('demo.tools'))
         ->assertOk()

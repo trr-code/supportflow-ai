@@ -9,12 +9,14 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\DemoSession;
 use App\Models\KnowledgeChunk;
+use App\Models\ReplacementCase;
 use App\Support\ChatAnswerCopy;
 use App\Support\ChatCitationTrailer;
 use App\Support\ChatFollowUpPassages;
 use App\Support\ChatFollowUpQuery;
 use App\Support\ChatInjectionGate;
 use App\Support\CitedChunkIds;
+use App\Support\HarborOrderIntent;
 use App\Support\KnowledgeCorpus;
 use App\Support\SupportingPassages;
 use App\Support\UntrustedContent;
@@ -22,10 +24,14 @@ use Closure;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Ai\Approvals\PendingApproval;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamEvent;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use Laravel\Ai\Streaming\Events\ToolApprovalRequest;
+use Laravel\Ai\Streaming\Events\ToolCall;
+use Laravel\Ai\Streaming\Events\ToolResult;
 use Throwable;
 
 class ChatService
@@ -33,6 +39,7 @@ class ChatService
     public function __construct(
         private readonly RetrievalService $retrieval,
         private readonly AiUsageRecorder $recorder,
+        private readonly ReplacementCaseService $replacements,
     ) {}
 
     public function conversationFor(DemoSession $session): ChatConversation
@@ -173,6 +180,9 @@ class ChatService
         );
 
         $chunkIds = array_values($matches->map(fn (array $row): int => $row['chunk']->id)->all());
+        $case = HarborOrderIntent::matches($question)
+            ? $this->replacements->forSession($session)
+            : null;
 
         if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
             return $abandoned;
@@ -185,7 +195,7 @@ class ChatService
         );
 
         try {
-            return $this->finishHarborReply($session, $conversation, $question, $matches, $chunkIds, $continuing, $generation, $onDelta, $run);
+            return $this->finishHarborReply($session, $conversation, $question, $matches, $chunkIds, $continuing, $generation, $onDelta, $run, $case);
         } catch (Throwable $exception) {
             $this->recorder->fail($run, $exception->getMessage());
 
@@ -207,10 +217,11 @@ class ChatService
         int $generation,
         ?Closure $onDelta,
         AiRun $run,
+        ?ReplacementCase $case = null,
     ): ChatMessage {
         $refusal = 'I don’t have a documented answer in the Harbor & Co knowledge base. Submit a support ticket and a human agent will take it from here.';
 
-        if ($matches->isEmpty()) {
+        if ($matches->isEmpty() && $case === null) {
             if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
                 $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: []);
 
@@ -242,20 +253,48 @@ class ChatService
         $cancelled = false;
 
         $continuation = $continuing ? ChatFollowUpPassages::CONTINUATION."\n" : '';
+        $orderNote = $case === null
+            ? ''
+            : "Order tools are available for this turn. Fictional order, stock, and replacement facts must come from those tools. Policy facts must still come only from the passages.\n";
+        $passageNote = $matches->isEmpty()
+            ? "No policy passages matched this question. Do not invent a policy.\n"
+            : "Answer only from these passages. {$continuation}CITES IDs must be a subset of: {$allowed}.\n\n";
+        $passageBlock = $matches->isEmpty() ? '' : "\n\nPassages:\n{$passages}";
+        $agent = $case === null
+            ? SupportChatStreamAgent::make(conversation: $conversation)
+            : SupportChatStreamAgent::make(
+                conversation: $conversation,
+                replacementCaseId: $case->id,
+                replacementGeneration: $case->generation,
+            );
+        $usedOrderTool = false;
+        $heldProposal = false;
 
-        $stream = SupportChatStreamAgent::make(conversation: $conversation)->stream(
-            "Answer only from these passages. {$continuation}CITES IDs must be a subset of: {$allowed}.\n\nQuestion:\n"
+        $stream = $agent->stream(
+            $orderNote.$passageNote."Question:\n"
             .UntrustedContent::wrap('chat_user', $question)
-            ."\n\nPassages:\n{$passages}",
+            .$passageBlock,
             provider: Lab::OpenAI,
             model: (string) config('supportflow.models.chat'),
         );
 
-        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, $onDelta, $session, $generation): bool {
+        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, &$usedOrderTool, &$heldProposal, $onDelta, $session, $generation, $case): bool {
             if ($this->abandonInFlightIfNeeded($session, $generation) !== null) {
                 $cancelled = true;
 
                 return false;
+            }
+
+            if ($event instanceof ToolCall || $event instanceof ToolResult || $event instanceof ToolApprovalRequest) {
+                $usedOrderTool = true;
+            }
+
+            if ($event instanceof ToolApprovalRequest && $case instanceof ReplacementCase) {
+                foreach ($event->pendingApprovals as $approval) {
+                    if ($approval instanceof PendingApproval && $this->replacements->holdProposal($case->id, $case->generation, $approval)) {
+                        $heldProposal = true;
+                    }
+                }
             }
 
             if ($event instanceof TextDelta) {
@@ -308,10 +347,19 @@ class ChatService
                 CitedChunkIds::onlyAllowed($citedRaw, $chunkIds),
             );
         $grounded = $cited !== [] && $body !== '';
+        $orderTurn = $usedOrderTool || $heldProposal;
 
-        if (! $grounded) {
+        if (! $grounded && ! $orderTurn) {
             $body = $refusal;
             $cited = [];
+        }
+
+        if ($orderTurn && trim($body) === '') {
+            $body = $heldProposal
+                ? 'A replacement proposal is waiting. Confirm or cancel it before anything is saved. Nothing is shipped.'
+                : 'Nothing was saved.';
+            $cited = [];
+            $grounded = false;
         }
 
         if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {

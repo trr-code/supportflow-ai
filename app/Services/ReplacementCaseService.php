@@ -356,6 +356,23 @@ class ReplacementCaseService
         }
     }
 
+    public function holdProposal(string $caseId, int $generation, PendingApproval $approval): bool
+    {
+        $case = ReplacementCase::query()->find($caseId);
+
+        if (! $case instanceof ReplacementCase || $case->generation !== $generation) {
+            return false;
+        }
+
+        if (! $this->acceptsProposal($case, $approval)) {
+            return false;
+        }
+
+        $this->storeProposal($case, $generation, $approval);
+
+        return true;
+    }
+
     public function recordActivity(string $caseId, int $generation, string $summary): void
     {
         $case = ReplacementCase::query()->find($caseId);

@@ -3,6 +3,7 @@
 use App\Enums\AiRunFeature;
 use App\Enums\AiRunStatus;
 use App\Enums\TicketSource;
+use App\Enums\TicketStatus;
 use App\Livewire\Pages\TicketIndex;
 use App\Models\AiRun;
 use App\Models\DemoSession;
@@ -159,7 +160,7 @@ test('a desktop ticket row opens from the reference and the subject', function (
     $link = substr($row, (int) strpos($row, '<a '), (int) strpos($row, '</a>') + 4);
 
     expect($html)
-        ->toContain('hover:bg-harbor-sand')
+        ->toContain('hover:bg-[#f4f0fc]')
         ->and($link)->toContain($ticket->reference)
         ->and($link)->toContain('Snapped trekking pole')
         ->and($link)->toContain(route('agent.tickets.show', $ticket))
@@ -212,4 +213,82 @@ test('the fourth queue reset within 60 seconds is blocked and still closes the d
         ->and(Ticket::query()->find($staleTicket->id))->not->toBeNull()
         ->and(Ticket::query()->find($seeded->id))->not->toBeNull()
         ->and(DemoSession::query()->find($stale->id))->not->toBeNull();
+});
+
+test('the ticket queue shows eleven live tickets and numbered pages', function () {
+    $this->actingAs(User::factory()->create());
+
+    Ticket::factory()->create([
+        'subject' => 'Oldest queue ticket',
+        'created_at' => now()->subHour(),
+    ]);
+    Ticket::factory()->count(10)->create([
+        'created_at' => now()->subMinutes(30),
+    ]);
+    Ticket::factory()->create([
+        'subject' => 'Newest queue ticket',
+        'created_at' => now(),
+    ]);
+
+    Livewire::test(TicketIndex::class)
+        ->assertSee('Showing 1-11 of 12 tickets')
+        ->assertSee('Newest queue ticket')
+        ->assertDontSee('Oldest queue ticket')
+        ->call('nextPage')
+        ->assertSee('Oldest queue ticket')
+        ->assertSee('Showing 12-12 of 12 tickets')
+        ->assertDontSee('Newest queue ticket');
+});
+
+test('the queue page size stays inside the desktop fit', function () {
+    $this->actingAs(User::factory()->create());
+
+    Ticket::factory()->count(12)->create();
+
+    Livewire::test(TicketIndex::class)
+        ->assertSet('perPage', 11)
+        ->call('setPerPage', 8)
+        ->assertSet('perPage', 8)
+        ->assertSee('Showing 1-8 of 12 tickets')
+        ->call('setPerPage', 100)
+        ->assertSet('perPage', 20)
+        ->call('setPerPage', 0)
+        ->assertSet('perPage', 1);
+});
+
+test('queue statuses use pastel backgrounds with the live labels', function () {
+    $this->actingAs(User::factory()->create());
+
+    foreach ([
+        TicketStatus::Submitted,
+        TicketStatus::AwaitingReview,
+        TicketStatus::Escalated,
+        TicketStatus::WaitingOnCustomer,
+        TicketStatus::AiFailed,
+    ] as $status) {
+        Ticket::factory()->create(['status' => $status]);
+    }
+
+    $html = Livewire::test(TicketIndex::class)->html();
+
+    expect($html)
+        ->toContain('bg-blue-100 text-blue-950')
+        ->toContain('bg-amber-100 text-amber-950')
+        ->toContain('bg-orange-100 text-orange-950')
+        ->toContain('bg-zinc-100 text-zinc-800')
+        ->toContain('bg-red-100 text-red-950')
+        ->toContain('Submitted')
+        ->toContain('Awaiting review')
+        ->toContain('Escalated')
+        ->not->toContain('Escalated to human')
+        ->not->toContain('AI failed')
+        ->toContain('Waiting on customer')
+        ->toContain('AI unavailable')
+        ->toContain('text-sm font-semibold')
+        ->toContain('bg-[#eee7ff] font-semibold text-harbor-ink')
+        ->toContain('border-zinc-100')
+        ->toContain('bg-zinc-50')
+        ->toContain('text-harbor-pine')
+        ->not->toContain('bg-lucid-lavender')
+        ->not->toContain('bg-harbor-pine text-white');
 });
