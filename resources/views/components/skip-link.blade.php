@@ -1,0 +1,1 @@
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-3 focus:rounded-md focus:bg-lucid-charcoal focus:px-3 focus:py-2 focus:text-sm focus:text-white">Skip to content</a>

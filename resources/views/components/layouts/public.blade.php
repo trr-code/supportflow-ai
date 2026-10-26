@@ -4,9 +4,10 @@
         @include('partials.head')
     </head>
     <body class="flex min-h-screen flex-col bg-harbor-sand text-harbor-ink antialiased">
+        <x-skip-link />
         <x-demo-chrome />
 
-        <main class="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
+        <main id="main-content" class="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
             {{ $slot }}
         </main>
 

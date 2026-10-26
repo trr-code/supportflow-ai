@@ -21,6 +21,8 @@ class SupplierInvoicePage extends Component
 {
     use WithFileUploads;
 
+    public bool $embedded = false;
+
     public ?string $invoiceId = null;
 
     public ?TemporaryUploadedFile $document = null;
@@ -151,7 +153,9 @@ class SupplierInvoicePage extends Component
             'checks' => $messages,
             'calculatedTotal' => $calculatedTotal,
             'disclosure' => 'The PDF and its text are sent to OpenAI so this page can propose fields. This organization does not share that content for model training. Confirming an invoice stores your corrections here. It does not pay the invoice.',
-        ])->layout('components.layouts.workspace');
+        ])->layout('components.layouts.workspace', [
+            'title' => 'Invoice review',
+        ]);
     }
 
     private function persist(bool $confirm): void

@@ -2,7 +2,7 @@
     'agent' => false,
 ])
 
-<header {{ $attributes->merge(['class' => 'mx-auto flex min-h-14 w-[min(1440px,calc(100%-1.5rem))] flex-wrap items-center gap-x-3 gap-y-1 rounded-[13px] border border-[#2b303a] bg-lucid-charcoal px-4 py-2 text-white shadow-[0_2px_3px_#16132c08] sm:w-[min(1440px,calc(100%-3.5rem))] sm:gap-x-8 sm:px-[23px]']) }}>
+<header {{ $attributes->merge(['class' => 'mx-auto flex min-h-14 w-[min(1440px,calc(100%-1.5rem))] flex-wrap items-center gap-x-3 gap-y-2 rounded-[13px] border border-[#2b303a] bg-lucid-charcoal px-3 py-2 text-white shadow-[0_2px_3px_#16132c08] sm:w-[min(1440px,calc(100%-3.5rem))] sm:gap-x-8 sm:px-[23px]']) }}>
     <a href="{{ route('home') }}" wire:navigate class="order-1 inline-flex items-center rounded-md py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d5c5fc]">
         <span class="text-[1.65rem] font-bold leading-none tracking-[-0.04em] text-white" style="text-shadow: 0 0 8px #f5edff, 0 0 16px #c084fc, 0 0 28px #a855f7;">Lucid</span>
     </a>
@@ -39,8 +39,9 @@
                 </form>
             @endunless
         @endauth
-        <a href="{{ route('demo.harbor') }}" wire:navigate class="lucid-compact-action inline-flex items-center justify-center gap-2 rounded-lg bg-[#e6dcff] px-3 py-1.5 text-sm font-medium text-[#241f38] hover:bg-[#d5c5fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
-            Try the workspace
+        <a href="{{ route('demo.harbor') }}" wire:navigate class="lucid-compact-action inline-flex items-center justify-center gap-2 rounded-lg bg-[#e6dcff] px-2.5 py-1.5 text-sm font-medium text-[#241f38] hover:bg-[#d5c5fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc] sm:px-3">
+            <span class="sm:hidden">Try</span>
+            <span class="hidden sm:inline">Try the workspace</span>
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </a>
     </div>

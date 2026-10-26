@@ -5,7 +5,7 @@
 <title>
     @php
         $pageTitle = filled($title ?? null) ? trim((string) $title) : '';
-        $appName = (string) config('app.name', 'Laravel');
+        $appName = 'Lucid';
     @endphp
     {{ ($pageTitle === '' || strcasecmp($pageTitle, $appName) === 0) ? $appName : $pageTitle.' - '.$appName }}
 </title>

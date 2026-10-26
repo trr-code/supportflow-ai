@@ -9,19 +9,20 @@ use App\Models\TicketMessage;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('the home page title is the app name without a duplicate suffix', function () {
+test('the home page title is Lucid without a duplicate suffix', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('<title>', false)
-        ->assertDontSee('SupportFlow AI - SupportFlow AI', false);
+        ->assertDontSee('Lucid - Lucid', false)
+        ->assertDontSee('SupportFlow AI', false);
 
     expect($this->get(route('home'))->getContent())
-        ->toMatch('/<title>\s*SupportFlow AI\s*<\/title>/');
+        ->toMatch('/<title>\s*Lucid\s*<\/title>/');
 });
 
-test('the new ticket page still suffixes the app name', function () {
+test('the new ticket page suffixes Lucid', function () {
     expect($this->get(route('tickets.create'))->getContent())
-        ->toMatch('/<title>\s*New ticket - SupportFlow AI\s*<\/title>/');
+        ->toMatch('/<title>\s*New ticket - Lucid\s*<\/title>/');
 });
 
 test('the public layout uses a compact legal footer in document flow', function () {
@@ -212,13 +213,18 @@ test('the demo environment page holds the limitations instead of the landing pag
         ->assertSee('Real orders or email')
         ->assertSee('speech-to-text dictation')
         ->assertSee('This is a live portfolio demo of a customer-support copilot.')
+        ->assertSee('Privacy')
+        ->assertSee('Do not enter real personal, order, or payment information.')
+        ->assertSee('Contact')
+        ->assertSee('open an issue on')
+        ->assertSee('https://github.com/trr-code/supportflow-ai', false)
         ->assertDontSee('Start a private preview')
         ->assertDontSee('Your documents')
         ->assertDontSee('Coming soon')
         ->assertDontSee('Open agent view');
 
     expect($this->get(route('demo.environment'))->getContent())
-        ->toMatch('/<title>\s*Demo environment - SupportFlow AI\s*<\/title>/');
+        ->toMatch('/<title>\s*Demo environment - Lucid\s*<\/title>/');
 });
 
 test('the workflow page walks through customer submission to an approved answer', function () {
@@ -238,7 +244,7 @@ test('the workflow page walks through customer submission to an approved answer'
         ->assertDontSee('Open agent view');
 
     expect($this->get(route('demo.workflow'))->getContent())
-        ->toMatch('/<title>\s*Complete support workflow - SupportFlow AI\s*<\/title>/');
+        ->toMatch('/<title>\s*Complete support workflow - Lucid\s*<\/title>/');
 });
 
 test('the safety page explains advanced tests without jargon', function () {
@@ -271,7 +277,7 @@ test('the safety page explains advanced tests without jargon', function () {
         ->not->toContain('prompt injection')
         ->not->toContain('fixture')
         ->and($this->get(route('demo.safety'))->getContent())
-        ->toMatch('/<title>\s*Advanced safety tests - SupportFlow AI\s*<\/title>/')
+        ->toMatch('/<title>\s*Advanced safety tests - Lucid\s*<\/title>/')
         ->toContain('name="next"')
         ->toContain('value="scenarios"');
 });

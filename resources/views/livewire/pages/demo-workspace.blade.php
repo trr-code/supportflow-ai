@@ -10,11 +10,12 @@
 <div class="lucid-workspace">
     <section class="shrink-0 overflow-hidden rounded-[13px] border border-[#2b303a] bg-lucid-charcoal px-6 py-8 text-white sm:px-10 sm:py-10">
         <h1 class="text-[1.8rem] font-semibold tracking-[-1px] sm:text-[2.4rem]">Your AI workspace</h1>
-        <p class="mt-1.5 text-base text-[#dce1ec] sm:text-[21px]">Choose a demo on the left. Try it in the middle. Follow the steps on the right.</p>
+        <p class="mt-1.5 hidden text-base text-[#dce1ec] sm:text-[21px] xl:block">Choose a demo on the left. Try it in the middle. Follow the steps on the right.</p>
+        <p class="mt-1.5 text-base text-[#dce1ec] sm:text-[21px] xl:hidden">Choose a demo above. Try it below. Follow the steps under the workspace.</p>
     </section>
 
     <div @class(['lucid-workspace-columns', 'lucid-workspace-columns-harbor' => $mode === 'harbor'])>
-        <nav class="lucid-workspace-nav flex gap-1 overflow-x-auto rounded-[11px] border border-harbor-sand-deep bg-white/90 p-2 xl:block xl:overflow-visible xl:px-2.5 xl:py-4" aria-label="Workspace modes">
+        <nav class="lucid-workspace-nav flex flex-wrap gap-1 rounded-[11px] border border-harbor-sand-deep bg-white/90 p-2 xl:block xl:overflow-visible xl:px-2.5 xl:py-4" aria-label="Workspace modes">
             @foreach ($modes as $key => $item)
                 <a
                     href="{{ route($item['route']) }}"
@@ -69,7 +70,7 @@
         @elseif ($mode === 'invoices')
             <section class="lucid-workspace-main rounded-[11px] border border-harbor-sand-deep bg-white/90 p-4 sm:p-5">
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-harbor-pine">Your file</p>
-                <livewire:pages.supplier-invoice-page :wire:key="'lucid-invoices'" />
+                <livewire:pages.supplier-invoice-page :embedded="true" :wire:key="'lucid-invoices'" />
             </section>
         @else
             <section class="lucid-workspace-main rounded-[11px] border border-harbor-sand-deep bg-white/90 p-4 sm:p-5">

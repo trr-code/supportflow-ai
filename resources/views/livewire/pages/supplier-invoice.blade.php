@@ -1,7 +1,11 @@
 <div class="space-y-8" @if ($invoice?->status === \App\Enums\SupplierInvoiceStatus::Processing) wire:poll.2s="refreshInvoice" @endif>
     <section class="space-y-3">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-harbor-pine">Document processing</p>
-        <h1 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">Supplier invoice</h1>
+        @if ($embedded)
+            <h2 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">Supplier invoice</h2>
+        @else
+            <h1 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">Supplier invoice</h1>
+        @endif
         <p class="max-w-2xl text-base leading-relaxed text-zinc-600">
             Upload a PDF with selectable text. The assistant reads the invoice and proposes the fields. This page checks the amounts. You review and correct them, confirm the invoice, then download CSV or JSON.
         </p>

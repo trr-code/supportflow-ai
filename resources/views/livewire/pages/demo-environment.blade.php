@@ -22,4 +22,29 @@
         </p>
     </section>
 
+    <section id="privacy" class="scroll-mt-8 space-y-4">
+        <h2 class="text-xl font-semibold tracking-tight text-harbor-ink">Privacy</h2>
+        <div class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-sm leading-relaxed text-zinc-700">
+                Harbor &amp; Co is fictional. Do not enter real personal, order, or payment information.
+            </p>
+            <p class="mt-3 text-sm leading-relaxed text-zinc-700">
+                Questions, tickets, uploaded files, and invoice PDFs are sent to OpenAI so the demo can answer, extract fields, or suggest a reply. This organization does not share that content for model training. OpenAI may still keep abuse-monitoring logs for up to 30 days.
+            </p>
+            <p class="mt-3 text-sm leading-relaxed text-zinc-700">
+                Private workspaces and invoice reviews expire after seven days, then they are cleaned up automatically. Deleting a workspace removes the files here immediately. It does not erase those OpenAI logs.
+            </p>
+        </div>
+    </section>
+
+    <section id="contact" class="scroll-mt-8 space-y-4">
+        <h2 class="text-xl font-semibold tracking-tight text-harbor-ink">Contact</h2>
+        <div class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
+            <p class="text-sm leading-relaxed text-zinc-700">
+                This Lucid showroom is a portfolio demo, not a help desk. For questions about the demo, open an issue on
+                <a href="https://github.com/trr-code/supportflow-ai" class="underline-offset-2 hover:text-harbor-ink hover:underline">GitHub</a>.
+            </p>
+        </div>
+    </section>
+
 </div>

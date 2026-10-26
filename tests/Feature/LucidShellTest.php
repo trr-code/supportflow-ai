@@ -23,6 +23,12 @@ test('lucid demo routes render the workspace modes and keep the older routes', f
         ->assertOk()
         ->assertSee('Your AI workspace')
         ->assertSee('Choose a demo on the left. Try it in the middle. Follow the steps on the right.')
+        ->assertSee('Choose a demo above. Try it below. Follow the steps under the workspace.')
+        ->assertSee('Skip to content')
+        ->assertSee('id="main-content"', false)
+        ->assertSee('flex-wrap items-center gap-x-3 gap-y-2', false)
+        ->assertSee('flex-wrap gap-1', false)
+        ->assertDontSee('overflow-x-auto rounded-[11px] border border-harbor-sand-deep bg-white/90 p-2 xl:block', false)
         ->assertSee('Instructions')
         ->assertSee('Sources & actions')
         ->assertSee('Demo')
@@ -48,19 +54,38 @@ test('lucid demo routes render the workspace modes and keep the older routes', f
         ->assertDontSee('Try safety examples')
         ->assertDontSee('lucid-workspace-columns-harbor', false)
         ->assertDontSee('Hover a citation to preview its source, or click to inspect it.');
-    $this->get(route('demo.invoices'))
+    $invoices = $this->get(route('demo.invoices'))
         ->assertOk()
         ->assertSee('Upload a PDF')
         ->assertSee('download CSV or JSON')
         ->assertDontSee('Get more help');
+
+    expect($invoices->getContent())->toMatch('/<title>\s*Invoice review - Lucid\s*<\/title>/');
+    expect(preg_match_all('/<h1\b/i', $invoices->getContent()))->toBe(1);
     $this->get(route('demo.replacement'))
         ->assertOk()
         ->assertSee('Fictional orders')
         ->assertSee('Nothing has been checked yet.')
         ->assertDontSee('Get more help');
 
-    $this->get(route('workspaces.preview'))->assertOk();
-    $this->get(route('documents.invoices'))->assertOk();
+    $this->get(route('workspaces.preview'))
+        ->assertOk()
+        ->assertSee('Built for modern business workflows.')
+        ->assertSee('How it works')
+        ->assertSee('>Privacy<', false)
+        ->assertSee('>Contact<', false)
+        ->assertSee(route('demo.environment').'#privacy', false)
+        ->assertSee(route('demo.environment').'#contact', false)
+        ->assertDontSee('Harbor &amp; Co/SupportFlow');
+    $standaloneInvoices = $this->get(route('documents.invoices'))
+        ->assertOk()
+        ->assertSee('Built for modern business workflows.')
+        ->assertSee(route('demo.environment').'#privacy', false)
+        ->assertSee(route('demo.environment').'#contact', false)
+        ->assertDontSee('Harbor &amp; Co/SupportFlow');
+
+    expect($standaloneInvoices->getContent())->toMatch('/<title>\s*Invoice review - Lucid\s*<\/title>/');
+    expect(preg_match_all('/<h1\b/i', $standaloneInvoices->getContent()))->toBe(1);
     $this->get(route('demo.tools'))->assertOk();
 });
 
@@ -84,7 +109,9 @@ test('demos opens the workspace and stays plain on the homepage', function () {
     expect($home->getContent())
         ->not->toContain(route('home').'#demos')
         ->not->toContain('after:bg-[#d5c5fc]')
-        ->toContain(route('demo.harbor'));
+        ->toContain(route('demo.harbor'))
+        ->toContain('Skip to content')
+        ->toContain('id="main-content"');
 });
 
 test('the floating harbor chat keeps escalate on the composer', function () {
