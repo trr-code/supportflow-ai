@@ -16,6 +16,7 @@ use App\Models\KnowledgeChunk;
 use App\Models\SuggestedReply;
 use App\Models\Ticket;
 use App\Support\ChatAnswerCopy;
+use App\Support\ChatInjectionGate;
 use App\Support\CitedChunkIds;
 use App\Support\KnowledgeCorpus;
 use App\Support\RetrievalQuery;
@@ -283,6 +284,11 @@ class SuggestedReplyService
         $cited = CitedChunkIds::onlyAllowed($data['cited_chunk_ids'] ?? null, $allowed);
         $grounded = (bool) ($data['grounded'] ?? false);
         $body = ChatAnswerCopy::normalize((string) ($data['body'] ?? ''));
+
+        if (ChatInjectionGate::isRefusal($body)) {
+            return [$response, false, $body, [], (string) ($data['refusal_reason'] ?? '')];
+        }
+
         $body = SupportingPassages::includeAskedFacets($body, $query, $matches);
         $cited = CitedChunkIds::usedInBody($body, $matches, $cited);
 

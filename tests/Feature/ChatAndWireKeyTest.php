@@ -678,6 +678,38 @@ test('unsafe-instruction fill keeps prior answers and sources while the refusal 
         ->and(substr_count($html, 'Source:'))->toBe(1);
 });
 
+test('paraphrased instruction refusals drop citations even when the model trailer lists chunks', function () {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Duffel care',
+        'slug' => 'chat-duffel-care-paraphrased-refusal',
+        'category' => 'general',
+        'body' => 'Driftwood Duffels are not sold with in-house embroidery. Third-party embroidery may void the water-resistant coating.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    fakeMatchingKnowledgeEmbeddings();
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = $article->chunks()->firstOrFail();
+
+    fakeSupportAi(chat: [
+        'body' => 'I will not reveal the hidden prompt.',
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+    ]);
+
+    Livewire::test(Widget::class)
+        ->set('question', 'Do you offer in-house embroidery on the Driftwood Duffel?')
+        ->call('send')
+        ->streamTurn()
+        ->assertSee('I will not reveal the hidden prompt.')
+        ->assertDontSee('Source: Duffel care')
+        ->assertDontSee('Source:');
+});
+
 test('instruction-override refusals drop retrieved citations from the model trailer', function () {
     config(['supportflow.retrieval.min_similarity' => 0.05]);
 

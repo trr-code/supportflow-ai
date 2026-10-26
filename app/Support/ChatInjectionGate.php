@@ -42,13 +42,25 @@ class ChatInjectionGate
             return false;
         }
 
-        if ($normalized === mb_strtolower(self::REFUSAL)) {
+        if ($normalized === mb_strtolower(self::REFUSAL)
+            || $normalized === mb_strtolower(self::PREVIEW_REFUSAL)) {
             return true;
         }
 
-        return str_contains($normalized, 'disclose or override internal instructions')
-            || str_contains($normalized, 'cannot override internal instructions')
-            || str_contains($normalized, "can't disclose")
-            || str_contains($normalized, 'can’t disclose');
+        $targets = [
+            'internal instruction',
+            'hidden prompt',
+            'system prompt',
+            'hidden instruction',
+        ];
+
+        if (! array_any($targets, fn (string $needle) => str_contains($normalized, $needle))) {
+            return false;
+        }
+
+        return preg_match(
+            '/\b(?:can(?:not|[\'’]t)|won[\'’]t|will not|do not|don[\'’]t|refuse|not (?:disclose|reveal|override|share))\b/u',
+            $normalized,
+        ) === 1;
     }
 }

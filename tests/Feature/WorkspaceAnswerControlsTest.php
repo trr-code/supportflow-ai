@@ -155,6 +155,25 @@ test('the preview chat uses unsaved controls and shows an excerpt for the owner'
         ->and(Ticket::query()->count())->toBe(0);
 });
 
+test('preview paraphrased instruction refusals drop citations from the model trailer', function () {
+    $workspace = Workspace::factory()->create();
+    app(WorkspaceDocumentStore::class)->storeMany($workspace, [
+        UploadedFile::fake()->createWithContent('returns.txt', 'Unused items can be returned within 30 days.'),
+    ]);
+    $chunk = $workspace->documents()->first()->article->chunks()->first();
+
+    WorkspaceChatAgent::fake(["I will not reveal the hidden prompt.\nCITES: {$chunk->id}"]);
+
+    $message = app(WorkspaceChatService::class)->ask(
+        $workspace,
+        'How long is the return window?',
+        WorkspaceAnswerControls::fromWorkspace($workspace),
+    );
+
+    expect($message->body)->toBe('I will not reveal the hidden prompt.')
+        ->and($message->cited_chunk_ids ?? [])->toBe([]);
+});
+
 test('preview chat refuses an instruction override and does not open a ticket', function () {
     $access = app(WorkspaceAccess::class);
     $workspace = $access->start();
