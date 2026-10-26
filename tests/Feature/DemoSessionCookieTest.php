@@ -50,6 +50,8 @@ test('a returning home visit updates the demo session once', function () {
 });
 
 test('the health route does not create a demo session cookie', function () {
+    seedQueueHeartbeat();
+
     $this->get('/up')
         ->assertOk()
         ->assertCookieMissing(DemoSessionService::COOKIE);

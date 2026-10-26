@@ -90,4 +90,10 @@ return [
         'max_file_bytes' => 8 * 1024 * 1024,
     ],
 
+    'health' => [
+        'required_queues' => ['ai', 'default'],
+        'heartbeat_max_age_seconds' => 90,
+        'heartbeat_ttl_seconds' => 86_400,
+    ],
+
 ];

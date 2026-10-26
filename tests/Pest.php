@@ -13,6 +13,7 @@ use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
 use App\Models\SuggestedReply;
+use App\Services\ApplicationHealth;
 use App\Services\DemoSessionService;
 use App\Services\KnowledgeIndexService;
 use App\Services\WorkspaceAccess;
@@ -160,6 +161,14 @@ function citedArticleSlugs(ChatMessage|SuggestedReply $record): array
         ->unique()
         ->values()
         ->all();
+}
+
+/**
+ * @param  list<string>  $queues
+ */
+function seedQueueHeartbeat(array $queues = ['ai', 'default'], string $connection = 'database'): void
+{
+    app(ApplicationHealth::class)->record($connection, $queues);
 }
 
 function evalDemoSession(): DemoSession
