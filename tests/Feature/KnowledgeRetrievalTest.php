@@ -3,6 +3,7 @@
 use App\Services\RetrievalService;
 use App\Support\ChatFollowUpQuery;
 use App\Support\KnowledgeCorpus;
+use Laravel\Ai\Embeddings;
 
 test('seeded catalog retrieval includes the required policy slugs', function (string $query, array $requiredSlugs) {
     seedHarborKnowledgeCatalog();
@@ -138,4 +139,27 @@ test('can-i-exchange-it follow-up retrieval stays current-query and includes the
         ->and($slugs)->toContain('exchanges')
         ->and($slugs)->not->toContain('return-window')
         ->and(data_get($intro, 'chunk.body'))->toContain('free within 30 days');
+});
+
+test('a return and box question generates query embeddings in one batch', function () {
+    seedHarborKnowledgeCatalog();
+
+    $batches = [];
+    $dimensions = (int) config('supportflow.embeddings.dimensions', 1536);
+
+    Embeddings::fake(function (object $prompt) use (&$batches, $dimensions): array {
+        $batches[] = $prompt->inputs;
+
+        return array_map(fn (): array => Embeddings::fakeEmbedding($dimensions), $prompt->inputs);
+    });
+
+    app(RetrievalService::class)->search(
+        'Can I still return an unused Harbor Trail Pack with tags attached? Do I need the original box?',
+        KnowledgeCorpus::harbor(),
+        (int) config('supportflow.retrieval.limit'),
+        (float) config('supportflow.retrieval.min_similarity'),
+    );
+
+    expect($batches)->toHaveCount(1)
+        ->and($batches[0])->toHaveCount(3);
 });

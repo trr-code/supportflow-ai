@@ -110,7 +110,7 @@ function fakeMatchingKnowledgeEmbeddings(?array $vector = null): array
         $chunk->forceFill(['embedding' => $vector])->save();
     });
 
-    Embeddings::fake(fn (): array => [$vector]);
+    Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $vector));
 
     return $vector;
 }
@@ -133,7 +133,7 @@ function assignDistinctKnowledgeEmbeddings(): void
 
     $queryVector = array_fill(0, $dimensions, 0.0);
     $queryVector[min($dimensions - 1, $index + 8)] = 1.0;
-    Embeddings::fake(fn (): array => [$queryVector]);
+    Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $queryVector));
 }
 
 function seedHarborKnowledgeCatalog(): void

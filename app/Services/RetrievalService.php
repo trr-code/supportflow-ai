@@ -29,10 +29,24 @@ class RetrievalService
         }
 
         $topics = RetrievalTopics::matching($query);
+        $facets = RetrievalFacets::queries($query);
+        $embedTexts = [$query];
+
+        if (count($topics) >= 2) {
+            foreach (array_slice($topics, 0, 3) as $topic) {
+                $embedTexts[] = $topic['embed'];
+            }
+        }
+
+        foreach ($facets as $facet) {
+            $embedTexts[] = $facet['embed'];
+        }
+
+        $embeddings = $this->embeddingsFor($embedTexts);
         $rankLists = [];
         $similarities = [];
 
-        $fullEmbedding = $this->embed($query);
+        $fullEmbedding = $embeddings[$query] ?? [];
 
         if ($fullEmbedding !== []) {
             $vectorHits = $this->vectorSearch($fullEmbedding, $candidates, $minSimilarity, $corpus);
@@ -55,12 +69,30 @@ class RetrievalService
 
         if (count($topics) >= 2) {
             foreach (array_slice($topics, 0, 3) as $topic) {
-                $this->addDedicatedRankLists($topic['embed'], $topic['lexical'], $candidates, $minSimilarity, $corpus, $rankLists, $similarities);
+                $this->addDedicatedRankLists(
+                    $topic['embed'],
+                    $topic['lexical'],
+                    $candidates,
+                    $minSimilarity,
+                    $corpus,
+                    $rankLists,
+                    $similarities,
+                    $embeddings[$topic['embed']] ?? [],
+                );
             }
         }
 
-        foreach (RetrievalFacets::queries($query) as $facet) {
-            $this->addDedicatedRankLists($facet['embed'], $facet['lexical'], $candidates, $minSimilarity, $corpus, $rankLists, $similarities);
+        foreach ($facets as $facet) {
+            $this->addDedicatedRankLists(
+                $facet['embed'],
+                $facet['lexical'],
+                $candidates,
+                $minSimilarity,
+                $corpus,
+                $rankLists,
+                $similarities,
+                $embeddings[$facet['embed']] ?? [],
+            );
         }
 
         $rankLists = array_values(array_filter($rankLists, fn (array $ranks): bool => $ranks !== []));
@@ -84,14 +116,7 @@ class RetrievalService
      */
     public function embed(string $text): array
     {
-        $response = Embeddings::for([$text])
-            ->dimensions((int) config('supportflow.embeddings.dimensions'))
-            ->generate(Lab::OpenAI, (string) config('supportflow.models.embeddings'));
-
-        /** @var list<float> $vector */
-        $vector = $response->embeddings[0] ?? [];
-
-        return $vector;
+        return $this->embedMany([$text])[0] ?? [];
     }
 
     /**
@@ -259,8 +284,35 @@ class RetrievalService
     }
 
     /**
+     * @param  list<string>  $texts
+     * @return array<string, list<float>>
+     */
+    private function embeddingsFor(array $texts): array
+    {
+        $unique = array_values(array_unique(array_filter(
+            $texts,
+            static fn (string $text): bool => trim($text) !== '',
+        )));
+
+        if ($unique === []) {
+            return [];
+        }
+
+        $vectors = $this->embedMany($unique);
+        $mapped = [];
+
+        foreach ($unique as $index => $text) {
+            $vector = $vectors[$index] ?? [];
+            $mapped[$text] = is_array($vector) ? $vector : [];
+        }
+
+        return $mapped;
+    }
+
+    /**
      * @param  list<array<int, int>>  $rankLists
      * @param  array<int, float>  $similarities
+     * @param  list<float>  $embedding
      */
     protected function addDedicatedRankLists(
         string $embedQuery,
@@ -270,8 +322,11 @@ class RetrievalService
         KnowledgeCorpus $corpus,
         array &$rankLists,
         array &$similarities,
+        array $embedding = [],
     ): void {
-        $embedding = $this->embed($embedQuery);
+        if ($embedding === []) {
+            $embedding = $this->embed($embedQuery);
+        }
 
         if ($embedding !== []) {
             $vectorHits = $this->vectorSearch($embedding, $candidates, $minSimilarity, $corpus);

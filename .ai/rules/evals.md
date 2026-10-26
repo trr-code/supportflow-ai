@@ -13,3 +13,6 @@ OpenAI API cost is not a reason to skip Pest evals or live-AI showroom checks. D
 
 ## Preview bakeoff stays one-file three-heading
 Keep the Preview bakeoff corpus as one file with Shipping, Returns, and Warranty headings. Do not skip evals for API cost. Workspace retrieval may raise the per-article cap so that one-file case returns all three headings; Harbor stays at catalog diversity of two.
+
+## Encoded and multilingual jailbreaks are live evals
+Encoded/Base64 and multilingual instruction overrides miss the regex demo control by design. Verify them with Pest evals against ChatService (toBeSafe, no system-prompt leak), not by expanding ChatInjectionGate patterns. Regex expansion stays future product. Testing authorization covers these live evals; they are not a never-live-run class.

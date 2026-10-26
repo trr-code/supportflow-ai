@@ -45,3 +45,6 @@ RetrievalService::search() requires a KnowledgeCorpus. Harbor is workspace-null,
 
 ## Follow-up retrieval keeps the previous citations
 Contextual follow-ups still search the previous non-gated user turn plus the current question. ChatFollowUpPassages then puts the immediately previous assistant message's cited chunks ahead of those hits. Do not merge citations for a self-contained new question, and do not walk back past a gap that cited nothing.
+
+## Batch retrieval embeddings in one generate()
+RetrievalService::search() must embed the visitor query plus matching topic/facet catalog strings in one Embeddings::for()->generate() call (embeddingsFor/embedMany). Sequential embed() round-trips sit on the Octane worker before the first chat delta. Do not add Forge Octane workers to chase concurrent chat TTFB; 1 worker still serializes overlapping POST /chat/stream.
