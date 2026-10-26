@@ -10,11 +10,15 @@ abstract class TestCase extends BaseTestCase
 {
     protected bool $fakeEmbeddings = true;
 
+    protected bool $withoutVite = true;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->withoutVite();
+        if ($this->withoutVite) {
+            $this->withoutVite();
+        }
 
         if ($this->fakeEmbeddings) {
             Embeddings::fake();

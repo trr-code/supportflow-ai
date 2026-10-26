@@ -31,3 +31,7 @@ frankenphp.exe
 frankenphp-worker.php
 debug.log
 /tests/Stress/RuntimeAbTest.php
+/tests/Browser/Screenshots
+/tests/Browser/Traces
+/.codex
+/.agents

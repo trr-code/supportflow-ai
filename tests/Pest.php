@@ -25,6 +25,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Pest\Evals\Drivers\LaravelAiEmbeddings;
 use Pest\Evals\Drivers\LaravelAiJudge;
 use Pest\Evals\Plugin as PestEvals;
+use Tests\BrowserTestCase;
 use Tests\EvalTestCase;
 use Tests\TestCase;
 
@@ -33,6 +34,11 @@ require __DIR__.'/Support/stressless.php';
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+pest()->extend(BrowserTestCase::class)
+    ->use(RefreshDatabase::class)
+    ->group('browser')
+    ->in('Browser');
 
 pest()->extend(EvalTestCase::class)
     ->use(RefreshDatabase::class)
