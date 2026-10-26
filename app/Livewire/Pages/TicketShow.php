@@ -273,8 +273,9 @@ class TicketShow extends Component
         $runs = $this->ticket->aiRuns()->latest()->get();
         $reply = $this->ticket->suggestedReplies()->latest('id')->first();
         $pending = $this->pendingReply();
-        $citedChunks = $pending instanceof SuggestedReply ? $pending->citedChunks() : collect();
-        $citedIds = $pending instanceof SuggestedReply ? ($pending->cited_chunk_ids ?? []) : [];
+        $citedReply = $this->citedReply();
+        $citedChunks = $citedReply instanceof SuggestedReply ? $citedReply->citedChunks() : collect();
+        $citedIds = $citedReply instanceof SuggestedReply ? ($citedReply->cited_chunk_ids ?? []) : [];
 
         return view('livewire.pages.ticket-show', [
             'events' => $events,
@@ -283,6 +284,7 @@ class TicketShow extends Component
             'runs' => $runs,
             'suggestedReply' => $reply,
             'pendingReply' => $pending,
+            'citedReply' => $citedReply,
             'citedSourceGroups' => CitedSources::groupByArticle(
                 CitedSources::inCitationOrder($citedChunks, $citedIds),
             ),
@@ -300,6 +302,21 @@ class TicketShow extends Component
         return SuggestedReply::query()
             ->where('ticket_id', $this->ticket->id)
             ->where('status', SuggestedReplyStatus::Pending)
+            ->latest('id')
+            ->first();
+    }
+
+    protected function citedReply(): ?SuggestedReply
+    {
+        $pending = $this->pendingReply();
+
+        if ($pending instanceof SuggestedReply) {
+            return $pending;
+        }
+
+        return SuggestedReply::query()
+            ->where('ticket_id', $this->ticket->id)
+            ->where('status', SuggestedReplyStatus::Approved)
             ->latest('id')
             ->first();
     }

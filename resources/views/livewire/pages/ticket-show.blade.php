@@ -272,9 +272,9 @@
                         Supporting policies
                     </h2>
                     @if ($sources === [])
-                        <p class="mt-2 text-sm text-zinc-500">No sources were cited for this draft.</p>
+                        <p class="mt-2 text-sm text-zinc-500">{{ $pendingReply ? 'No sources were cited for this draft.' : 'No sources were cited for this reply.' }}</p>
                     @else
-                        <p class="mt-1 shrink-0 text-xs text-zinc-500">Check the policy before sending.</p>
+                        <p class="mt-1 shrink-0 text-xs text-zinc-500">{{ $pendingReply ? 'Check the policy before sending.' : 'These policies were cited in the sent reply.' }}</p>
                         <ul class="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto">
                             @foreach ($visibleSources as $source)
                                 @php

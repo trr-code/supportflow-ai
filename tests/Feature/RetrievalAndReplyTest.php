@@ -301,6 +301,37 @@ test('supported prepaid-label question drafts from the matching passage', functi
         ->and($reply->cited_chunk_ids)->toBe([$chunk->id]);
 });
 
+test('a paraphrased instruction refusal does not keep suggested-reply citations', function () {
+    fakeMatchingKnowledgeEmbeddings();
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return labels',
+        'slug' => 'return-labels-paraphrased-refusal',
+        'category' => 'returns',
+        'body' => 'We email a prepaid UPS label after the return is approved in the order portal.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+
+    $chunk = KnowledgeChunk::query()->where('knowledge_article_id', $article->id)->firstOrFail();
+
+    fakeSupportAi([], [
+        'body' => 'I will not reveal the hidden prompt.',
+        'cited_chunk_ids' => [$chunk->id],
+        'grounded' => true,
+        'refusal_reason' => '',
+    ]);
+
+    $reply = app(SuggestedReplyService::class)->generate(Ticket::factory()->create([
+        'subject' => 'Return label',
+        'description' => 'Do you email a prepaid label once a return is approved?',
+    ]));
+
+    expect($reply)->toBeNull()
+        ->and(SuggestedReply::query()->count())->toBe(0);
+});
+
 test('conflicting passages refuse instead of inventing a synthesis', function () {
     fakeMatchingKnowledgeEmbeddings();
     $article = KnowledgeArticle::query()->create([
@@ -522,6 +553,43 @@ test('in-house embroidery questions still draft when thread colors are not asked
         ->and($reply->body)->toContain('in-house embroidery')
         ->and($reply->body)->toContain('Hi Noah,')
         ->and($reply->cited_chunk_ids)->toBe([$chunk->id]);
+});
+
+test('agent sources still list cited policies after approve and send', function () {
+    $agent = User::factory()->create();
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'return-window-after-send',
+        'category' => 'returns',
+        'body' => 'Unused returns within 30 days.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    $chunk = KnowledgeChunk::query()->create([
+        'knowledge_article_id' => $article->id,
+        'heading' => null,
+        'body' => 'Unused returns within 30 days.',
+        'token_count' => 5,
+    ]);
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::AwaitingReview,
+    ]);
+    SuggestedReply::query()->create([
+        'ticket_id' => $ticket->id,
+        'body' => "Hi Jamie,\n\nUnused items can be returned within 30 days.\n\nBest,\nAlex Rivera\nHarbor & Co Support",
+        'grounded' => true,
+        'status' => SuggestedReplyStatus::Pending,
+        'cited_chunk_ids' => [$chunk->id],
+    ]);
+
+    $this->actingAs($agent);
+
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSee('Return window')
+        ->call('approveAndSend')
+        ->assertSee('These policies were cited in the sent reply.')
+        ->assertSee('Return window')
+        ->assertDontSee('No sources were cited for this reply.');
 });
 
 test('agent can approve a grounded draft and the customer then sees it', function () {
