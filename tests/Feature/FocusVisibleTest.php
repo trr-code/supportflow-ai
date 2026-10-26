@@ -14,7 +14,8 @@ test('shared styles give dark-green controls a dual-tone keyboard focus ring', f
         ->toContain('0 0 0 2px #fff')
         ->toContain('0 0 0 4px var(--color-harbor-ink)')
         ->and($chrome)
-        ->toContain("request()->routeIs('tickets.create') || request()->routeIs('tickets.status') ? 'bg-harbor-pine text-white'")
+        ->toContain('after:bg-[#d5c5fc]')
+        ->not->toContain('bg-harbor-pine text-white')
         ->not->toContain('tabindex')
         ->and($widget)
         ->toContain('bg-harbor-pine')
@@ -25,7 +26,7 @@ test('shared styles give dark-green controls a dual-tone keyboard focus ring', f
 test('the customer ticket page renders the confirmed dark-green controls without a positive tabindex', function () {
     $page = $this->get(route('tickets.create'))
         ->assertOk()
-        ->assertSee('Customer', false)
+        ->assertSee('Agent desk', false)
         ->assertSee('Submit ticket', false)
         ->assertSee('Ask Harbor &amp; Co', false)
         ->getContent();
@@ -51,7 +52,7 @@ test('the landing page and ticket form do not use a positive tabindex', function
     $create = $this->get(route('tickets.create'))->assertOk()->getContent();
 
     expect($home)
-        ->toContain('Try a prepared question')
+        ->toContain('Try the workspace')
         ->not->toMatch('/\btabindex="[1-9]\d*"/')
         ->and($create)
         ->toContain('Use a sample return')

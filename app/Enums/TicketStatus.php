@@ -19,7 +19,7 @@ enum TicketStatus: string
             self::Triaging => 'AI reviewing',
             self::AwaitingReview => 'Awaiting review',
             self::WaitingOnCustomer => 'Waiting on customer',
-            self::Escalated => 'Escalated to human',
+            self::Escalated => 'Escalated',
             self::Resolved => 'Resolved',
             self::AiFailed => 'AI unavailable',
         };

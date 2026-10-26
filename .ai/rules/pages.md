@@ -9,7 +9,7 @@ paths:
 # Pages
 
 ## Silent ticket drafts clear on leave
-Ticket form fields use Livewire #[Session] so a refresh restores them silently. ForgetTicketDraftWhenLeavingCreate clears those keys on GET/HEAD to any route except tickets.create. Do not show a Draft restored banner. Do not clear on POST (Livewire updates, dictation, submit).
+Ticket form fields use Livewire #[Session] so a refresh restores them silently. ForgetTicketDraftWhenLeavingCreate clears those keys on GET/HEAD to any route except tickets.create and demo.harbor. The Harbor workspace embeds that form, so a refresh there keeps the draft. Do not show a Draft restored banner. Do not clear on POST (Livewire updates, dictation, submit).
 
 ## Poll Agent ticket show while AI work is in flight
 Agent ticket show polls with wire:poll.5s.visible while the ticket is Submitted or Triaging, or a triage/suggested-reply AiRun is Queued or Running. Queue that run when dispatching intake, draft generation, regenerate, retry AI, or a scenario ticket. Stop polling in a stable state. If a pending suggested reply exists while status is still Triaging, persist Awaiting review. The customer status poll is a separate rule: it continues until a public approved Agent reply exists.

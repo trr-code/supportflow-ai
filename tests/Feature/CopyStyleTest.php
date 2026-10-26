@@ -68,7 +68,7 @@ test('seeded SF-10482 cites live return-window chunks and uses greeting layout',
 
     Livewire::test(TicketShow::class, ['ticket' => $ticket])
         ->assertOk()
-        ->assertSee('Grounded: yes')
+        ->assertSee('Policy sources available')
         ->assertSee('Sources')
         ->assertSee('Return window')
         ->assertSee('Box not required')
@@ -91,8 +91,7 @@ test('seeded titles and landing copy use closed em dashes', function () {
         ->and(file_get_contents(resource_path('views/components/demo-banner.blade.php')))
         ->toContain('Live portfolio demo · Harbor &amp; Co')
         ->and(file_get_contents(resource_path('views/livewire/pages/welcome.blade.php')))
-        ->toContain('PostgreSQL/pgvector')
-        ->toContain('AI drafts stay internal until a support agent chooses to send them.')
+        ->toContain('workflows—connected')
         ->not->toContain('PostgreSQL / pgvector')
         ->not->toContain('live models —')
         ->not->toContain('knowledge — then')
@@ -109,8 +108,8 @@ test('seeded titles and landing copy use closed em dashes', function () {
         ->toContain('Go to Tickets → Live demo and find the same SF- reference.')
         ->not->toContain('Customer→')
         ->and(file_get_contents(resource_path('views/livewire/pages/ticket-index.blade.php')))
-        ->toContain('Choose a prepared ticket to test.')
-        ->toContain('Existing examples remain unchanged.')
+        ->toContain('Choose an example, preview it, then open a demo ticket.')
+        ->toContain('Existing examples stay unchanged.')
         ->not->toContain('Clones a fixture')
         ->and(file_get_contents(app_path('Services/DemoScenarioService.php')))
         ->toContain('Shipping/returns')
@@ -128,7 +127,6 @@ test('seeded titles and landing copy use closed em dashes', function () {
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('PostgreSQL/pgvector')
         ->assertDontSee('PostgreSQL / pgvector')
         ->assertDontSee('live models — not canned scripts');
 });

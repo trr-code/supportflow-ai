@@ -47,6 +47,21 @@ test('empty session drafts do not show restored copy', function () {
         ->assertDontSee('Draft restored.');
 });
 
+test('the harbor workspace keeps a ticket draft', function () {
+    Livewire::test(TicketCreate::class)
+        ->set('customer_name', 'Maya Chen')
+        ->set('customer_email', 'maya.chen@example.test')
+        ->set('subject', 'Can I still return the Harbor Trail Pack?')
+        ->set('product', 'Harbor Trail Pack')
+        ->set('description', 'I bought a Harbor Trail Pack 18 days ago. It is unused with tags.');
+
+    $this->get(route('demo.harbor'))->assertOk();
+
+    Livewire::test(TicketCreate::class)
+        ->assertSet('customer_name', 'Maya Chen')
+        ->assertSet('subject', 'Can I still return the Harbor Trail Pack?');
+});
+
 test('leaving the ticket form clears the stored draft', function () {
     Livewire::test(TicketCreate::class)
         ->set('customer_name', 'Maya Chen')
@@ -69,16 +84,20 @@ test('leaving the ticket form clears the stored draft', function () {
 test('successful submit clears the ticket draft', function () {
     fakeSupportAi();
 
-    Livewire::test(TicketCreate::class)
+    $component = Livewire::test(TicketCreate::class)
         ->set('customer_name', 'Maya Chen')
         ->set('customer_email', 'maya@example.test')
         ->set('subject', 'Return window for unused Trail Pack')
         ->set('description', 'I bought a Harbor Trail Pack 18 days ago. Unused with tags. Can I return it without the box?')
         ->call('submit')
-        ->assertHasNoErrors()
-        ->assertRedirect();
+        ->assertHasNoErrors();
 
-    expect(Ticket::query()->count())->toBe(1);
+    $ticket = Ticket::query()->first();
+
+    expect($ticket)->not->toBeNull()
+        ->and(Ticket::query()->count())->toBe(1);
+
+    $component->assertRedirect(route('tickets.status', ['publicToken' => $ticket->public_token]));
 
     Livewire::test(TicketCreate::class)
         ->assertSet('customer_name', '')

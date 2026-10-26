@@ -22,6 +22,10 @@ class EnterDemoAgentController extends Controller
                 ->withFragment('agent-scenarios');
         }
 
+        if ($request->routeIs('demo.agent')) {
+            return redirect()->route('agent.tickets.index');
+        }
+
         return redirect()->route('dashboard');
     }
 }

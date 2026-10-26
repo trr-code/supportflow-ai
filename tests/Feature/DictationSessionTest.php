@@ -71,7 +71,16 @@ test('ticket dictation uses the description noun and does not announce unsupport
         ->assertOk()
         ->assertSee('data-noun="description"', false)
         ->assertDontSee("message = 'This browser cannot capture a microphone. Type instead.'")
-        ->assertSee("Type your ' + this.noun + ' instead.", false);
+        ->assertSee("Type your ' + this.noun + ' instead.", false)
+        ->assertSee('aria-label="Stop dictation"', false)
+        ->assertSee('prefers-reduced-motion', false)
+        ->assertSee('set(this.target, next, false)', false)
+        ->assertSee('input_audio_buffer.commit', false)
+        ->assertSee('event.isTrusted', false)
+        ->assertSee('Recording reached the two-minute limit.', false)
+        ->assertDontSee('Listening… tap to stop')
+        ->assertDontSee('Review the text, edit if needed, then submit.')
+        ->assertDontSee('Allow microphone access to dictate.');
 });
 
 test('chat dictation uses the question noun', function () {

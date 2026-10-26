@@ -45,11 +45,15 @@ class TicketShow extends Component
 
     public string $customReply = '';
 
+    public string $workspace = 'review';
+
+    public string $tools = 'sources';
+
+    public bool $manualReply = false;
+
     public string $draftBody = '';
 
     public ?int $draftReplyId = null;
-
-    public bool $showTechnical = false;
 
     public ?string $flash = null;
 
@@ -182,21 +186,68 @@ class TicketShow extends Component
         return $this->aiWorkInFlight();
     }
 
+    public function showWorkspace(string $workspace): void
+    {
+        if (! in_array($workspace, ['review', 'conversation', 'notes'], true)) {
+            return;
+        }
+
+        $this->workspace = $workspace;
+    }
+
+    public function showTools(string $tools): void
+    {
+        if (! in_array($tools, ['sources', 'details', 'activity'], true)) {
+            return;
+        }
+
+        $this->tools = $tools;
+    }
+
+    public function openManualReply(): void
+    {
+        $this->authorize('update', $this->ticket);
+        $this->workspace = 'review';
+        $this->manualReply = true;
+        $this->js("document.getElementById('ticket-reply')?.focus()");
+    }
+
     public function addNote(TicketService $tickets): void
     {
         $this->authorize('update', $this->ticket);
+        $this->workspace = 'notes';
         $this->validate(['note' => 'required|string|max:2000']);
         $tickets->addInternalNote($this->ticket, $this->note, (string) auth()->user()?->name);
         $this->note = '';
         $this->flash = 'Internal note saved. Customers never see notes.';
     }
 
+    public function addToComposer(): void
+    {
+        $this->authorize('update', $this->ticket);
+
+        $draft = trim($this->draftBody);
+
+        if ($draft === '') {
+            return;
+        }
+
+        $this->workspace = 'review';
+        $this->manualReply = true;
+        $this->customReply = $draft;
+        $this->js("document.getElementById('ticket-reply')?.focus()");
+    }
+
     public function sendCustom(SuggestedReplyService $replies): void
     {
         $this->authorize('update', $this->ticket);
+        $this->workspace = 'review';
+        $this->manualReply = true;
         $this->validate(['customReply' => 'required|string|min:8|max:4000']);
         $replies->sendCustom($this->ticket, $this->customReply, (string) auth()->user()?->name);
         $this->customReply = '';
+        $this->manualReply = false;
+        $this->workspace = 'conversation';
         $this->ticket->refresh();
         $this->flash = 'Human reply sent to the customer status page (simulated).';
     }
@@ -241,7 +292,7 @@ class TicketShow extends Component
                 $reply,
                 SuggestedReplyPanelState::running($this->ticket),
             ),
-        ])->layout('layouts.app', ['title' => $this->ticket->reference]);
+        ])->layout('components.layouts.lucid', ['title' => $this->ticket->reference]);
     }
 
     protected function pendingReply(): ?SuggestedReply

@@ -33,9 +33,11 @@ test('demo agent login can open the visible scenario list', function () {
         ->assertOk()
         ->assertSeeHtml('wire:poll.5s.visible')
         ->assertSee('id="agent-scenarios"', false)
-        ->assertSee('Choose a prepared ticket to test.')
+        ->assertSee('Choose an example, preview it, then open a demo ticket.')
         ->assertSee('A shopper bought a Harbor Trail Pack 18 days ago.')
-        ->assertSee('The ticket shows AI unavailable and a Retry AI button.');
+        ->assertSee('Tracking app problem')
+        ->assertSee('Load scenario')
+        ->assertDontSee('The ticket shows AI unavailable and a Retry AI button.');
 });
 
 test('an unknown next destination after demo agent login stays on the dashboard', function () {

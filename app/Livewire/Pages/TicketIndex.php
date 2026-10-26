@@ -8,6 +8,7 @@ use App\Services\DemoPruneService;
 use App\Services\DemoScenarioService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -16,15 +17,24 @@ class TicketIndex extends Component
     use HeartbeatsDemoSession;
     use WithPagination;
 
+    #[Url(except: 'all')]
     public string $filter = 'all';
 
     public ?string $notice = null;
 
     public bool $showScenarios = false;
 
+    public string $scenarioKey = 'supported_answer';
+
+    public int $perPage = 11;
+
     public function mount(): void
     {
         $this->authorize('viewAny', Ticket::class);
+
+        if (! in_array($this->filter, ['all', 'awaiting', 'urgent', 'escalated', 'failed', 'live'], true)) {
+            $this->filter = 'all';
+        }
 
         if (request()->boolean('scenarios')) {
             $this->showScenarios = true;
@@ -34,6 +44,34 @@ class TicketIndex extends Component
     public function updatedFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function setPerPage(int $perPage): void
+    {
+        $perPage = max(1, min($perPage, 20));
+
+        if ($this->perPage === $perPage) {
+            return;
+        }
+
+        $this->perPage = $perPage;
+        $this->resetPage();
+    }
+
+    public function selectScenario(string $key, DemoScenarioService $scenarios): void
+    {
+        $this->authorize('viewAny', Ticket::class);
+
+        if (! array_key_exists($key, $scenarios->catalog())) {
+            return;
+        }
+
+        $this->scenarioKey = $key;
+    }
+
+    public function closeScenarios(): void
+    {
+        $this->showScenarios = false;
     }
 
     public function launch(string $key, DemoScenarioService $scenarios): mixed
@@ -78,8 +116,8 @@ class TicketIndex extends Component
         };
 
         return view('livewire.pages.ticket-index', [
-            'tickets' => $query->paginate(15),
+            'tickets' => $query->paginate($this->perPage),
             'scenarios' => $scenarios->catalog(),
-        ])->layout('layouts.app', ['title' => 'Ticket queue']);
+        ])->layout('components.layouts.lucid', ['title' => 'Ticket queue']);
     }
 }

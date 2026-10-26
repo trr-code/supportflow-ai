@@ -25,7 +25,7 @@
 
             <flux:sidebar.nav>
                 <flux:sidebar.item icon="book-open-text" :href="route('home')" wire:navigate>
-                    {{ __('Demo home') }}
+                    {{ __('Lucid') }}
                 </flux:sidebar.item>
             </flux:sidebar.nav>
 

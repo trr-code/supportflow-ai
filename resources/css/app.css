@@ -11,25 +11,27 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-harbor-pine: #1f4d3a;
-    --color-harbor-pine-dark: #16382b;
-    --color-harbor-ocean: #1d4f6e;
-    --color-harbor-sand: #f4efe6;
-    --color-harbor-sand-deep: #e7dcc8;
+    --color-harbor-pine: #6d5bd0;
+    --color-harbor-pine-dark: #5646b8;
+    --color-harbor-ocean: #6d5bd0;
+    --color-harbor-sand: #f4f4f5;
+    --color-harbor-sand-deep: #e5e2ef;
     --color-harbor-coral: #c45c4a;
-    --color-harbor-ink: #1c241f;
+    --color-harbor-ink: #151331;
+    --color-lucid-charcoal: #080808;
+    --color-lucid-lavender: #d5c5fc;
 
-    --color-zinc-50: #f7f4ee;
-    --color-zinc-100: #efe9de;
-    --color-zinc-200: #e0d6c6;
-    --color-zinc-300: #c9bba6;
-    --color-zinc-400: #8f8676;
-    --color-zinc-500: #6b6458;
-    --color-zinc-600: #4d4740;
-    --color-zinc-700: #3a352f;
-    --color-zinc-800: #2a2621;
-    --color-zinc-900: #1c1916;
-    --color-zinc-950: #12100e;
+    --color-zinc-50: #f7f8fb;
+    --color-zinc-100: #eef0f6;
+    --color-zinc-200: #e1e4ee;
+    --color-zinc-300: #c9cedd;
+    --color-zinc-400: #8b93a7;
+    --color-zinc-500: #667085;
+    --color-zinc-600: #4b5568;
+    --color-zinc-700: #374151;
+    --color-zinc-800: #1f2430;
+    --color-zinc-900: #16141f;
+    --color-zinc-950: #0e0d14;
 
     --color-accent: var(--color-harbor-pine);
     --color-accent-content: var(--color-harbor-pine);
@@ -42,6 +44,10 @@
         --color-accent-content: var(--color-white);
         --color-accent-foreground: var(--color-neutral-800);
     }
+}
+
+[x-cloak] {
+    display: none !important;
 }
 
 @layer base {
@@ -70,7 +76,7 @@ select:focus[data-flux-control] {
 }
 
 /*
- * Dark-green (harbor pine / accent) controls need a dual-tone keyboard ring.
+ * Filled harbor-pine / accent controls need a dual-tone keyboard ring.
  * A pine outline is indistinguishable from the fill; a single light ring vanishes on sand.
  * Adjacent 2px white + 2px ink meets WCAG 2.4.7 / 2.4.13 on both the control and the page.
  */
@@ -132,6 +138,19 @@ select:focus[data-flux-control] {
 .chat-dock-panel {
     height: min(32rem, calc(100dvh - 8rem));
     max-height: min(32rem, calc(100dvh - 8rem));
+}
+
+.chat-dock.lucid-inline {
+    position: static;
+    pointer-events: auto;
+    height: 100%;
+}
+
+.chat-dock.lucid-inline .chat-dock-panel {
+    height: 100%;
+    max-height: none;
+    margin-bottom: 0;
+    box-shadow: none;
 }
 
 .preview-launcher {
@@ -212,7 +231,7 @@ select:focus[data-flux-control] {
 .policy-link:hover,
 .policy-prose a:hover,
 .pine-hover:hover {
-    color: #217a4a;
+    color: var(--color-harbor-pine-dark);
 }
 
 .policy-link:focus-visible,
@@ -220,6 +239,233 @@ select:focus[data-flux-control] {
 .file-choose:focus-within {
     outline: 2px solid var(--color-harbor-ink);
     outline-offset: 2px;
+}
+
+.lucid-workspace {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.lucid-workspace-columns {
+    display: grid;
+    min-height: 0;
+    align-items: stretch;
+    gap: 0.625rem;
+}
+
+.lucid-harbor-chat {
+    display: flex;
+    height: min(70dvh, 36rem);
+    min-height: 22rem;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.lucid-composer-field {
+    field-sizing: content;
+    line-height: 1.5rem;
+    max-height: calc(1.5rem * 7);
+    overflow-y: auto;
+}
+
+.harbor-cite {
+    display: inline-flex;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-inline-start: 0.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: #e8e8ea;
+    vertical-align: middle;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--color-harbor-ink);
+}
+
+.harbor-cite:focus-visible {
+    outline: 2px solid #d5c5fc;
+    outline-offset: 2px;
+}
+
+.lucid-harbor-chat .chat-dock.lucid-inline,
+.lucid-harbor-chat .chat-dock.lucid-inline .chat-dock-panel {
+    position: static;
+    z-index: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin-bottom: 0;
+    pointer-events: auto;
+    box-shadow: none;
+}
+
+@media (min-width: 1280px) {
+    body:has(.lucid-workspace) {
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+    }
+
+    body:has(.lucid-workspace) > div.mx-auto {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    body:has(.lucid-workspace) main {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .lucid-workspace {
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    .lucid-workspace-columns {
+        flex: 1 1 auto;
+        grid-template-columns: 208px minmax(0, 1fr) 312px;
+        height: auto;
+    }
+
+    .lucid-workspace-columns-harbor {
+        grid-template-columns: 208px minmax(0, 1fr) 384px;
+    }
+
+    .lucid-workspace-columns-dashboard {
+        grid-template-columns: 208px minmax(0, 1fr);
+    }
+
+    .lucid-workspace-columns-ticket {
+        grid-template-columns: 208px minmax(0, 1fr) 320px;
+    }
+
+    .lucid-workspace-columns-ticket .lucid-workspace-main,
+    .lucid-workspace-columns-ticket .lucid-workspace-side {
+        overflow: hidden;
+    }
+
+    #ticket-review-panel {
+        justify-content: flex-start;
+        margin-top: 0;
+    }
+
+    #ticket-review-panel > :first-child {
+        flex: none;
+    }
+
+    #ticket-review-panel > :first-child > article {
+        padding: 9px 13px;
+        overflow: visible;
+    }
+
+    #ticket-review-panel > :first-child > article > .flex {
+        align-items: center;
+        gap: 13px;
+        margin-top: 7px;
+    }
+
+    #ticket-review-panel [data-customer-message] {
+        margin-top: 3px;
+        margin-left: 53px;
+        padding: 8px 10px;
+    }
+
+    #ticket-review-panel > .ticket-assessment,
+    #ticket-review-panel > .ticket-reply-section {
+        flex: none;
+        margin-top: 0;
+    }
+
+    #ticket-review-panel > .ticket-assessment {
+        padding: 4px 0;
+    }
+
+    #ticket-review-panel > .ticket-reply-section {
+        padding-top: 0;
+    }
+
+    .lucid-compact-action {
+        height: 2.25rem !important;
+        min-height: 2.25rem !important;
+    }
+
+    .lucid-harbor-chat,
+    .lucid-workspace-side,
+    .lucid-workspace-nav,
+    .lucid-workspace-main {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .lucid-harbor-chat {
+        height: 100%;
+    }
+
+    .lucid-harbor-chat,
+    .lucid-workspace-side {
+        overflow: hidden;
+    }
+
+    .lucid-workspace-nav,
+    .lucid-workspace-main {
+        overflow: auto;
+    }
+
+    .lucid-workspace-side {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.ticket-draft-field {
+    height: 11rem;
+    max-height: 11rem;
+    flex: none;
+    resize: none;
+}
+
+@media (max-width: 1279px) {
+    #ticket-review-panel > .ticket-assessment,
+    #ticket-review-panel > .ticket-reply-section {
+        margin-top: 0.25rem;
+    }
+}
+
+@media (min-width: 1280px) and (min-height: 900px) {
+    #ticket-review-panel > :first-child {
+        padding-top: 8px;
+    }
+
+    #ticket-review-panel > .ticket-assessment {
+        padding: 12px 0;
+    }
+
+    #ticket-review-panel > .ticket-reply-section > :first-child {
+        padding: 12px 0 8px;
+    }
+
+    #ticket-review-panel .ticket-draft-field {
+        margin-top: 0;
+    }
+
+    #ticket-review-panel #ticket-draft-actions {
+        margin-top: 8px;
+    }
+
+    #ticket-review-panel #ticket-manual-row {
+        margin-top: 4px;
+    }
 }
 
 /* \[:where(&)\]:size-4 {

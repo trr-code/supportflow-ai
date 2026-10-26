@@ -29,6 +29,6 @@ class ForgetTicketDraftWhenLeavingCreate
             return true;
         }
 
-        return $request->routeIs('tickets.create');
+        return $request->routeIs('tickets.create', 'demo.harbor');
     }
 }

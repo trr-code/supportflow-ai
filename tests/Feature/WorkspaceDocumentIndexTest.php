@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TicketCategory;
 use App\Enums\WorkspaceDocumentStatus;
 use App\Events\WorkspaceChunksInserted;
 use App\Exceptions\WorkspaceUploadException;
@@ -337,4 +338,98 @@ test('deleting a workspace removes its private text and a late index job cannot 
 
     expect(KnowledgeArticle::query()->count())->toBe(0)
         ->and(KnowledgeChunk::query()->where('body', 'like', '%Secret overnight%')->exists())->toBeFalse();
+});
+
+test('a failed index removes private text and a later failure leaves a ready document searchable', function () {
+    $workspace = Workspace::factory()->create();
+    $private = 'Private maple invoice code must disappear after a failed index.';
+    $readyText = 'Cedar Street counter holds the spare Driftwood strap.';
+
+    $harbor = KnowledgeArticle::query()->create([
+        'title' => 'Harbor shipping',
+        'slug' => 'harbor-shipping-index-failure',
+        'category' => TicketCategory::Shipping,
+        'body' => 'Harbor poles ship from the Kent warehouse.',
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+
+    $failedArticle = KnowledgeArticle::query()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Maple invoice',
+        'slug' => 'maple-invoice-index-failure',
+        'category' => TicketCategory::General,
+        'body' => $private,
+        'is_published' => true,
+        'is_seeded' => false,
+    ]);
+    $failedArticle->chunks()->create([
+        'heading' => null,
+        'body' => $private,
+        'token_count' => 8,
+    ]);
+
+    $readyArticle = KnowledgeArticle::query()->create([
+        'workspace_id' => $workspace->id,
+        'title' => 'Cedar counter',
+        'slug' => 'cedar-counter-index-failure',
+        'category' => TicketCategory::General,
+        'body' => $readyText,
+        'is_published' => true,
+        'is_seeded' => false,
+    ]);
+    $readyArticle->chunks()->create([
+        'heading' => null,
+        'body' => $readyText,
+        'token_count' => 8,
+    ]);
+
+    $generation = (string) Str::uuid();
+    $processing = WorkspaceDocument::query()->create([
+        'workspace_id' => $workspace->id,
+        'original_name' => 'maple.txt',
+        'storage_path' => 'maple.txt',
+        'mime' => 'text/plain',
+        'extension' => 'txt',
+        'byte_size' => 40,
+        'status' => WorkspaceDocumentStatus::Processing,
+        'index_generation' => $generation,
+        'knowledge_article_id' => $failedArticle->id,
+    ]);
+    $ready = WorkspaceDocument::query()->create([
+        'workspace_id' => $workspace->id,
+        'original_name' => 'cedar.txt',
+        'storage_path' => 'cedar.txt',
+        'mime' => 'text/plain',
+        'extension' => 'txt',
+        'byte_size' => 40,
+        'status' => WorkspaceDocumentStatus::Ready,
+        'index_generation' => (string) Str::uuid(),
+        'knowledge_article_id' => $readyArticle->id,
+    ]);
+
+    fakeMatchingKnowledgeEmbeddings();
+
+    (new IndexWorkspaceDocument($processing->id, $generation))
+        ->failed(new RuntimeException('worker lost'));
+    (new IndexWorkspaceDocument($ready->id, $ready->index_generation))
+        ->failed(new RuntimeException('worker lost'));
+
+    $hits = app(RetrievalService::class)->search(
+        'Cedar Street counter spare strap',
+        KnowledgeCorpus::workspace($workspace->id),
+        6,
+        0.05,
+    );
+
+    expect($processing->fresh()->status)->toBe(WorkspaceDocumentStatus::Failed)
+        ->and($processing->fresh()->failure_reason)->toBe('This document could not be indexed.')
+        ->and($processing->fresh()->knowledge_article_id)->toBeNull()
+        ->and(KnowledgeArticle::query()->find($failedArticle->id))->toBeNull()
+        ->and(KnowledgeChunk::query()->where('body', $private)->exists())->toBeFalse()
+        ->and($ready->fresh()->status)->toBe(WorkspaceDocumentStatus::Ready)
+        ->and(KnowledgeArticle::query()->find($readyArticle->id))->not->toBeNull()
+        ->and(KnowledgeArticle::query()->find($harbor->id))->not->toBeNull()
+        ->and($hits->pluck('chunk.body')->implode(' '))->toContain('Cedar Street counter')
+        ->and($hits->pluck('chunk.body')->implode(' '))->not->toContain('Private maple');
 });

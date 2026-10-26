@@ -44,8 +44,10 @@ Authority for product claims:
 
 ## Dictation
 
-- [ ] Chat microphone: browser permission prompt, transcript lands in the composer, nothing is spoken back.
-- [ ] Ticket description microphone: same. Do not enter real personal data.
+Automated coverage drives controlled transcription events on the ticket description field: a partial transcript appears, a typed edit is kept, a later phrase still appends, and stopping leaves that text in place and ignores a later event. It does not open a microphone.
+
+- [ ] Chat microphone: real permission prompt, spoken transcript lands in the composer, nothing is spoken back.
+- [ ] Ticket description microphone: same real microphone. Do not enter real personal data.
 - [ ] If the browser has no mic, the typed fallback message appears.
 
 ## Mobile and iPad

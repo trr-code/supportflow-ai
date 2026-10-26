@@ -48,10 +48,30 @@ class TicketCreate extends Component
 
     public ?string $capMessage = null;
 
+    public bool $embedded = false;
+
+    public bool $prepareSample = false;
+
+    public bool $startBlank = false;
+
     public function mount(DemoScenarioService $scenarios): void
     {
-        if (request()->boolean('sample')) {
+        if ($this->prepareSample || request()->boolean('sample')) {
             $this->fillSample($scenarios);
+
+            return;
+        }
+
+        if ($this->startBlank) {
+            $this->reset([
+                'customer_name',
+                'customer_email',
+                'subject',
+                'description',
+                'product',
+                'capMessage',
+            ]);
+            $this->forgetTicketDraft();
 
             return;
         }
@@ -109,6 +129,15 @@ class TicketCreate extends Component
             'capMessage',
         ]);
         $this->forgetTicketDraft();
+
+        if ($this->embedded) {
+            session([
+                'supportflow.harbor.center' => 'status',
+                'supportflow.harbor.status_token' => $ticket->public_token,
+            ]);
+
+            return $this->redirectRoute('demo.harbor', navigate: true);
+        }
 
         return $this->redirectRoute('tickets.status', ['publicToken' => $ticket->public_token], navigate: true);
     }

@@ -21,6 +21,6 @@ class Dashboard extends Component
     {
         return view('livewire.pages.dashboard', [
             'metrics' => $metrics->snapshot(),
-        ])->layout('layouts.app', ['title' => 'Dashboard']);
+        ])->layout('components.layouts.lucid', ['title' => 'Agent dashboard']);
     }
 }
