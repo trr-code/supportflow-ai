@@ -312,6 +312,12 @@ class ReplacementCaseService
             return;
         }
 
+        if (in_array($mode, ['approve', 'reject'], true)) {
+            $this->executeVisitorDecision($case, $generation, $mode, $toolCallId);
+
+            return;
+        }
+
         $conversationId = $this->ensureConversation($case);
         $case = $case->fresh();
 
@@ -328,17 +334,8 @@ class ReplacementCaseService
         $agent = (new ReplacementAgent($caseId, $generation))->continue($conversationId);
 
         try {
-            $input = match ($mode) {
-                'approve' => Decisions::from([(string) $toolCallId => Decision::approve()]),
-                'reject' => Decisions::from([(string) $toolCallId => Decision::reject('The visitor declined this proposal.')]),
-                default => $prompt,
-            };
-
-            $response = $agent->prompt($input, provider: Lab::OpenAI, model: $model, timeout: 45);
-
-            if ($mode === 'message') {
-                $response = $this->settleApprovals($agent, $conversationId, $caseId, $generation, $response, $model);
-            }
+            $response = $agent->prompt($prompt, provider: Lab::OpenAI, model: $model, timeout: 45);
+            $response = $this->settleApprovals($agent, $conversationId, $caseId, $generation, $response, $model);
 
             $this->remember($caseId, $generation, $conversationId, $response);
             $this->runs->complete($run, $response, ['replacement_case_id' => $caseId]);
@@ -371,6 +368,91 @@ class ReplacementCaseService
         $this->storeProposal($case, $generation, $approval);
 
         return true;
+    }
+
+    /**
+     * Confirm or cancel without resuming OpenAI. Stored pauses replay reasoning
+     * blocks without the matching function_call items, so Decisions::approve()
+     * returns 400 (No tool call found for function call output) after PHP already saved the request.
+     */
+    private function executeVisitorDecision(ReplacementCase $case, int $generation, string $mode, ?string $toolCallId): void
+    {
+        $case->forceFill(['run_state' => 'running'])->save();
+
+        $model = (string) config('supportflow.models.chat');
+        $run = $this->runs->start(AiRunFeature::Replacement, null, $model);
+        $conversationId = $case->conversation_id;
+
+        try {
+            $text = $mode === 'approve'
+                ? $this->commitApprovedProposal($case, $generation, $toolCallId)
+                : 'Nothing was saved.';
+
+            if ($case->fresh()?->generation === $generation) {
+                $case->messages()->create([
+                    'generation' => $generation,
+                    'role' => 'assistant',
+                    'body' => $text,
+                ]);
+                $case->forceFill(['conversation_id' => null])->save();
+            }
+
+            $this->deleteSdkConversation($conversationId);
+            $this->runs->complete($run, null, [
+                'replacement_case_id' => $case->id,
+                'decision' => $mode,
+            ]);
+        } catch (Throwable $exception) {
+            $this->runs->fail($run, $exception->getMessage());
+            $this->deleteIfStale($case->id, $generation, (string) $conversationId);
+        } finally {
+            ReplacementCase::query()
+                ->whereKey($case->id)
+                ->where('generation', $generation)
+                ->update(['run_state' => null]);
+        }
+    }
+
+    private function commitApprovedProposal(ReplacementCase $case, int $generation, ?string $toolCallId): string
+    {
+        if (! is_string($toolCallId) || $toolCallId === '') {
+            return 'Nothing was saved.';
+        }
+
+        $proposal = ReplacementProposal::query()
+            ->where('replacement_case_id', $case->id)
+            ->where('generation', $generation)
+            ->where('tool_call_id', $toolCallId)
+            ->first();
+
+        if (! $proposal instanceof ReplacementProposal) {
+            return 'Nothing was saved.';
+        }
+
+        $arguments = $proposal->snapshot['tool_arguments'] ?? [
+            'order_number' => $proposal->order_number,
+            'quantity' => $proposal->quantity,
+            'reason' => $proposal->reason,
+        ];
+
+        $saved = $this->commit($proposal->id, $generation, $arguments);
+
+        if (! $saved instanceof ReplacementRequest) {
+            return 'Nothing was saved.';
+        }
+
+        return 'Your replacement request is saved. Reference '.$saved->reference.'. Nothing is shipped.';
+    }
+
+    private function providerCallId(AgentResponse $response, string $approvalId): ?string
+    {
+        $toolCall = $response->toolCalls->first(
+            fn ($toolCall): bool => $toolCall->id === $approvalId,
+        );
+
+        $callId = $toolCall?->resultId;
+
+        return is_string($callId) && $callId !== '' ? $callId : null;
     }
 
     public function recordActivity(string $caseId, int $generation, string $summary): void
@@ -454,7 +536,7 @@ class ReplacementCaseService
             $only = $pending->count() === 1 ? $pending->first() : null;
 
             if ($only instanceof PendingApproval && $this->acceptsProposal($case, $only)) {
-                $this->storeProposal($case, $generation, $only);
+                $this->storeProposal($case, $generation, $only, $this->providerCallId($response, $only->id));
 
                 break;
             }
@@ -538,7 +620,7 @@ class ReplacementCaseService
         return $this->policy->assess($order, $this->onHand($case->id, $order['sku']))['summary'];
     }
 
-    private function storeProposal(ReplacementCase $case, int $generation, PendingApproval $approval): void
+    private function storeProposal(ReplacementCase $case, int $generation, PendingApproval $approval, ?string $providerCallId = null): void
     {
         $order = HarborReplacementCatalog::find((string) ($approval->arguments['order_number'] ?? ''));
 
@@ -571,6 +653,12 @@ class ReplacementCaseService
                 'quantity' => 1,
                 'reason' => 'Arrived damaged',
                 'stock' => $onHand,
+                'tool_arguments' => [
+                    'order_number' => strtoupper(trim((string) ($approval->arguments['order_number'] ?? ''))),
+                    'quantity' => (int) ($approval->arguments['quantity'] ?? 0),
+                    'reason' => trim((string) ($approval->arguments['reason'] ?? '')),
+                ],
+                'provider_call_id' => $providerCallId,
             ],
             'expires_at' => now()->addMinutes((int) config('supportflow.replacement.proposal_minutes')),
         ]);

@@ -4,9 +4,12 @@ use App\Ai\Agents\ReplacementAgent;
 use App\Ai\Tools\CheckDamagePolicy;
 use App\Ai\Tools\CheckStock;
 use App\Ai\Tools\LookupOrder;
+use App\Enums\AiRunFeature;
+use App\Enums\AiRunStatus;
 use App\Enums\ReplacementProposalStatus;
 use App\Jobs\RunReplacementAgent;
 use App\Livewire\Pages\ReplacementTools;
+use App\Models\AiRun;
 use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Models\ReplacementActivity;
@@ -23,6 +26,7 @@ use App\Support\HarborReplacementCatalog;
 use Database\Seeders\KnowledgeSeeder;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Laravel\Ai\Approvals\PendingApproval;
 use Laravel\Ai\Responses\AgentResponse;
@@ -182,6 +186,31 @@ test('confirming HB-10482 saves one request and shows its reference', function (
         ->assertSee('Your replacement request is saved.')
         ->assertSee($saved->reference)
         ->assertSee('Driftwood Duffel');
+});
+
+test('confirming a proposal saves a request without resuming OpenAI tool output', function () {
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $session = replacementDemoSession();
+    [$case, $proposal] = replacementConfirmingProposal($session);
+    $proposal->forceFill(['status' => ReplacementProposalStatus::Pending])->save();
+
+    expect(app(ReplacementCaseService::class)->beginConfirm($proposal))->toBeTrue();
+
+    $request = ReplacementRequest::query()->first();
+    $run = AiRun::query()->where('feature', AiRunFeature::Replacement)->latest('id')->first();
+
+    expect($request)->toBeInstanceOf(ReplacementRequest::class)
+        ->and($request->reference)->toStartWith('HR-')
+        ->and($proposal->fresh()->status)->toBe(ReplacementProposalStatus::Confirmed)
+        ->and($run)->not->toBeNull()
+        ->and($run->status)->toBe(AiRunStatus::Completed)
+        ->and($run->error)->toBeNull()
+        ->and($case->fresh()->messages()->where('role', 'assistant')->value('body'))->toContain($request->reference)
+        ->and($case->fresh()->conversation_id)->toBeNull();
+
+    Http::assertNothingSent();
 });
 
 test('cancel saves nothing', function () {
