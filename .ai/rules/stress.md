@@ -19,3 +19,6 @@ GET Stressless against Forge is off-peak, smoke-first, and targets the SupportFl
 
 ## Forge GET Stressless is the post-deploy GET check
 After deploy, Forge GET Stressless is the GET capacity check: smoke first, then load/stress/stability/capacity against the public hostname. Do not copy 16 Octane workers. Do not reduce the run because CareerForge is unused. GET Stressless does not close chat TTFB. See docs/performance.md.
+
+## Stressless failed GETs need duration_max; site access_log is off
+k6 http_req_failed is a transport/error rate, not an HTTP status histogram. SupportFlow nginx has access_log off, so a single Stressless failure after a long GET ladder has no origin status. Report duration_max_ms and ttfb_max_ms. Do not raise Forge Octane workers or shrink the ladder. A cooldown rerun that is 0-failed is evidence of a transient, not a pass to ignore.

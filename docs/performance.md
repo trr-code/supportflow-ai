@@ -54,7 +54,11 @@ Linux/Forge: `php artisan octane:frankenphp` (or `octane:start --server=frankenp
 
 `POST /chat/stream` is the sole write path: validation, `throttle:chat` (IP + session, 30/minute), fail-fast `Cache::lock('chat-stream:{demoSessionId}')`, `ChatService::ask()`, SSE `delta`/`done`/`error`/`stopped`. Livewire `send()` is UX-only. Stop stays unthrottled.
 
-Local one-shot concurrent waves at 1, then 2, then 4 demo sessions on both Herd and Octane: 14/14 real OpenAI turns succeeded, grounded, persisted, no exposed `CITES:`, no app 429s. Time to first token is provider-dominated (~1.6–2.2 s concurrent). Do not claim Octane makes answers faster for visitors.
+Historical local waves (2026-09-19): 14/14 real OpenAI turns on Herd and Octane, grounded, persisted, no exposed `CITES:`, no app 429s, first token ~1.6–2.2 s concurrent.
+
+Current-path waves (2026-10-26, throttle 30, separate cookie jars, `POST /chat/stream` only): **7/7** `event: done` on Herd `https://supportflow-ai.test` (concurrency 1/2/4). No `event: error`, no `CITES:`, no app 429 or 409.
+
+Before embed batch: first `event: delta` 3.45 s (n=1), 1.88–2.47 s (n=2), 4.00–8.14 s (n=4). After one `embedMany` per search: 1.47 s (n=1), 1.23–1.32 s (n=2), 1.31–1.47 s (n=4). Provider-dominated remainder. Do not claim Octane makes answers faster for visitors. Do not add Forge workers to chase concurrent TTFB.
 
 ## Forge staging (2026-09-19)
 
@@ -63,6 +67,16 @@ Historical GET/chat benches targeted `https://supportflow-ai-ou1b5gvy.on-forge.c
 Smoke, load, stress, stability, and capacity all passed with **zero HTTP failures**. Capacity last-healthy concurrency was 16 on `/`, `/knowledge`, and `/knowledge/return-window` (the 16-VU safety rail, not a local-style p95 gate). `/` peaked around **39 rps** (concurrency 12–16, p95 362–465 ms). `/knowledge` p95 rose above 1 s at concurrency 12. That is not the local 770 rps, 47 ms p95 result and must not be treated as a reason to raise Forge workers.
 
 Browser checks: `/`, `/knowledge`, `/knowledge/return-window`, agent dashboard/tickets, mobile-width home, SSE chat with citations and a persisted follow-up, no exposed `CITES:`. Chat waves 1/2/4: 7/7 `event: done`, no `event: error`, no `CITES:`, no app 429s.
+
+## Forge staging (2026-10-26)
+
+Live hostname `https://supportflow-ai-lqojsjr5.on-forge.com`, commit `d93755f`, Octane **1 worker** on `127.0.0.1:8001`. Weekday. CareerForge `worker-987181` left running. `K6_NO_COOKIES_RESET=true`, `STRESS_MAX_CONCURRENCY=16`. Chat throttle 30.
+
+GET Stressless: smoke 4/4, load 3/3, stress 6/6, stability 3/3, all **0 failed**. Capacity first pass marked `/` last-healthy **2** after 1 failed request at concurrency 4 (following the long GET session). Cooldown rerun: last-healthy **16** on `/`, `/knowledge`, and `/knowledge/return-window`, **0 failed**. `/` at concurrency 16 ~35 rps, p95 520 ms. `/knowledge` p95 rose above 1 s at concurrency 12 on some plateaus (1.75 s rerun). That is not the local 770 rps result and must not be treated as a reason to raise Forge workers.
+
+Chat TTFB waves 1/2/4 (pre embed-batch): **7/7** `event: done`, no `event: error`, no `CITES:`, no app 429 or 409. Time to first `event: delta`: 2.89 s (n=1), 2.49–5.04 s (n=2), 2.22–9.65 s (n=4). The 1-worker process serializes concurrent streams (TTFB 2.2 / 4.8 / 7.3 / 9.7 s tracks the previous stream’s `done`). Sequential query+facet `embed()` calls sat on that worker before the first delta. Re-run these waves after the embed-batch deploy; do not add workers.
+
+GET flake: first `/` capacity conc 4 had **1** k6 `http_req_failed` after the long weekday ladder. SupportFlow nginx `access_log off`; error log empty. A later `GET /` conc 4 × 15 s recorded **503/503 HTTP 200**. Treat the original fail as transport-level unless origin access_log is on.
 
 ## How to rerun GET tests
 

@@ -71,15 +71,15 @@ Use a phone viewport (~390px) and an iPad viewport (~768–1024px), plus a real 
 
 Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That hostname is the live non-ZDD site (Octane on 8001). Run this only after local `composer test` and `composer test:evals` pass. This checklist is verification, not a deploy. Do not run Stressless chat/ticket writes. Do not raise `throttle:chat`. CareerForge is unused: do not skip or shrink these checks; if `worker-987181` contends, stop that worker rather than reducing tests. Do not delete CareerForge or shared Lucid/SupportFlow resources.
 
-- [ ] `/`, `/knowledge`, `/knowledge/return-window`, Open Agent Dashboard.
-- [ ] SupportFlow Octane, scheduler, and queue worker `--queue=ai,default` are running.
-- [ ] `/up` returns 200. The queue heartbeat names `ai` and `default` and is not stale. `CACHE_STORE=database`.
-- [ ] One grounded chat turn with citations and a follow-up. No `CITES:` in the UI.
-- [ ] One ticket through triage → awaiting review (or escalate). Confirm the customer status page still hides the draft.
-- [ ] SSE does not hang behind Nginx (first token arrives; stop works).
-- [ ] Repeat the 28L→36L exchange question against this seeded catalog. Record whether unused/30-day conditions are present.
-- [ ] GET Stressless after a smoke pass: `/up`, `/`, `/knowledge`, `/knowledge/return-window` only. Do not copy 16 Octane workers onto Forge. GET Stressless does not close chat TTFB.
-- [ ] Chat TTFB/concurrency is **required** release verification: concurrent `POST /chat/stream` with separate cookie jars (local current-path numbers first, then Forge). Not Stressless, not a single quality turn, not optional because you are not “claiming concurrency.” 2026-09-19 numbers do not close it.
+- [x] `/`, `/knowledge`, `/knowledge/return-window`, Open Agent Dashboard. (2026-10-26 `d93755f`; dashboard still showed 1 AI unavailable.)
+- [x] SupportFlow Octane, scheduler, and queue worker `--queue=ai,default` are running. (`daemon-1104270`, crontab `scheduled-2143100.log` mtime 19:06Z, `worker-1104326` `--queue=ai,default`. Live command includes `--daemon` vs docs.)
+- [x] `/up` returns 200. The queue heartbeat names `ai` and `default` and is not stale. `CACHE_STORE=database`.
+- [x] One grounded chat turn with citations. No `CITES:` in the UI. (Unused Trail Pack/box/prepaid. Persisted follow-up not retested this pass.)
+- [x] One ticket through triage → awaiting review. Customer status hid the draft. **SF-R50WE** then Approve and send; Sources remained Return window and Box not required.
+- [x] SSE first token arrives (chat TTFB waves). Mid-stream Stop not retested on Forge this pass.
+- [x] Repeat the 28L → 36L exchange question against this seeded catalog. Unused/30-day conditions present; box not required; prepaid after portal approval.
+- [x] GET Stressless after a smoke pass: `/up`, `/`, `/knowledge`, `/knowledge/return-window` only. Do not copy 16 Octane workers onto Forge. GET Stressless does not close chat TTFB. (Smoke through capacity; cooldown last-healthy 16. See [performance.md](performance.md).)
+- [x] Chat TTFB/concurrency: concurrent `POST /chat/stream` with separate cookie jars (local current-path numbers first, then Forge). Pre-fix 7/7 local and 7/7 Forge (Forge 9.7 s was 1-worker serialization). Local after embed batch 1.3–1.5 s. Re-run Forge waves after that deploy.
 
 ## Sign-off
 

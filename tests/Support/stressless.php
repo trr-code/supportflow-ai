@@ -101,7 +101,9 @@ function runStressGet(string $path, int $concurrency, int $seconds): Result
  *     requests_per_second: float,
  *     successful_requests_per_second: float,
  *     p95_ms: float,
- *     ttfb_p95_ms: float
+ *     ttfb_p95_ms: float,
+ *     duration_max_ms: float,
+ *     ttfb_max_ms: float
  * }
  */
 function stressMetrics(string $path, Result $result): array
@@ -125,6 +127,8 @@ function stressMetrics(string $path, Result $result): array
         'successful_requests_per_second' => $durationSeconds > 0 ? $success / $durationSeconds : 0.0,
         'p95_ms' => $result->requests()->duration()->p95(),
         'ttfb_p95_ms' => $result->requests()->ttfb()->duration()->p95(),
+        'duration_max_ms' => $result->requests()->duration()->max(),
+        'ttfb_max_ms' => $result->requests()->ttfb()->duration()->max(),
     ];
 }
 
