@@ -13,3 +13,6 @@ The Tests workflow installs Node, runs npm ci and npm run build, then npx playwr
 
 ## Forge deploys only the tested main commit
 Work directly on main as requested. Forge push-to-deploy is disabled. The deploy job needs tests and only runs on a main push, using GitHub secret FORGE_DEPLOY_HOOK. .github/forge-deploy.sh requires ci_commit, rejects moved main, checks successful GitHub Actions tests for that SHA, then fast-forwards exactly to it. Keep the live Forge script synchronized with this file. Run bash .github/forge-deploy-test.sh. Never print the hook token.
+
+## CI uses an explicit runner image and warning failures
+CI is pinned to ubuntu-24.04 during the ubuntu-latest 26.04 migration; move images in a reviewed change with actual browser/PHP/PostgreSQL CI evidence. The owner approved actions/setup-node@v7; automatic package-manager caching is off. phpunit.xml fails on warnings, and CI displays warning/deprecation details. Keep the tested-SHA deploy gate and normal stress/evals exclusions.
