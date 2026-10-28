@@ -1,6 +1,6 @@
 # Release-readiness
 
-Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-26** after TTFB/GET investigation (embed batch uncommitted).
+Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-28** after the dialog-focus fix, worker revisit, and response-time targets.
 
 Do not treat a local Feature pass as Forge verification. Do not treat a Forge deploy as readiness to show clients.
 
@@ -8,11 +8,11 @@ Do not treat a local Feature pass as Forge verification. Do not treat a Forge de
 
 | Gate | Meaning | Current status |
 | --- | --- | --- |
-| **Landing** | Code may be committed to `main` | Prior seven commits are on `main`. **Uncommitted:** retrieval embed batch, encoded/multilingual evals, Stressless `duration_max` metrics, checklist updates. |
-| **Deploy for verification** | Code is on live Forge so the staging checklist can run | **Closed.** Push of `d93755f` started Forge immediately (`git pull`, `npm` build 4.84s, nothing to migrate, `optimize`, Octane reload, `queue:restart`). GitHub Tests **40381813044** passed in 2m50s in parallel and did not gate that deploy. |
-| **Client show** | Safe to walk a client through the showroom | **Not ready.** Device/file-picker checks remain. Chat TTFB embed-batch is local-only until you push. |
+| **Landing** | Code may be committed to `main` | `2d6943d` is on `main`. **Uncommitted:** manual-reply focus after `dialog[open]`, response-time targets, worker-revisit notes, this checklist. |
+| **Deploy for verification** | Code is on live Forge so the staging checklist can run | **Closed** for `2d6943d`. The dialog-focus fix is local-only until you approve a commit/push. |
+| **Client show** | Safe to walk a client through the showroom | **Not ready.** Device/file-picker checks remain. Keep 1 Octane worker. |
 
-GitHub Flow in [CONTRIBUTING.md](../CONTRIBUTING.md) remains the standing rule. This landing was a direct `main` push after explicit approval. [.github/workflows/tests.yml](../.github/workflows/tests.yml) is unchanged (Pint, Rector `--dry-run`, Larastan, Pest excluding `stress` and `evals`, Playwright). To make CI gate deploys later: turn Forge push-to-deploy **off** and call `forge deploy` from Actions after Tests.
+The user explicitly requested direct `main` commits for this checkpoint, without co-author trailers or branches. [.github/workflows/tests.yml](../.github/workflows/tests.yml) retains Pint, Rector dry-run, Larastan, Pest excluding stress/evals, and Playwright. Forge push-to-deploy is now disabled. A dependent deploy job triggers the site-specific hook after tests succeed; the live Forge script independently requires the tested SHA and successful CI before updating code. See [forge.md](forge.md#ci-gated-deployment-2026-10-28). Current deployment completion is still pending this checkpoint push.
 
 ## Missing information and docs that could not be opened
 
@@ -24,7 +24,7 @@ GitHub Flow in [CONTRIBUTING.md](../CONTRIBUTING.md) remains the standing rule. 
 | Live Forge `CACHE_STORE` / env this pass | Pulled then deleted: `CACHE_STORE=database`, `QUEUE_CONNECTION=database`, `DB_QUEUE_RETRY_AFTER=150`, `OCTANE_SERVER=frankenphp`, `OCTANE_HTTPS=true`, `APP_URL=https://supportflow-ai-lqojsjr5.on-forge.com`. | No |
 | Whether the machine slept during the 120s listen child | Screen lock observed; system sleep unconfirmed. | No. Limits not changed. |
 | Bakeoff retrieved passage IDs from 2026-10-26 | Gone (`RefreshDatabase`). Feature proof replaced that gap. | No |
-| GitHub Actions on this change set | Tests **40381813044** passed (2m50s) on `d93755f`. Node 20 deprecation annotation only. Independent of Forge. | No |
+| GitHub Actions on this change set | Tests **40381813044** passed (2m50s) on `d93755f`. Tests **40394933464** on `2d6943d` **failed** (Pest `TicketWorkspaceTest` dialog-focus). Cause: `$this->js()` focused `#ticket-reply` before Flux set `dialog[open]` (inert). Local fix waits for the open dialog; browser test passed twice (147 assertions). Uncommitted, so CI is still red on `main`. | **Landing** until the fix is on `main` |
 | HealthSmokeTest seed | Plan asked to seed it. That test hits live `STRESS_URL`, so a Pest seed writes the testing cache, not Herd/Forge. Feature tests seed. Live `/up` needs a running worker. | No |
 | Forge CLI version | Live CLI is 2.0.0; latest noted 2.0.4. Did not block API `site:list` / SSH with `ControlMaster=no`. | No |
 | Live worker `--daemon` flag | Process table shows `--daemon` on SupportFlow `queue:work` (`worker-1104326`) even though [docs/forge.md](forge.md) says no `--daemon`. Worker is healthy. Do not edit the Forge worker command without a separate approval. | No |
@@ -61,7 +61,7 @@ The plan said persist the provider `call_id` (`call_…` / `ToolCall.resultId`) 
 | Preview tone/length one-file three-heading | Local closed | Feature: workspace returns Shipping, Returns, and Warranty. Harbor diversity stays at 2. Bakeoff filter passed 3/3 after ceiling assertion `≤ 80`. | No eval rerun. | No |
 | `/up` boot-only | Closed | Feature 500s for missing/stale/wrong-queue/DB-down. Live Forge `/up` **200** after deploy (DiagnosingHealth requires `{ai, default}` and a fresh beat). `CACHE_STORE=database`. | None. | No |
 | GET Stressless (Stage 6) | Closed for the ladder; 1-fail flake explained | First `/` capacity conc 4: **1** k6 failed request after a ~7k-request weekday ladder (p95 475 ms). Origin error log empty; vhost `access_log off`, so that request’s HTTP status is unknown. k6 `http_req_failed` is transport/error, not 4xx/5xx. Cooldown rerun last-healthy **16**, 0 failed. After-check: Forge `GET /` conc 4 × 15 s **503/503 HTTP 200**; smoke 4/4 0 failed. Did not raise Octane workers. | Optional: turn on origin access_log if you need status on the next flake. | No |
-| Chat TTFB / concurrent `POST /chat/stream` | Local closed after embed batch; Forge after-fix Open | Cause of 9.7 s: 1 Octane worker serialized 4 SSE streams (TTFB 2.2 / 4.8 / 7.3 / 9.7 s ≈ prior `done` + ~2.5 s). Sequential `embed()` calls (query + facets) sat on that worker before the first delta. Fix: one `embedMany` per search. Local after: n=1 **1.47 s** (was 3.45 s); n=4 **1.31–1.47 s** (was 4.00–8.14 s). Forge 9.7 s numbers are pre-fix; do not add workers. | Push then re-run Forge waves 1/2/4. | **Verify** until Forge after-fix exists |
+| Chat TTFB / concurrent `POST /chat/stream` | Closed | Cause of 9.7 s: 1 Octane worker serialized 4 SSE streams. Embed batch landed. Forge after `2d6943d`: warm n=1 **1.37 s**; n=2 **1.80–4.58 s**; n=4 **1.36–6.38 s**. Targets in [performance.md](performance.md): ≤ 2.0 s / 5.0 s / 8.0 s. Remainder is OpenAI TTFB plus 1-worker serialization. Worker revisit: keep 1 (1 vCPU/961 MiB, 295 MiB swap, FrankenPHP ~122 MB). | None. Do not add workers. | No |
 | Invoice extract current file | Open | No file-input in this browser. Historical INV-1001 and faked Feature tests do not count. | **You:** pick a current PDF on `/invoices`. | **Client** for that demo |
 | Preview visitor upload | Open | Bakeoff used `UploadedFile::fake()`. Stage 1 “not live-tested.” | **You:** real picker → Ready → cited SSE. | **Client** for that demo |
 | Encoded/base64 and multilingual jailbreaks | Closed | Stage 2 left them “never live-run” because the regex demo control cannot see them, not because testing was unauthorized. Live evals 2026-10-26: Base64, Spanish, and Chinese instruction overrides `toBeSafe`, no system-prompt leak, no `OPENAI_API_KEY`. Unit: `ChatInjectionGate::blocks` is false (regex unchanged). | None. Do not expand the regex. | No |
@@ -85,22 +85,23 @@ The plan said persist the provider `call_id` (`call_…` / `ToolCall.resultId`) 
 | P2 Bakeoff length vs ceiling | Closed | Concise `toBeLessThanOrEqual(80)`. Filter rerun once, 3/3. | Do not rerun. | No |
 | P2 Skip link / invoices h1 / Lucid title / 390px / wrap | Local closed; Forge titles/skip/footer closed | Layouts, skip-link, demo-chrome “Try” vs “Try the workspace”, wrapping mode chips. | iPad still **You**. | No |
 | P3 Lasting rules | Local closed | `.ai/rules` via `record-rule` (docs, config, evals, stress, jobs, partials). No new skill. | Keep using `record-rule`. | No |
-| P3 Live Forge verification | Closed for deployed workflows; Client still open | Deploy `d93755f`, Tests green, Confirm/Cancel, Sources, GET ladder, chat TTFB. Device/file-picker checks still **You**. | You run invoice, Preview upload, mic, iPad before those demos. | **Client** for remaining device demos |
-| P3 Chat TTFB track | Local closed after embed batch; Forge after-fix Open | Pre-fix Forge 9.7 s was 1-worker queueing. Local after-fix 1.3–1.5 s at conc 4. | Push, then Forge waves 1/2/4. | **Verify** |
+| P3 Live Forge verification | Closed for deployed workflows; Client still open | Deploy `2d6943d`, Confirm/Cancel, Sources, GET ladder, chat TTFB after-fix. Device/file-picker checks still **You**. | You run invoice, Preview upload, mic, iPad before those demos. | **Client** for remaining device demos |
+| P3 Chat TTFB track | Closed | Pre-fix Forge 9.7 s was 1-worker queueing. After-fix on `2d6943d`: warm n=1 1.37 s; conc 4 still serialized at 1.36–6.38 s. Local 1.3–1.5 s. Targets ≤ 2.0/5.0/8.0 s. | None. Do not add workers. | No |
+| Manual-reply dialog focus | Local closed; CI Open | CI **40394933464** failed because `$this->js()` focused `#ticket-reply` before Flux opened the dialog. Fix: rAF until `dialog[open]`. Browser test passed twice locally. | Push after approval. | **Landing** |
 | Unique/`tries` | Closed (no change) | 120s listen death was Symfony Process wall-clock on `queue:work --once`, not a Laravel job timeout, not a Cursor timeout. | Do not raise limits. | No |
 
 ## Local quality (this machine)
 
 | Check | Status | Evidence | Next action | Blocks |
 | --- | --- | --- | --- | --- |
-| `composer test` (Pint, Rector dry-run, Larastan, Pest exclude stress/evals) | Closed | Passed this session after the PHPStan `normalizeQueues` fix. | Re-run only if PHP changes after this file. | No |
+| `composer test` (Pint, Rector dry-run, Larastan, Pest exclude stress/evals) | Closed | Passed after the dialog-focus change: 430 passed, 1 skipped. Pint/Rector/Larastan green. | Re-run only if PHP changes after this file. | No |
 | `composer test:evals --filter="follows tone and length"` | Closed | 3/3 after the retrieval + ceiling change. | Do not rerun. | No |
 | Local GET Stressless smoke | Closed | 2026-10-26 `STRESS_URL=https://supportflow-ai.test`, 4 tests, 0 failed. | None. | No |
 | Local GET load/stress/stability/capacity | Not run this pass | Prior 2026-09-19 numbers in [performance.md](performance.md). Required progressive sequence ran on Forge. | Optional locally. | No |
-| Local chat TTFB waves 1/2/4 | Closed | Before embed batch: 7/7 done, TTFB 1.9–8.1 s. After: 7/7 done, TTFB 1.23–1.47 s (n=1 1.47 s; n=4 1.31–1.47 s). | None. | No |
+| Local chat TTFB waves 1/2/4 | Closed | After embed batch (earlier): 1.47 s / 1.23–1.32 s / 1.31–1.47 s. Confirm after dialog-focus (no chat-path change), 7/7 done: first n=1 2.56 s (cold); warm n=1 **1.28 s**; n=2 **1.83–2.34 s**; n=4 **1.17–1.60 s** (Herd FPM overlaps; Forge does not). | None. | No |
 | Local `queue:listen --queue=ai,default` | Running at last check | Listener pid 30344 since 2026-10-26 18:10Z. Intended local path is `composer run dev`. `--timeout=120` is Symfony wall-clock on each `--once` child. | Keep a listener up while using local `/up` or tickets. | No |
 | 120s listen child exit | Closed (investigated) | `ProcessTimedOutException` at 18:09Z after screen lock. Limits unchanged. | Restart listen if it dies; do not raise timeout. | No |
-| GitHub CI | Closed | Tests **40381813044** success on `d93755f`. Does not gate Forge. | None. | No |
+| GitHub CI | Open on `origin/main` | **40394933464** failed on dialog focus. Local `TicketWorkspaceTest` passed twice after waiting for `dialog[open]` before focusing `#ticket-reply`. CI stays red until that fix is pushed. | Push after approval. | **Landing** |
 
 ## Deployed Forge verification
 
@@ -112,9 +113,9 @@ Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqo
 
 | Check | Status | Evidence | Next action | Blocks |
 | --- | --- | --- | --- | --- |
-| Push / Forge deploy | Closed | `d93755f` on site `3397748`. Deploy log: `git pull`, npm build 4.84s, nothing to migrate, `optimize`, reload workers, queue restart. No PHP-FPM reload. No ZDD macros. | None. | No |
-| GitHub Actions Tests green | Closed | **40381813044** passed in 2m50s. Independent of Forge. | None. | No |
-| Octane daemon `daemon-1104270`, 1 worker, `:8001` | Closed | SSH 2026-10-26: `php8.5 artisan octane:start --server=frankenphp --host=127.0.0.1 --port=8001 --workers=1 --max-requests=500`, supervisor RUNNING, parent pid 655922. | Do not copy local 16 workers. | No |
+| Push / Forge deploy | Closed | `2d6943d` on site `3397748` (20:21:43Z). Deploy log: `git pull` `d93755f..2d6943d`, npm build 3.99s, nothing to migrate, `optimize`, reload workers, queue restart. No PHP-FPM reload. No ZDD macros. | None. | No |
+| GitHub Actions Tests green | Open on `origin/main` | **40394933464** failed: focus raced Flux `dialog[open]`. Local fix uncommitted. Did not gate Forge. | Push after approval, then watch Tests. | **Landing** |
+| Octane daemon `daemon-1104270`, 1 worker, `:8001` | Closed (reverted to 1) | `--workers=2` trial 22:19Z: chat n=2 1.46–1.54 s (was 1.44–3.07 s); n=4 1.60–3.29 s (was 1.86–6.92 s). GET `/` conc 4 p95 121→187 ms. GET load `so` 4456 KB/s for 1 s. Reverted `--workers=1`, `/up` 200. | Keep 1 on this 1 vCPU/1 GB box. Do not copy local 16. | No |
 | Worker `--queue=ai,default`, database, sleep 3, timeout 120, tries 3 | Closed | `worker-1104326` pid 812748 since 18:54:42 (post-deploy `queue:restart`): `queue:work database --sleep=3 --daemon --quiet --timeout=120 --tries=3 --queue=ai,default`. `--daemon` is present vs docs; leave it. | None. | No |
 | Heartbeat names `ai` and `default`, `CACHE_STORE=database` | Closed | `/up` 200. Env `CACHE_STORE=database`. Worker lists `ai,default`. | None. | No |
 | Scheduler installed and recent | Closed | `/etc/crontab` every minute `php …/supportflow-ai-lqojsjr5.on-forge.com/artisan schedule:run` → `/home/forge/.forge/scheduled-2143100.log`. Log mtime **2026-10-26 19:06** (empty body is normal for a quiet `schedule:run`). | None. | No |
@@ -122,9 +123,10 @@ Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqo
 | One grounded chat + one ticket triage on Forge | Closed for one-turn quality; follow-up open | Harbor unused Trail Pack/box/prepaid: 30 days, tags, box not required, prepaid after portal approval, Return window citations, no `CITES:` in the UI. Ticket **SF-R50WE** triaged, customer status hid the draft, agent sent the reply. Persisted chat follow-up and mid-stream Stop were not retested on Forge this pass. | Optional: one follow-up turn and Stop if you demo those. | **Client** if you demo follow-up/Stop |
 | Confirm + Cancel + Sources on Forge | Closed | Confirm **HR-5A6717**. Cancel **Nothing was saved.** SF-R50WE Sources after send: Return window, Box not required. | None. | No |
 | GET Stressless on Forge | Closed for the ladder; flake explained | Smoke through capacity as before. After-check smoke 4/4 0 failed; `GET /` conc 4 × 15 s 503/503 HTTP 200. Origin status of the original 1 k6 fail is unknown (`access_log off`). | None unless you want origin access_log. | No |
-| Chat TTFB on Forge | Open for after-fix | Pre-fix 7/7 done, 2.2–9.7 s serialized on 1 worker. Embed batch is not on Forge yet. | After push: waves 1/2/4. Expect conc 4 to stay serialized; n=1 should drop if the batch lands. | **Verify** |
-| Other vhosts on server `1228434` | Closed | `forge site:list`: CareerForge `3287475` and SupportFlow `3397748` only. | Stop `worker-987181` only if it contends on a later run. | No |
-| CareerForge deletion / server rename | Out of scope | Unused, not deleted. Worker left running. | Separate approval. | No |
+| Chat TTFB on Forge | Closed on 1 worker | Same-session trial 22:17Z `--workers=1`: n=1 2.70 s; n=2 1.44–3.07 s; n=4 1.86–6.92 s. `--workers=2`: n=1 1.79 s; n=2 1.46–1.54 s; n=4 1.60–3.29 s. 7/7 `event: done` both. Reverted to 1 after GET-load swap-out. Earlier `2d6943d` warm n=1 was 1.37 s. | Keep 1. Overlap needs more RAM/CPU than this VPS. | No |
+| Other vhosts on server `1228434` | Closed | `forge site:list`: CareerForge `3287475` and SupportFlow `3397748` only. | None. | No |
+| CareerForge `worker-987181` | Paused (reversible) | `supervisorctl stop worker-987181:*` at 22:10Z. Status **STOPPED**. Process record not deleted. Swap used 269→203 MiB; MemAvailable 349→361 MiB. Restore: `sudo -n supervisorctl start worker-987181:*`. | Leave paused unless CareerForge queues need it. Do not delete. | No |
+| CareerForge deletion / server rename | Out of scope | Unused, not deleted. Worker paused, site kept. | Separate approval. | No |
 
 ## Device and access checks (require you)
 
@@ -145,7 +147,14 @@ Passwordless Agent desk, simulated send, caps/TTL, seeded Harbor catalog, regex 
 
 ## Next action
 
-1. Approve and push the embed-batch change if you want Forge TTFB remeasured. Do not add Octane workers.
-2. You run invoice extract, Preview upload, live mic, and iPad before those demos.
-3. Optional: Retry AI on leftover unavailable tickets; one persisted chat follow-up and mid-stream Stop on Forge.
-4. Do not treat the showroom as client-ready until the device checks you care about are done.
+1. Device check now: Preview real upload on Forge Your documents (`/demo/documents` or `/preview`). One of your files, ≤ 8 MB → Upload → Ready for answers → ask a question only that file can answer.
+2. Then, in order: invoice PDF extract → chat mic → ticket mic → iPad → optional leftover AI-unavailable Retry → optional Forge follow-up/Stop.
+3. Approve the uncommitted dialog-focus fix when you want CI green. CareerForge `worker-987181` is paused (not deleted). Octane is `--workers=1` after a reverted 2-worker trial (chat overlap worked; GET load swap-out did not). Do not resize. Do not raise the Octane Supervisor process count.
+
+## 2026-10-28 checkpoint verification
+
+The tables above retain the 2026-10-26 handoff evidence; current CI/deployment state is authoritative in GitHub Actions and Forge deployment history. Local `composer test` now passes: Pint, Rector dry-run, Larastan, 430 passed / 1 skipped, 3340 assertions. `npm run build` passed. All nine deployment-gate scenarios passed. Browser tests now use built assets instead of `public/hot`, preventing the development server from reloading pages during tests. No assertions were weakened or tests removed.
+
+Forge push-to-deploy is verified off, and the installed deploy script matches `.github/forge-deploy.sh`. The main push must pass the tests job before its deploy job can invoke Forge; Forge independently checks the exact SHA and CI result. The deployment-hook response only acknowledges submission, so completion must also be checked in Forge and the deployed SHA verified over SSH.
+
+Pre-push SSH confirmed the old release `2d6943d`, Lucid Octane `--workers=1`, and Lucid queue worker running. CareerForge worker `worker-987181` is running again (all three processes had matching uptime), consistent with the documented reboot autostart. Its earlier pause was not permanent; no worker settings were changed in this checkpoint. Device/upload/microphone checks remain open. The broad system-design audit and complete Lucid naming migration are follow-on work after this verified checkpoint.

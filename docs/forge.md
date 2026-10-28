@@ -12,7 +12,7 @@ Do **not** publish deployment-hook tokens. Rotate a token in Forge if it was pas
 
 The non-ZDD SupportFlow site is **live**. Cutover is complete. CareerForge on the same server is unused (not deleted).
 
-Forge CLI is **2.0.3**. Organization `terry-lafferty`, server `careerforge` (`1228434`, `167.172.14.46`).
+Forge CLI is **2.0.3**. Organization `terry-lafferty`, server `careerforge` (`1228434`, `167.172.14.46`). Forge API `provider` is **`laravel`** (Laravel VPS, region New York 1 / `nyc1`, type `app`, Ubuntu 24.04). It is **not** a linked DigitalOcean (`ocean2`) server. Resize, if ever approved, is Forge Settings → Size (Laravel VPS upsize only).
 
 `forge ssh:test` hangs on Windows at “Establishing secure connection.” Do **not** run `forge ssh:configure`. Prove access with OpenSSH:
 
@@ -22,9 +22,9 @@ ssh -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ControlPersist=n
 
 CLI commands that shell out to SSH hang the same way. API commands (`site:list`, `env:pull`/`env:push`, `deployments/script`) work.
 
-Official Forge: **do not use zero-downtime deployments with Laravel Octane**. This site has ZDD **off**. Deploy with `git pull` in the site root, then `octane:reload` and `queue:restart`. Do **not** use `$CREATE_RELEASE()`, `$ACTIVATE_RELEASE()`, or `$RESTART_QUEUES()`.
+Official Forge: **do not use zero-downtime deployments with Laravel Octane**. This site has ZDD **off**. Deploy by fast-forwarding to the CI-tested commit in the site root, then `octane:reload` and `queue:restart`. Do **not** use `$CREATE_RELEASE()`, `$ACTIVATE_RELEASE()`, or `$RESTART_QUEUES()`.
 
-Do **not** copy the local 16-worker Octane count onto this 1 vCPU/~1 GB VM. Keep **1** worker.
+Do **not** copy the local 16-worker Octane count onto this 1 vCPU/961 MiB Laravel VPS. Octane’s default (one worker per CPU) is not a cap. A `--workers=2` trial on 2026-10-26 overlapped chat (n=2 1.46–1.54 s vs 1.44–3.07 s) but GET `/` conc 4 p95 rose 121→187 ms and GET load had **active swap-out** (`so` 4456 KB/s for 1 s). **Reverted to `--workers=1`.** CareerForge `worker-987181` stays **STOPPED**. Do not raise the Octane Supervisor process count.
 
 Rector `--dry-run` is in both `composer test` and GitHub Actions.
 
@@ -36,7 +36,7 @@ Rector `--dry-run` is in both `composer test` and GitHub Actions.
 | Hostname/root | `supportflow-ai-lqojsjr5.on-forge.com` (`/home/forge/supportflow-ai-lqojsjr5.on-forge.com`) |
 | Framework | Laravel, PHP **8.5** |
 | Zero-downtime | **Off** |
-| Push to deploy | **On** for `main`. Forge starts `git pull` on the GitHub push webhook. It does **not** wait for GitHub Actions. This site has no `deploy.yml`; `main` is not branch-protected. Tests.yml runs in parallel and does not gate or roll back this deploy. To wait for CI, turn push-to-deploy off and trigger `forge deploy` from Actions after Tests. |
+| Push to deploy | **Off**. GitHub Actions tests must succeed before its dependent deploy job calls the hook. The live Forge script also verifies CI and deploys exactly that tested SHA. |
 | Database | Existing PostgreSQL `supportflow_ai` (pgvector already enabled) |
 | Layout | Standard site root (no `current`/`releases` symlink) |
 | Octane | **SupportFlow Octane**, running, one process, site-root working directory, graceful shutdown 120s |
@@ -45,7 +45,7 @@ Rector `--dry-run` is in both `composer test` and GitHub Actions.
 | Nginx | `@octane` `proxy_pass http://127.0.0.1:8001`; `index index.php`; `proxy_buffering off`; `proxy_read_timeout 120s` |
 | Health check | Enabled and operational: [https://supportflow-ai-lqojsjr5.on-forge.com/up](https://supportflow-ai-lqojsjr5.on-forge.com/up) |
 | Queue | **SupportFlow AI Queue Worker**, running, PHP 8.5, site-root working directory |
-| Queue settings | Connection `database`; queue `ai,default`; 1 process; sleep 3; timeout 120; tries 3; memory 128 MB; **no** `--daemon` |
+| Queue settings | Connection `database`; queue `ai,default`; 1 process; sleep 3; timeout 120; tries 3; memory 128 MB; Forge-generated **`--daemon --quiet`** (Laravel 13 supervisor examples omit `--daemon`; leave it) |
 | Scheduler | **SupportFlow AI Laravel Scheduler**, installed, every minute: `php /home/forge/supportflow-ai-lqojsjr5.on-forge.com/artisan schedule:run` |
 
 Manual deployment succeeded. `/up` passed. Chat streaming passed. A complete production ticket test passed: submission, AI triage, retrieval, grounded suggested reply, agent approval, and customer-visible response.
@@ -56,7 +56,7 @@ PHP-FPM 8.5 remains installed. This site does not use it for HTTPS. `index index
 
 ### CareerForge (unused, not deleted)
 
-Same VM. Supervisor `worker-987181` runs CareerForge queues (`careerforge-vec7voun.on-forge.com`, `--timeout=600 --queue=default`). CareerForge is unused. Do not skip or shrink SupportFlow verification, GET Stressless, health, or workflow checks to accommodate it. If that worker contends, stop `worker-987181` rather than reducing tests. Do not delete CareerForge or shared Lucid/SupportFlow resources without a separate approval. Before stopping anything beyond that worker, list Forge sites (`site:list` / SSH) and treat unknown vhosts as keep-until-identified.
+Same VM. Supervisor program is `worker-987181` (not `daemon-987181`). Command: `queue:work` `--timeout=600 --queue=default` under `careerforge-vec7voun.on-forge.com/current`. **Paused 2026-10-26 22:10Z** with `sudo -n supervisorctl stop worker-987181:*`. Status `STOPPED`. The Forge background-process record was not deleted. Restore with `sudo -n supervisorctl start worker-987181:*`. A server reboot will autostart it (Forge queue workers start on reboot). Do not delete CareerForge or shared Lucid/SupportFlow resources. Before stopping anything else, list Forge sites and treat unknown vhosts as keep-until-identified.
 
 ### Former ZDD site (deleted)
 
@@ -64,26 +64,11 @@ Site `3362425`, hostname `supportflow-ai-ou1b5gvy.on-forge.com`, has been **dele
 
 ### Unavailable Forge documentation
 
-These URLs returned 404: `/docs/sites/nginx`, `/docs/resources/daemons`, `/docs/sites/deployments.html`. Use Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx), [Forge deployments](https://forge.laravel.com/docs/sites/deployments), and the [Forge CLI](https://forge.laravel.com/docs/cli) instead.
+These URLs returned 404 (rechecked 2026-10-26): `https://forge.laravel.com/docs/sites/nginx`, `https://forge.laravel.com/docs/resources/daemons`, `https://laravel.com/forge/docs/sites/nginx.md`, `https://forge.laravel.com/docs/sites/deployments.html`. Daemons are now [Background processes](https://laravel.com/forge/docs/resources/background-processes). Use Laravel’s [Octane Nginx example](https://laravel.com/docs/13.x/octane#serving-your-application-via-nginx), [Forge deployments](https://laravel.com/forge/docs/sites/deployments), [Laravel sites / Octane](https://laravel.com/forge/docs/sites/laravel), and the [Forge CLI](https://laravel.com/forge/docs/cli). Canonical Forge docs live under `https://laravel.com/forge/docs/`.
 
 ## Deploy script
 
-Current live script (ZDD off). Do **not** reload PHP-FPM. Do not use ZDD macros.
-
-```bash
-cd $FORGE_SITE_PATH
-git pull origin $FORGE_SITE_BRANCH
-
-$FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-
-npm ci
-npm run build
-
-$FORGE_PHP artisan migrate --force
-$FORGE_PHP artisan optimize
-$FORGE_PHP artisan octane:reload
-$FORGE_PHP artisan queue:restart
-```
+Current live script (ZDD off): [.github/forge-deploy.sh](../.github/forge-deploy.sh). It verifies the tested commit before updating code. Do **not** reload PHP-FPM or use ZDD macros.
 
 `public/build` is gitignored, so `npm ci` and `npm run build` are required. `queue:restart` needs a persistent cache (`CACHE_STORE=database`, not `array`). `$FORGE_PHP` follows the site PHP version—keep the site and the queue worker on **PHP 8.5**.
 
@@ -180,3 +165,11 @@ Before the first client document upload on this server:
 - The SupportFlow Octane process is the static `frankenphp` binary in the site root. It does not read `/etc/php/8.5/cli/php.ini`. It reads `php.ini` from that same site root. That file contains only the two lines above. Do not point FrankenPHP at the CLI ini: the CLI extension directory is not FrankenPHP's. After either ini changes, restart only daemon `daemon-1104270`. Do not restart CareerForge's worker `worker-987181`.
 - The site Nginx config sets `client_max_body_size 68m;` after `index index.php;`. Keep `68m`. A 13 MiB POST reaches Laravel. A 69 MiB POST is rejected by Nginx.
 - Stored client originals are capped at 2 GiB, and an upload is refused when free space on `/` would fall below 8 GiB.
+
+## CI-gated deployment (2026-10-28)
+
+Push-to-deploy is disabled for site 3397748. GitHub Actions runs the existing quality suite, then the dependent `deploy` job calls the site-specific `FORGE_DEPLOY_HOOK` secret only for a push to main. No branch or pull request is required for this explicitly approved workflow.
+
+The live Forge deploy script matches [.github/forge-deploy.sh](../.github/forge-deploy.sh). It requires `ci_commit`, fetches the configured branch without changing the working tree, rejects a moved branch, checks GitHub Actions `tests` success for that exact SHA, and only then fast-forwards to it. A manual Deploy Now without that tested commit is blocked. GitHub/API failures fail closed. Existing Composer/build/migrate/Octane/queue steps remain. Do not print the deploy hook. The HTTP hook acknowledges submission; verify Forge deployment completion and health separately.
+
+Run `bash .github/forge-deploy-test.sh` to verify rejected missing/stale commits, failed/pending/skipped CI, foreign checks, network/JSON errors, and successful deployment. This uses isolated command doubles and does not deploy. The workflow runs these checks too.

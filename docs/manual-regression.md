@@ -79,7 +79,7 @@ Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqo
 - [x] SSE first token arrives (chat TTFB waves). Mid-stream Stop not retested on Forge this pass.
 - [x] Repeat the 28L → 36L exchange question against this seeded catalog. Unused/30-day conditions present; box not required; prepaid after portal approval.
 - [x] GET Stressless after a smoke pass: `/up`, `/`, `/knowledge`, `/knowledge/return-window` only. Do not copy 16 Octane workers onto Forge. GET Stressless does not close chat TTFB. (Smoke through capacity; cooldown last-healthy 16. See [performance.md](performance.md).)
-- [x] Chat TTFB/concurrency: concurrent `POST /chat/stream` with separate cookie jars (local current-path numbers first, then Forge). Pre-fix 7/7 local and 7/7 Forge (Forge 9.7 s was 1-worker serialization). Local after embed batch 1.3–1.5 s. Re-run Forge waves after that deploy.
+- [x] Chat TTFB/concurrency: concurrent `POST /chat/stream` with separate cookie jars (local current-path numbers first, then Forge). After `2d6943d`: Forge 7/7 done; warm n=1 1.37 s (was 2.89 s); n=4 1.36–6.38 s still serialized on 1 worker. Local after embed batch 1.3–1.5 s. Do not add workers.
 
 ## Sign-off
 
