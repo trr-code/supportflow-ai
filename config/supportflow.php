@@ -82,12 +82,23 @@ return [
         'max_batch' => 8,
         'max_extracted_characters' => 150_000,
         'extract_seconds' => 30,
+        'extract_php_binary' => env('SUPPORTFLOW_EXTRACT_PHP_BINARY', PHP_SAPI === 'cli' ? PHP_BINARY : 'php'),
         'extract_memory_bytes' => 256 * 1024 * 1024,
     ],
 
     'invoices' => [
         'lifetime_days' => 7,
         'max_file_bytes' => 8 * 1024 * 1024,
+        'uploads_per_minute' => 30,
+        'uploads_per_ip_per_minute' => 120,
+    ],
+
+    'retention' => [
+        'ai_content_days' => 7,
+        'orphan_upload_hours' => 24,
+        'log_days' => 14,
+        'log_max_bytes' => 20 * 1024 * 1024,
+        'log_keep_bytes' => 10 * 1024 * 1024,
     ],
 
     'health' => [

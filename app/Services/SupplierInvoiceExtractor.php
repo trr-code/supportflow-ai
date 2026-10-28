@@ -11,6 +11,7 @@ use App\Support\DocumentTextExtractor;
 use App\Support\SupplierInvoiceCheck;
 use App\Support\UntrustedContent;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Enums\Lab;
@@ -50,6 +51,7 @@ class SupplierInvoiceExtractor
 
         $model = (string) config('supportflow.models.invoice');
         $run = $this->recorder->start(AiRunFeature::InvoiceExtraction, null, $model);
+        $run->forceFill(['supplier_invoice_id' => $invoice->id])->save();
 
         try {
             $response = SupplierInvoiceExtractionAgent::make()->prompt(
@@ -59,8 +61,8 @@ class SupplierInvoiceExtractor
                 model: $model,
             );
         } catch (Throwable $exception) {
-            report($exception);
-            $this->recorder->fail($run, $exception->getMessage());
+            Log::warning('Invoice extraction provider failed.', ['ai_run_id' => $run->id, 'exception_type' => $exception::class]);
+            $this->recorder->fail($run, 'The invoice extraction provider failed.');
             $this->fail($invoiceId, $generation, 'This invoice could not be read.');
 
             return;
@@ -75,7 +77,7 @@ class SupplierInvoiceExtractor
 
         $structured = $response->structured;
         $parsed = $this->parse($structured);
-        $this->recorder->complete($run, $response, $structured);
+        $this->recorder->complete($run, $response);
 
         if ($parsed === null) {
             $this->fail($invoiceId, $generation, 'The proposed invoice fields could not be used.');

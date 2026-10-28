@@ -104,6 +104,8 @@ class TicketIndex extends Component
 
     public function render(DemoScenarioService $scenarios): View
     {
+        $this->perPage = max(1, min($this->perPage, 20));
+
         $query = Ticket::query()->latest();
 
         $query = match ($this->filter) {

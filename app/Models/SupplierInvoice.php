@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 /**
  * @property string $id
@@ -58,8 +59,17 @@ class SupplierInvoice extends Model
     {
         static::deleting(function (SupplierInvoice $invoice): void {
             if ($invoice->storage_path !== '' && Storage::disk('local')->exists($invoice->storage_path)) {
-                Storage::disk('local')->delete($invoice->storage_path);
+                if (! Storage::disk('local')->delete($invoice->storage_path)) {
+                    throw new RuntimeException('The invoice file could not be deleted; cleanup will retry.');
+                }
             }
+
+            AiRun::query()->where('supplier_invoice_id', $invoice->id)->update([
+                'payload' => null,
+                'error' => null,
+                'retrieved_chunk_ids' => null,
+                'request_hash' => null,
+            ]);
         });
     }
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\WorkspaceUploadException;
+use App\Models\SupplierInvoice;
 use App\Models\WorkspaceDocument;
 use App\Support\WorkspaceCopy;
 
@@ -13,9 +14,8 @@ class WorkspaceCapacity
         $additionalStoredBytes = max(0, $additionalStoredBytes);
         $diskBytes = max(0, $diskBytes ?? $additionalStoredBytes);
         $max = (int) config('supportflow.workspaces.max_stored_bytes');
-        $used = (int) WorkspaceDocument::query()
-            ->whereHas('workspace', fn ($query) => $query->whereNull('purged_at'))
-            ->sum('byte_size');
+        $used = (int) WorkspaceDocument::query()->sum('byte_size')
+            + (int) SupplierInvoice::query()->sum('byte_size');
 
         if (($used + $additionalStoredBytes) > $max) {
             throw new WorkspaceUploadException(WorkspaceCopy::CAPACITY);

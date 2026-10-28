@@ -27,21 +27,21 @@ class SupplierInvoiceExport
             'Quantity',
             'Unit price',
             'Line total',
-        ], escape: '\\');
+        ], escape: '');
 
         foreach ($invoice->lines as $line) {
             fputcsv($handle, [
-                $invoice->supplier_name,
-                $invoice->invoice_number,
+                $this->spreadsheetText($invoice->supplier_name),
+                $this->spreadsheetText($invoice->invoice_number),
                 $invoice->issued_on?->toDateString(),
-                $invoice->currency,
+                $this->spreadsheetText($invoice->currency),
                 $this->amount($invoice->tax_cents),
                 $this->amount($invoice->stated_total_cents),
-                $line->description,
+                $this->spreadsheetText($line->description),
                 $line->quantity,
                 InvoiceMoney::decimal($line->unit_price_cents),
                 InvoiceMoney::decimal($line->stated_line_total_cents),
-            ], escape: '\\');
+            ], escape: '');
         }
 
         rewind($handle);
@@ -54,6 +54,18 @@ class SupplierInvoiceExport
     private function amount(?int $cents): string
     {
         return $cents === null ? '' : InvoiceMoney::decimal($cents);
+    }
+
+    private function spreadsheetText(?string $value): string
+    {
+        $value ??= '';
+        $leading = preg_replace('/^[\p{Z}\p{C}\s]+/u', '', $value) ?? $value;
+
+        if (preg_match('/^[=+@\-＝＋＠－]/u', $leading) === 1 || preg_match('/^[\x00-\x1F\x7F]/', $value) === 1) {
+            return "\t".$value;
+        }
+
+        return $value;
     }
 
     /**

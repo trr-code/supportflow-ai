@@ -3,19 +3,25 @@
 namespace App\Livewire\Pages;
 
 use App\Enums\SupplierInvoiceStatus;
+use App\Exceptions\WorkspaceUploadException;
 use App\Jobs\ExtractSupplierInvoice;
 use App\Models\SupplierInvoice;
 use App\Models\SupplierInvoiceLine;
 use App\Services\SupplierInvoiceAccess;
+use App\Services\UploadAdmission;
+use App\Services\WorkspaceCapacity;
 use App\Support\InvoiceMoney;
 use App\Support\SupplierInvoiceCheck;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Throwable;
 
 class SupplierInvoicePage extends Component
 {
@@ -65,6 +71,52 @@ class SupplierInvoicePage extends Component
             return;
         }
 
+        try {
+            $invoice = app(UploadAdmission::class)->store(function () use ($access, $document): SupplierInvoice {
+                $browserKey = 'invoice-upload:'.hash('sha256', $access->token(request()));
+                $ipKey = 'invoice-upload-ip:'.hash('sha256', (string) request()->ip());
+
+                if (RateLimiter::tooManyAttempts($browserKey, (int) config('supportflow.invoices.uploads_per_minute', 30))
+                    || RateLimiter::tooManyAttempts($ipKey, (int) config('supportflow.invoices.uploads_per_ip_per_minute', 120))) {
+                    throw new WorkspaceUploadException('Several invoices were uploaded recently. Please try again in a minute.');
+                }
+
+                app(WorkspaceCapacity::class)->assertCanStore((int) $document->getSize());
+                RateLimiter::hit($browserKey, 60);
+                RateLimiter::hit($ipKey, 60);
+
+                return $this->storeDocument($access, $document);
+            });
+        } catch (WorkspaceUploadException $exception) {
+            $this->addError('document', $exception->getMessage());
+
+            return;
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->addError('document', 'This invoice could not be stored. Please try again.');
+
+            return;
+        }
+
+        if ($invoice->status === SupplierInvoiceStatus::Processing) {
+            try {
+                ExtractSupplierInvoice::dispatch($invoice->id, $invoice->extraction_generation);
+            } catch (Throwable $exception) {
+                report($exception);
+                $invoice->forceFill([
+                    'status' => SupplierInvoiceStatus::Failed,
+                    'failure_reason' => 'This invoice could not be queued. Please upload it again.',
+                ])->save();
+            }
+        }
+
+        $this->fillFrom($invoice->fresh(['lines']) ?? $invoice);
+        $this->reset('document');
+    }
+
+    private function storeDocument(SupplierInvoiceAccess $access, TemporaryUploadedFile $document): SupplierInvoice
+    {
+
         $generation = (string) Str::uuid();
         $invoice = SupplierInvoice::query()->create([
             'token_hash' => hash('sha256', $access->token(request())),
@@ -76,35 +128,36 @@ class SupplierInvoicePage extends Component
             'expires_at' => now()->addDays((int) config('supportflow.invoices.lifetime_days', 7)),
         ]);
 
-        $path = $document->storeAs('supplier-invoices', $invoice->id.'.pdf', 'local');
+        try {
+            $path = $document->storeAs('supplier-invoices', $invoice->id.'.pdf', 'local');
 
-        if (! is_string($path)) {
+            if (! is_string($path)) {
+                $invoice->forceFill([
+                    'status' => SupplierInvoiceStatus::Failed,
+                    'failure_reason' => 'This invoice could not be stored.',
+                ])->save();
+
+                return $invoice;
+            }
+
+            $name = trim($document->getClientOriginalName());
+            $invoice->forceFill([
+                'original_name' => $name === '' ? 'invoice.pdf' : Str::limit($name, 200, ''),
+                'storage_path' => $path,
+                'byte_size' => (int) $document->getSize(),
+            ])->save();
+
+        } catch (Throwable $exception) {
+            Storage::disk('local')->delete('supplier-invoices/'.$invoice->id.'.pdf');
             $invoice->forceFill([
                 'status' => SupplierInvoiceStatus::Failed,
                 'failure_reason' => 'This invoice could not be stored.',
             ])->save();
-            $this->fillFrom($invoice);
-            $this->reset('document');
 
-            return;
+            throw $exception;
         }
 
-        $name = trim($document->getClientOriginalName());
-        $invoice->forceFill([
-            'original_name' => $name === '' ? 'invoice.pdf' : Str::limit($name, 200, ''),
-            'storage_path' => $path,
-            'byte_size' => (int) $document->getSize(),
-        ])->save();
-
-        ExtractSupplierInvoice::dispatch($invoice->id, $generation);
-
-        $fresh = $invoice->fresh(['lines']);
-
-        if ($fresh instanceof SupplierInvoice) {
-            $this->fillFrom($fresh);
-        }
-
-        $this->reset('document');
+        return $invoice;
     }
 
     public function refreshInvoice(SupplierInvoiceAccess $access): void

@@ -68,6 +68,7 @@ test('mismatched model totals stay invalid until corrected and the export matche
     expect($invoice)->not->toBeNull()
         ->and($invoice->status)->toBe(SupplierInvoiceStatus::NeedsReview)
         ->and(AiRun::query()->where('feature', AiRunFeature::InvoiceExtraction)->where('status', AiRunStatus::Completed)->exists())->toBeTrue()
+        ->and(AiRun::query()->where('supplier_invoice_id', $invoice->id)->sole()->payload)->toBeNull()
         ->and(KnowledgeArticle::query()->count())->toBe(0)
         ->and(KnowledgeChunk::query()->count())->toBe(0);
 

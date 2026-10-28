@@ -287,7 +287,7 @@ test('orphan workspace articles are swept and harbor articles stay', function ()
 test('the detached sweep keeps an unpublished harbor draft and deletes private text with no workspace', function () {
     $detached = KnowledgeArticle::query()->create([
         'title' => 'Detached',
-        'slug' => 'detached-private',
+        'slug' => 'ws-'.Str::uuid(),
         'category' => 'general',
         'body' => 'Private text with no workspace.',
         'is_published' => false,

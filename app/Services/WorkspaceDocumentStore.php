@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class WorkspaceDocumentStore
 {
@@ -22,6 +23,36 @@ class WorkspaceDocumentStore
      */
     public function storeMany(Workspace $workspace, array $files): void
     {
+        $storedPaths = [];
+
+        try {
+            $documents = app(UploadAdmission::class)->store(function () use ($workspace, $files, &$storedPaths): array {
+                return DB::transaction(function () use ($workspace, $files, &$storedPaths): array {
+                    return $this->storeBatch($workspace, $files, $storedPaths);
+                });
+            });
+        } catch (Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                Storage::disk('knowledge')->delete($path);
+            }
+
+            throw $exception;
+        }
+
+        foreach ($documents as $document) {
+            IndexWorkspaceDocument::dispatch($document->id, $document->index_generation);
+        }
+    }
+
+    /**
+     * @param  list<UploadedFile>  $files
+     * @param  list<string>  $storedPaths
+     * @return list<WorkspaceDocument>
+     */
+    private function storeBatch(Workspace $workspace, array $files, array &$storedPaths): array
+    {
+        $workspace = Workspace::query()->lockForUpdate()->findOrFail($workspace->id);
+
         if (! $workspace->isOpen()) {
             throw new WorkspaceUploadException('This workspace is not open.');
         }
@@ -51,13 +82,31 @@ class WorkspaceDocumentStore
 
         $this->capacity->assertCanStore($bytes);
 
+        $documents = [];
+
         foreach ($files as $file) {
-            $this->storeOne($workspace, $file);
+            $document = $this->storeOne($workspace, $file);
+            $documents[] = $document;
+            $storedPaths[] = $document->storage_path;
         }
+
+        return $documents;
     }
 
     public function replace(Workspace $workspace, WorkspaceDocument $document, UploadedFile $file): void
     {
+        app(UploadAdmission::class)->store(function () use ($workspace, $document, $file): void {
+            $this->replaceUnderLock($workspace, $document, $file);
+        });
+
+        $document->refresh();
+        IndexWorkspaceDocument::dispatch($document->id, $document->index_generation);
+    }
+
+    private function replaceUnderLock(Workspace $workspace, WorkspaceDocument $document, UploadedFile $file): void
+    {
+        $workspace->refresh();
+        $document->refresh();
         $this->assertOwned($workspace, $document);
         $this->assertFile($file);
         $newBytes = (int) $file->getSize();
@@ -92,7 +141,6 @@ class WorkspaceDocumentStore
             Storage::disk('knowledge')->delete($oldPath);
         }
 
-        IndexWorkspaceDocument::dispatch($document->id, $generation);
     }
 
     public function delete(Workspace $workspace, WorkspaceDocument $document): void
@@ -120,24 +168,28 @@ class WorkspaceDocumentStore
         }
     }
 
-    private function storeOne(Workspace $workspace, UploadedFile $file): void
+    private function storeOne(Workspace $workspace, UploadedFile $file): WorkspaceDocument
     {
         $generation = (string) Str::uuid();
         $stored = $this->putFile($workspace, $file);
 
-        $document = WorkspaceDocument::query()->create([
-            'id' => $stored['id'],
-            'workspace_id' => $workspace->id,
-            'original_name' => $stored['name'],
-            'storage_path' => $stored['path'],
-            'mime' => $stored['mime'],
-            'extension' => $stored['extension'],
-            'byte_size' => $stored['bytes'],
-            'status' => WorkspaceDocumentStatus::Queued,
-            'index_generation' => $generation,
-        ]);
+        try {
+            return WorkspaceDocument::query()->create([
+                'id' => $stored['id'],
+                'workspace_id' => $workspace->id,
+                'original_name' => $stored['name'],
+                'storage_path' => $stored['path'],
+                'mime' => $stored['mime'],
+                'extension' => $stored['extension'],
+                'byte_size' => $stored['bytes'],
+                'status' => WorkspaceDocumentStatus::Queued,
+                'index_generation' => $generation,
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk('knowledge')->delete($stored['path']);
 
-        IndexWorkspaceDocument::dispatch($document->id, $generation);
+            throw $exception;
+        }
     }
 
     /**

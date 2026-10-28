@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'feature',
     'ticket_id',
+    'supplier_invoice_id',
     'provider',
     'model',
     'status',
@@ -55,5 +56,11 @@ class AiRun extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    /** @return BelongsTo<SupplierInvoice, $this> */
+    public function supplierInvoice(): BelongsTo
+    {
+        return $this->belongsTo(SupplierInvoice::class);
     }
 }
