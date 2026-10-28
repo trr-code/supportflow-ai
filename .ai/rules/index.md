@@ -7,10 +7,11 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Ai/Agents/SuggestedReplyAgent.php, app/Ai/Agents/SupportChatStreamAgent.php | .ai/rules/agents.md |
 | tests/Browser/**/*.php | .ai/rules/browser.md |
 | app/Livewire/Chat/Widget.php | .ai/rules/chat.md |
+| app/Console/Commands/** | .ai/rules/commands.md |
 | resources/views/components/dictation-button.blade.php | .ai/rules/components.md |
 | config/supportflow.php | .ai/rules/config.md |
 | app/Http/Controllers/StreamChatController.php | .ai/rules/controllers.md |
-| docs/forge.md, docs/performance.md, docs/manual-regression.md, README.md, docs/release-readiness.md | .ai/rules/docs.md |
+| docs/forge.md, docs/performance.md, docs/manual-regression.md, README.md, docs/release-readiness.md, ** | .ai/rules/docs.md |
 | tests/Evals/** | .ai/rules/evals.md |
 | rector.php, composer.json | .ai/rules/general.md |
 | app/Jobs/** | .ai/rules/jobs.md |

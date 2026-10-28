@@ -5,6 +5,7 @@ paths:
   - docs/manual-regression.md
   - README.md
   - docs/release-readiness.md
+  - '**'
 ---
 
 # Docs
@@ -68,3 +69,12 @@ Supervisor program worker-987181 is paused with sudo -n supervisorctl stop worke
 
 ## Reverted Forge --workers=2 after GET-load swap-out
 A measured --workers=2 trial on daemon-1104270 (numprocs=1) overlapped concurrent chat but caused GET / conc 4 p95 121→187 ms and active swap-out (vmstat so 4456 KB/s for 1 s). Live command is --workers=1 again. Do not re-raise workers on this 1 vCPU/1 GB Laravel VPS without more RAM. Do not raise Supervisor process count.
+
+## Carry audit runtime evidence gaps through every fix package
+For Lucid audit/fix work, read docs/system-design-audit.md and its Herd verification follow-up. Preserve valid code-review/test evidence; fill missing runtime evidence per package using Herd site info and fresh, site-scoped Insights with examples off. Record workflow, environment, observed result and remaining gaps before closing findings; reopen findings if evidence contradicts them. Herd does not capture test runs or prove Forge/CI, provider billing, backups, restore, mobile/accessibility or file-picker readiness. Finish with cross-workflow verification and an explicit unresolved-gap review. Check tool availability each chat and flag inaccessible tools/docs; the owner should not need to repeat this reminder. Do not expand package scope or bypass deletion, dependency, commit/deploy or production-load approvals.
+
+## Verify answers against the official documentation relevant to the question
+The owner wants documentation checks by default, without repeating the request. Before substantive technical/product guidance or implementation, consult current official documentation for the subject: OpenAI/Codex for agent behavior/setup, Herd for local tooling, installed-version Laravel/Livewire/package docs for application work, and the relevant primary authority otherwise. Reuse sufficient verified sources already in context. Cite the supporting source concisely and distinguish documented behavior, observed local evidence, engineering judgment and unverified claims. Explicitly flag inaccessible documentation or missing coverage; never imply documentation established something it did not. Persistent instructions improve continuity but do not guarantee every future agent will comply.
+
+## Use Conventional Commits for future commit messages
+The owner adopted Conventional Commits 1.0.0 for this project going forward. Use lowercase type and a short meaningful lowercase scope where useful: fix(security): prevent unsafe uploads. Common types: feat, fix, docs, refactor, perf, test, build, ci, chore. Keep descriptions concise, imperative and without a trailing period; use ! and a BREAKING CHANGE footer for actual breaking changes. Scope is optional under the specification; do not invent one for changes with no useful single area. Preserve existing history. This message-format preference does not authorize commits, pushes or deployment; obtain the owner's approval as already required.

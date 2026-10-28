@@ -1,0 +1,234 @@
+# Lucid system-design audit
+
+Date: 2026-10-28. Baseline: `d66b093cb64ff2cf9b5568a659cfa44b0a133476`.
+
+## Verdict
+
+Lucid has a credible foundation for a client showroom. It needs security, data-lifecycle, reliability, and presentation work before an industry-leading claim is justified. Improve this application incrementally; the evidence does not justify a rewrite or indiscriminate deletion.
+
+This is the initial engineering audit and fix backlog. It is not a security certification or a claim that every defect has been found. Code/schema findings are distinguished from observed behavior, improvement opportunities, and verification still requiring the owner. No application code, dependencies, infrastructure, or existing files were changed or removed during this audit.
+
+## Purpose and architecture
+
+Lucid demonstrates four connected capabilities: Harbor customer support, private document Q&A, invoice review, and fictional replacement actions. Laravel 13.26.1, Livewire 4.4.1, Flux 2.17.0, PostgreSQL/pgvector, and Laravel AI 0.11.0 form a coherent stack. Livewire owns forms and interactions; POST streaming controllers handle chat; services own retrieval and workflows; queued jobs handle indexing, extraction, and triage. Forge runs FrankenPHP/Octane. GitHub Actions tests precede the deployment hook.
+
+Keep the monolith and these domain boundaries. Preserve intentional showroom constraints: fictional data, shared demo-agent desk, simulated sending, human approval, private workspace separation, and one production Octane worker. Client-production tenancy, real email, payments, and enterprise identity are separate product requirements, not automatically defects in this showroom.
+
+Useful existing strengths include parameterized retrieval, explicit knowledge corpora, private browser-token checks, escaped model output, approval state transitions, integer-cent invoice arithmetic, generation checks on indexing jobs, and substantial automated workflow coverage.
+
+## Evidence from this session
+
+- Git was clean at the start; current local history matches the prior handoff checkpoint. The live landing page loaded. Live deployed SHA, latest Actions conclusion, and installed Forge script were not independently reverified in this audit.
+- Existing suite: **431 tests; 429 passed, 1 failed, 1 skipped; 3,340 assertions**. The failure was `retrieval returns chunks above the minimum similarity gate`, which observed `0.05 > 0.05`. Its isolated rerun passed (2 assertions). This is a potential flake, not a green full suite. Two runner warnings were reported without details.
+- The restricted test process could not read its bootstrap. Running the same suite with normal file access resolved that execution blocker. No test assertions were edited.
+- Public advisory checks succeeded after restricted DNS access initially failed. Composer reported **9 advisories across 6 packages**; npm reported **1 affected package, Vite, rated high**. See F01.
+- Actual local database schema was inspected. PostgreSQL statistics are estimates; no production query benchmarks or production data changes were performed.
+- Live landing page at **1280 × 720 CSS pixels**: document height **974 pixels**, document width **1265 pixels** with the vertical scrollbar. Vertical scrolling reproduced; horizontal overflow did not in this viewport. This does not establish the Dell monitor's actual resolution/scaling/zoom.
+- Local browser loaded HTML but did not apply development assets served from port 5173. That local rendering was excluded from visual conclusions. The live page rendered with styles.
+
+## Findings and recommended work
+
+### F01 — High priority: patch dependencies and add advisory checks
+
+**Confirmed package exposure; application exploitability varies.** Composer advisories affect Laravel framework, CommonMark, Flysystem, Livewire, Symfony HTTP Foundation, and Symfony YAML. npm flags installed Vite. CI currently checks formatting, static analysis, builds, tests, and the deploy gate, but has no dependency-advisory step.
+
+Examples: [Laravel TokenGuard advisory](https://github.com/advisories/GHSA-f9x3-7vq9-cph6), [Livewire authorization advisory](https://github.com/advisories/GHSA-mhf7-xp6r-6qrc), and [Symfony request-header ReDoS](https://symfony.com/cve-2026-108082). The configured web guard is session-based, so the TokenGuard advisory does **not** establish an authentication bypass in this app. Do not label all registry severities as demonstrated attacks.
+
+**Fix:** assess applicability, update within compatible constraints, test all four demos, and add advisory checks with an explicit exception policy. Dependency changes need the owner's approval under project instructions. **Done when:** applicable advisories are patched/mitigated, exceptions are documented, and checks remain green.
+
+### F02 — High priority: harden upload and extraction resource controls
+
+**Confirmed code gaps.** `SupplierInvoicePage::store()` validates one PDF's type/size but has no application-level extraction rate limit, total-storage budget, or free-space guard comparable to document workspaces. Repeated valid uploads can create files and queue paid extraction jobs.
+
+`DocumentTextExtractor::guardLimits()` runs after parsing returns. DOCX `getFromName()` expands `word/document.xml` before the 2 MB XML check. The elapsed-time and peak-memory checks cannot prevent resources already consumed; lifetime peak-memory growth is also an unreliable per-operation measurement in a reused worker. Runtime/worker limits provide some protection but do not enforce the intended extraction-specific budget.
+
+**Fix:** shared upload admission budgets, server-enforced extraction limits, archive metadata/expanded-size checks before allocation, failure recovery, and adversarial fixtures in the isolated test environment. Do not run resource-exhaustion experiments against Forge. Guidance: [OWASP File Upload](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html).
+
+### F03 — High priority: make retention include AI payloads
+
+**Confirmed lifecycle mismatch.** `SupplierInvoiceExtractor` stores the complete structured extraction in `ai_runs.payload`. The run starts with no ticket and has no invoice ownership relation. `SupplierInvoicePurgeService` deletes expired invoice records/files, but does not purge that extracted copy. `AiUsageRecorder` has no general payload-retention cleanup. The public privacy page says invoice reviews expire after seven days and are cleaned up.
+
+**Fix:** define retention for source files, extracted fields, AI payloads/errors, temporary uploads, logs, and backups; link records to their owning workflow; minimize or purge sensitive payloads while retaining appropriate aggregate usage. **Done when:** an expiry/deletion test proves associated content disappears and the disclosure matches actual behavior. Provider-side logs remain a separate boundary.
+
+### F04 — High priority: neutralize spreadsheet formulas in CSV exports
+
+**Confirmed unsafe export path by inspection; no malicious file executed.** `SupplierInvoiceExport::csv()` writes supplier names, invoice numbers, and descriptions directly through `fputcsv()`. Those values can originate in uploaded/model-extracted text or user edits. CSV quoting does not stop spreadsheet formula interpretation.
+
+**Fix:** a deliberate spreadsheet-safe text policy and tests for formula-leading characters, control characters, separators, and normal values. Keep JSON faithful to its documented contract. Guidance: [OWASP CSV Injection](https://github.com/OWASP/www-community/blob/master/pages/attacks/CSV_Injection.md).
+
+### F05 — Medium priority: enforce limits at the server boundary
+
+**Confirmed code gap.** `TicketIndex::$perPage` is public and mutable. `setPerPage()` clamps values to 1–20, but `render()` passes the property directly to `paginate()`. Direct property updates bypass the setter. This is unnecessary query amplification for an authenticated demo-agent user.
+
+**Fix:** validate/clamp the consumed property or lock it and expose a checked action. Exercise direct tampering in a Livewire test. See [Livewire public-property security](https://livewire.laravel.com/docs/4.x/security).
+
+Workspace document-count/storage checks also happen before writes without a reservation/lock, so concurrent requests can exceed caps. Treat those as concurrency-hardening work, not proof of observed abuse.
+
+### F06 — Medium priority: correct cleanup batching and failure consistency
+
+**Confirmed algorithmic risk.** `WorkspacePurgeService::purgeExpired()` uses `each()` over a query filtered by `purged_at IS NULL`, while each purge changes that membership. Offset-based batches can skip records when the eligible set exceeds a batch. Orphan sweeps also delete records while using `each()`.
+
+**Fix:** stable ID-based batching and a multi-batch test. Review database/file consistency too: file deletion occurs inside a database transaction, while file storage is not transactional. Failed database commits/deletes need recoverable cleanup and observable failures. Do not perform a cleanup to demonstrate the issue.
+
+### F07 — Medium priority: fix the observed test instability and improve visual assurance
+
+**Observed suite failure; cause not established.** The retrieval test failed in the full run and passed alone. Investigate fake-vector determinism, ranking branches, threshold semantics, and test isolation before changing assertions. Do not weaken the threshold test merely to get green.
+
+Some presentation tests inspect source strings/classes (`FocusVisibleTest`, portions of `ChatAndWireKeyTest`). Those can protect conventions, but cannot prove actual focus, contrast, mobile fit, or viewport overflow. Existing browser tests are valuable; retain them and add behavior checks where the string tests leave a gap. Test count is not a quality score.
+
+### F08 — Medium priority: establish responsive and accessible presentation criteria
+
+**Observed desktop scroll; mobile polish reported by owner and still to assess directly.** The homepage has a substantial hero minimum height and stacked section spacing. It is a normal content-height page, not a height-fitting composition. Scrolling is not inherently a defect; agree which desktop sizes should show the complete showroom introduction without scrolling, while keeping accessible zoom/reflow.
+
+**Fix:** a viewport matrix covering 320/390px phones, 768/1024px tablets, short desktop windows, common desktop widths, and 200% zoom. Check navigation, forms, chat, dialogs, tables, on-screen keyboard, touch targets, focus order/visibility, contrast, reduced motion, and error states. Use the current design as the reference. Keep meaningful scrolling available; do not hide overflow to manufacture a pass. The owner's Acer/Dell comparison and real-device checks remain open.
+
+### F09 — Medium priority: evaluate AI quality beyond citation presence
+
+**Confirmed design limitation; answer-quality acceptance still pending.** Citation IDs are constrained to retrieved passages, but `CitedChunkIds::usesChunk()` uses text overlap and a special free/30-days heuristic. A supported citation is not proof that every claim in an answer is correct. `SupportingPassages` appends whole passage bodies for selected Harbor-specific facets; review how this interacts with private documents and friendly wording.
+
+Workspace chat loads the complete conversation history, and no equivalent Harbor 30-turn cap or token-window budget is enforced in that path. A long-lived workspace can accumulate growing prompt cost and latency or eventually exceed model context.
+
+**Fix:** manually question the real workflows with the owner; evaluate accuracy, completeness, tone, unsupported questions, follow-ups, contradictions, private-workspace isolation, hostile documents, and action confirmation. Add bounded history/context policy and deterministic regression coverage. Preserve currently passing paid eval evidence rather than repeatedly rerunning unchanged cases. Friendly tone should not alter facts or approval boundaries.
+
+### F10 — Optimization opportunity: measure and simplify query work
+
+`DashboardMetrics::snapshot()` issues ten aggregate queries. Some can share conditional aggregation, but this is a low-volume page and no measured latency win has been established.
+
+Retrieval batches embeddings, which is good, but can execute multiple vector/lexical rank lists and repeatedly hydrate articles/chunks. It computes a joined full-text expression at query time; schema inspection found HNSW for embeddings but no lexical search index. Several hot foreign-key/filter paths also lack tailored indexes. PostgreSQL foreign keys do not automatically supply all useful child indexes.
+
+**Fix:** capture query counts/plans and p95 latency with representative data, then consolidate queries/select large fields deliberately and add only justified indexes. Benchmark lexical and filtered-vector recall as well as speed. Do not prescribe Redis, more workers, a server resize, or a search-engine migration from code appearance alone. Current local corpus is small; production scale was not benchmarked here. Framework reference: [Laravel relationships](https://github.com/laravel/docs/blob/13.x/eloquent-relationships.md).
+
+### F11 — Medium priority: make cost visibility complete
+
+**Confirmed accounting limitations.** `AiUsageRecorder` records chat/extraction token estimates. Retrieval/indexing embeddings are generated without corresponding usage recording. Dictation records secret creation, not actual audio minutes; `estimateMinutes()` is not called. Thus application estimates cannot represent total provider spending. Rates are dated 2026-08-23; this audit did not verify current prices or billing-account settings.
+
+**Fix:** reconcile with actual provider usage and Forge bills, account for embeddings/transcription/retries, define a showroom budget and alerts, and distinguish missing usage from zero. Add a server-side policy for expensive anonymous operations. Exact monthly cost and best hosting size remain unverified until billing and current traffic are inspected.
+
+### F12 — Medium priority: verify operations and recovery
+
+**Verification gap, not proof these controls are absent.** The repository has heartbeat health checks, scheduled pruning, failure recording, and a tested-SHA deployment gate. Reviewed files do not establish external alert delivery, backup coverage, restore success, retention, or a rehearsed rollback. The deploy job acknowledges the Forge hook; it does not itself wait for the deployed application to become healthy.
+
+**Fix:** verify live backup settings, perform an isolated restore rehearsal, define acceptable data loss/recovery time, validate alert ownership, and monitor deployment completion/SHA/health. Inspect queue backlog, failed-job trends, disk headroom, dependency/API failures, and SSE behavior under failure. Keep prior one-worker measurements as historical evidence; fresh load testing needs its documented safe conditions. Do not resize, delete CareerForge, or change worker retry settings as an audit side effect.
+
+### F13 — Medium priority: consolidate instructions and current status
+
+**Confirmed contradictions.** `.cursor/rules/git-workflow.mdc` says use branches/PRs, while later `.ai/rules/workflows.md` records the owner's direct-main decision. The testing-best-practices skill says the browser plugin is not installed, while Composer and actual browser tests show it is. Release-readiness tables still label the focus fix uncommitted and CI red, while appended text records the newer checkpoint. Worker pause descriptions also differ from the latest reboot observation.
+
+**Fix:** one current status summary plus clearly labeled historical evidence; one authoritative rule per concern; explicit precedence; version-correct skill guidance. Keep decision history without making stale states appear current. Use Boost `record-rule` for durable project rules. No rules were rewritten in this audit.
+
+### F14 — Planned cleanup: inventory before deletion or renaming
+
+The actual Laravel folders already have a recognizable structure. Organization work is mainly duplicated instructions, accumulated evidence, design assets, large mixed-responsibility views, and historical naming. Examples worth checking: `.cursor/skills` versus ignored `.agents/skills`, repeated loop-key guidance, `lucid-design/lucid-waves.png` alongside its public copy, and the unconfirmed use of `lucid-starburst.png`. Do not assume any of these are disposable.
+
+The chat, workspace-preview, ticket-show, and dictation views contain substantial inline behavior. Extract shared mechanisms only where behavior is demonstrably duplicated; preserve distinct workflow policies. Do not turn every small helper into another abstraction.
+
+**Fix:** create a keep/archive/remove proposal with references, reason, and recovery route. Review the proposed deletion list with the owner before removal. Rename visible branding first, then deliberately assess repository/folder/domain/config/cookie/cache/deployment identities. Current rules explicitly preserve some internal SupportFlow names; a broad rename needs coordinated rule changes. Leave dependencies, tests, migrations, fixtures, runtime files, and shared infrastructure out of speculative cleanup.
+
+### F15 — Showroom opportunity: strengthen the client journey
+
+The homepage clearly links four demos, but the Contact destination tells visitors to open a GitHub issue. That adds friction for prospective clients. Define a clear conversion action and an owner-approved contact destination. Review whether each demo quickly communicates the business outcome, provides a convincing starting example, and recovers gracefully from a failure.
+
+Use the existing visual language as the baseline; no old mockups are required. Finish the visible Lucid identity, consistent copy, friendly answers, and loading/empty/error/success states together with responsive work. This is product advice, not a framework requirement.
+
+## Fix conversations, in dependency order
+
+1. **Security and data lifecycle:** F01–F06. Patch advisories, protect uploads/exports, fix retention and cleanup. Test adversarial cases locally. Obtain approval before dependency updates or proposed removals.
+2. **Reliable verification:** F07 and the status portion of F13. Resolve the suite flake, make the baseline truthful, and establish browser acceptance checks needed by later changes.
+3. **UI/UX, accessibility, and showroom journey:** F08, F15, visible naming. Start from the current app. Review representative screens with the owner before a broad redesign.
+4. **AI behavior and manual questioning:** F09 plus answer tone. Keep citations, context boundaries, and human approvals intact. Record expected answers and unacceptable behavior.
+5. **Performance, cost, and operations:** F10–F12. Measure before optimizing, reconcile real bills, verify recovery, and complete deployment monitoring.
+6. **Repository organization and maintainability:** remaining F13–F14. Reference-check candidate removals, consolidate rules, and do small tested refactors. Earlier packages may include focused cleanup necessary for their fixes.
+
+Each fix chat should read this document, state the finding IDs in scope, update their evidence/status, and run the narrowest meaningful checks. Keep this chat as the audit discussion. Do not automatically create six chats or execute fixes from this report.
+
+## Still open before final showroom sign-off
+
+- Owner-assisted questions and friendly-tone review against live AI; this audit did not run a new paid eval suite.
+- Direct mobile/tablet/zoom and assistive-technology review; this session's browser API did not expose viewport resizing. Existing test screenshots do not substitute for reviewing the current rendered interface.
+- Real invoice/document file picker flows, speech/microphone permissions, iPad checks, and post-failure interaction recovery.
+- Current deployed SHA/Actions/Forge configuration verification; production configuration, response headers, backups, alerts, restore, real spending, and production query plans.
+- Follow-up/Stop and cross-workflow end-to-end acceptance after fixes; complete clean suite after the retrieval instability is resolved.
+
+Documentation access: Laravel/Livewire version-specific documentation search and OWASP sources were reachable. No final conclusion relies on a silently inaccessible source. Registry DNS initially failed under restricted access, then succeeded with normal network access. Local development CSS was not available in the inspection browser. No original mockups were required or used.
+
+## Package 1 implementation checkpoint — 2026-10-28
+
+Historical checkpoint: the approved automatic-cleanup follow-up below supersedes this section's pending cleanup approvals and local migration status.
+
+Scope: F01–F06 only. The owner approved compatible dependency updates and implementation, and explicitly prioritized thorough testing, efficiency, and a smooth showroom over small AI API costs. No commit, deployment, non-test database migration, or existing-data deletion has been performed.
+
+- **F01 — Implemented locally.** Updated Laravel to 13.39.0, Livewire to 4.4.8, CommonMark to 2.10.4, Flysystem to 3.36.0, HTTP Foundation/YAML to 8.1.10, and Vite to 8.3.5 with required compatible transitive updates. Composer and npm report zero advisories. CI now runs both advisory checks, failing on all severities; temporary exceptions require owner approval, an advisory ID, a reason, and an expiry date. Configured session authentication does not establish exposure to the TokenGuard-specific attack. Deployment applicability and production configuration are not independently verified here.
+- **F02 — Implemented locally.** Invoice and workspace admission share an atomic lock and the existing storage/headroom budget. Invoice defaults allow 30 uploads/minute/browser and 120/minute/IP; chat allowances, file sizes, document counts, and parser resource allowances were preserved. Indexing/extraction dispatch occurs after releasing admission locks. Parsing now runs in a child PHP process with the existing 30-second timeout and 256 MiB memory limit. DOCX expanded XML metadata is checked before reading, and the read itself is bounded. Tests cover compressed oversized DOCX content, malformed archives, parser crashes/timeouts, actual child memory failure, all supported formats, upload admission, contention, and rollback compensation. Before deployment, verify the production CLI PHP path/version (config `supportflow.workspaces.extract_php_binary`) and extensions under the actual Forge worker account.
+- **F03 — New invoice data minimized; historical cleanup remains approval-gated.** A nullable indexed invoice foreign key links AI usage to its workflow. New invoice runs do not store structured extraction payloads; provider errors retain a generic message and log only the run ID/exception type. Invoice deletion clears linked AI content while preserving token/cost accounting. A preview-only-by-default command, `invoices:clear-legacy-ai-content`, can clear unowned legacy invoice payloads/errors with explicit `--execute`. A read-only local check found five existing invoice AI records with content; they were not altered. Old records cannot be reliably assigned to invoices retrospectively, so no fabricated ownership was backfilled.
+- **F03 temporary files — Tested command prepared; not scheduled.** Installed Livewire cleans local temporary files on subsequent uploads, which can leave old uploads on an idle demo. `uploads:purge-temporary` defaults to a dry run and requires `--execute` to remove only files older than 24 hours in the configured local temporary-upload directory. It rejects unsafe directories/nonlocal disks and preserves recent uploads and permanent invoice storage. Its local preview found six old temporary uploads. Automatic approval review rejected adding an hourly deletion schedule because existing-data deletion requires separate owner approval. No schedule was added and no existing files were removed.
+- **F04 — Implemented locally.** CSV text fields receive spreadsheet-oriented protection for formula prefixes (including full-width variants), leading controls/Unicode whitespace, and correct quote/separator handling. Numerical values retain their decimal representation; JSON preserves original text and integer cents. Tests round-trip the CSV cells and verify JSON fidelity. This does not claim safety for every spreadsheet application's subsequent save/reopen transformations; direct Excel/LibreOffice review remains unverified.
+- **F05 — Implemented locally.** Rendering clamps the consumed page size to 1–20 even after direct Livewire mutation. Shared admission serializes document-count/storage checks and writes; no new infrastructure dependency was added. Contention and direct-tampering regressions pass locally. A multi-host production race/load experiment was not performed.
+- **F06 — Implemented locally.** Workspace and orphan sweeps use stable ID-based batches, with tests crossing multiple batches. A workspace closes before file cleanup; failed storage deletion retains document records so a subsequent sweep can retry even when the workspace is already marked purged. File deletion occurs outside the database cleanup transaction. A test simulates a database deletion failure after file removal and proves retry completes without restoring access. Invoice file deletion failures now stop row deletion and surface the failure for retry. No purge command was run against existing application records.
+
+Retention boundaries: permanent workspace/invoice content expires after seven days; scheduled application cleanup remains every 15 minutes. New invoice usage stores aggregate accounting and workflow identity, not extracted fields. Temporary uploads have a proposed 24-hour cleanup threshold, pending scheduling approval. Existing application logs, failed-job history, provider logs, backups, and restore retention were not inspected or erased; no claim is made that old copies have disappeared. General payload/error retention outside invoice extraction remains a follow-up, especially workspace provider-error diagnostics. Provider-side retention and training settings require their own account verification.
+
+Verification: affected feature tests, the full normal suite including existing browser tests, real OpenAI triage/invoice smoke tests using fictional fixtures, Pint, Larastan, Rector dry run, frontend build, dependency audits, and deployment-gate tests were exercised. The frontend build passed with an optional missing `fontaine` optimization warning; no extra package was installed. Restricted file access initially blocked Pint/PHPUnit; normal file access resolved it. Initial registry DNS failures were likewise resolved. Git Bash initially could not find Herd's PHP; rerunning with its executable directory on PATH passed all nine deployment-gate scenarios. New test assertion/type-check failures were corrected and rerun rather than hidden. Final suite totals and warning details follow below.
+
+Official Laravel 13/Livewire 4 documentation, PHP ZIP documentation, OWASP upload/CSV guidance, and PHPStan error documentation were accessible. The AI documentation search reports `laravel/ai@latest`; the installed package remains 0.11.0 and the existing structured-response/fake APIs were also checked against installed source and exercised. No finding depends on silently inaccessible documentation. Final mobile/device/manual file-picker acceptance and live Forge/backup/log checks remain outside this local package checkpoint.
+
+Final local verification: **481 normal tests passed, 2 optional live-AI tests skipped in that run, 3,554 assertions** (135.63 seconds). Both optional tests were then independently verified with `OPENAI_SMOKE=true`: **2 passed, 10 assertions**, including real invoice extraction. The earlier run reported two warnings without details; a complete rerun with PAO disabled and detailed warning reporting produced no warnings. Their intermittent cause remains unverified and belongs with F07's verification work. Pint, Larastan (zero errors), Rector dry run (zero changes), `git diff --check`, both dependency audits (zero advisories), the frontend build, and all nine deployment-gate scenarios passed. No paid eval was skipped for cost; unchanged broad answer-quality evals remain in package 4's scope.
+
+Pending owner decisions: clear the five local legacy invoice AI payload/error copies while keeping usage rows; delete the six local temporary uploads older than 24 hours; and enable an hourly `uploads:purge-temporary --execute` schedule. These are separate from commit/deploy approval. Do not run either deletion command, add the deletion schedule, apply changes to Forge, or claim production retention is verified without the corresponding approval and checks. The new invoice-owner schema migration has only run in the isolated testing database so far.
+
+## Herd verification follow-up — 2026-10-28
+
+**Decision:** Keep the original audit and valid test/code-review evidence. Complete the missing runtime checks during each relevant fix package, then perform a final cross-workflow verification. A full repeat is not currently justified merely because Herd was unavailable initially. If new evidence contradicts a finding, changes the architecture/security assumptions, or exposes a broader gap, reopen the affected findings and expand the review as needed. The agent owns this checklist; the owner does not need to remember or repeat it.
+
+**Verified setup only:** The dedicated Herd MCP tools are now callable in this conversation. `site info` successfully identified Lucid's local site, PHP 8.5 and PostgreSQL. Capture was enabled earlier and recorded a successful landing-page request. This proves the connection works, not that every workflow or earlier fix has been runtime-verified. Herd never captures test runs. Local Herd observations do not prove Forge production behavior.
+
+Pending checks, carried into the existing packages:
+
+- **Package 1, F01–F06 — pending runtime follow-through:** Observe current invoice/document upload, extraction, queue completion, validation/rejection, and recoverable error flows with fresh Herd entries. Verify page-size tampering against actual query behavior where useful. Keep adversarial/resource-limit and destructive lifecycle tests in the isolated test environment; do not run cleanup against existing data without approval. Retain the separate production PHP-path/extension and retention checks. Historical payload deletion and temporary-upload scheduling are still awaiting approval.
+- **Package 2, F07/F13 — pending:** Investigate the earlier intermittent retrieval failure and runner warnings using the test runner and reproducible isolation, not Herd capture. Verify the runtime diagnostic workflow itself, record relevant cursors/timestamps, and keep status evidence current.
+- **Package 3, F08/F15 — pending:** Pair rendered browser/device checks with fresh backend diagnostics for navigation, forms, dialogs, uploads and recovery. Complete the agreed viewport/zoom/accessibility checks; backend logs cannot establish visual quality. Include the owner's monitor-fit concerns and real file-picker/device checks.
+- **Package 4, F09 — pending:** Observe live Harbor, private-document and replacement workflows with the owner: answer quality/tone, sources, isolation, follow-ups/Stop, approval boundaries and provider-failure recovery. Use Herd for timings/errors/jobs; use actual answers and focused evals for AI quality. Do not repeat passing paid evaluations without a changed path or unresolved concern, and do not skip needed checks for nominal API cost.
+- **Package 5, F10–F12 — pending:** Gather representative request/query/job timings and N+1/duplicate/slow-query evidence using site-scoped Insights, with real-value SQL examples disabled by default. Compare fresh before/after observations rather than optimizing from appearances. Separately verify production query plans, deployed SHA/CI/health, queues, spending, backup coverage, restore and alerting through the relevant systems. Production load testing retains its existing safe conditions and approvals.
+- **Package 6, F13/F14 — pending:** Confirm references and actual workflow use before removing files or consolidating instructions. Use runtime observations where relevant, preserve history, and obtain deletion approval.
+
+For every runtime check, record the workflow, local versus production environment, timing/cursor where available, observed result, and any limitation in the relevant package checkpoint. Regenerate current observations instead of treating old captured entries as proof. If Herd or required documentation is unavailable, flag the gap explicitly and use an appropriate verified fallback without silently closing it.
+
+**Final sign-off gate — pending:** Recheck the four demo journeys together after their fixes, including failure recovery and cross-workflow separation; reconcile automated, live-AI, browser/device and production evidence; and list every unresolved limitation. No finding or showroom-readiness claim is closed solely because Herd is connected or an automated suite passed. This follow-up does not authorize work outside the active package, deletions, dependency changes, commits, deployment or production load changes.
+
+## Approved automatic-cleanup follow-up — 2026-10-28
+
+The owner approved safe removal of expired runtime data and automatic maintenance. This supersedes the earlier pending cleanup decisions; it does not authorize source/assets/fixtures/backups deletion, dependency changes, commits or deployment.
+
+- **Automatic local maintenance enabled:** Windows task `Lucid Local Maintenance` checks every minute while the owner is signed in, runs the Laravel scheduler only while Herd is running, uses limited privileges, prevents overlapping task instances, and runs hidden. Its latest observed execution at 15:11 local time returned success (0). Production has not been changed or verified.
+- **Retention implemented:** existing workspace/invoice expiry runs every 15 minutes; temporary uploads older than 24 hours are pruned hourly; recognized abandoned permanent uploads receive a 24-hour grace period and daily ownership checks; completed/failed AI content older than seven days is cleared daily while accounting rows/totals remain. Cleanup commands preview by default. Scheduled destructive commands explicitly use `--execute` and overlap protection.
+- **Logs and failed jobs:** application logs now rotate daily with 14-day retention. Hourly maintenance caps recognized single logs at 20 MiB, retaining roughly the newest 10 MiB, and clears inactive recognized logs older than 14 days. This is not per-entry 14-day retention for an actively written browser log. Unknown files and symlinks are preserved. Existing daily failed-job pruning retains its default 24-hour threshold.
+- **Safer retries:** a failed workspace/invoice deletion no longer prevents later records in the batch from being cleaned; failures remain visible and retryable. Detached article cleanup requires the generated `ws-UUID` identity and no document owner; unrelated drafts are preserved.
+- **Local cleanup executed:** five legacy invoice AI content copies, six expired invoices, six expired workspaces, six stale temporary uploads, 606 additional expired AI content records and eight old failed jobs were cleaned. No orphan upload or log required removal. At the post-cleanup checkpoint, 690 usage records, five seeded tickets, 22 seeded articles and one active workspace remained. A later fictional invoice runtime fixture is additional active test data. The additive invoice-owner migration was applied successfully to the local application database; earlier isolated test migration evidence remains valid.
+- **Verification:** 490 tests passed, two optional live-AI tests skipped, 3,636 assertions. The runner again emitted two warnings without details; their intermittent cause remains open under F07. Nine maintenance tests cover previews, ownership/grace periods, accounting preservation, logging with an open writer, schedule overlap protection, unrelated drafts and batch failure isolation. Pint, Larastan, Rector dry run and diff whitespace checks passed. Official Laravel 13 scheduling/queue/logging documentation, Livewire 4 upload documentation, PHP file-lock/truncation documentation and Microsoft ScheduledTasks documentation were consulted; no required documentation was silently inaccessible.
+- **Fresh local Herd evidence:** invoice page GET returned 200 (214 ms), the actual file-picker upload returned 200 (191 ms), and subsequent Livewire updates returned 200. Capture was scoped to Lucid with SQL examples disabled. The uploaded file exactly matches the project's fictional `supplier-invoice.pdf`; its extraction job is the only queued job. Herd's built-in worker listened only to `default`, while this job uses `ai`; that worker was stopped. Automatic approval review rejected the bounded `ai` worker because explicit permission for this fixture's transmission to `api.openai.com` was required. That permission question is pending; extraction completion and the new live document-indexing check remain unverified. Earlier successful live-AI smoke checks are separate evidence, not proof of this pending queue completion.
+
+Remaining gates: explicit fixture-transmission approval for the pending live checks; production deployment approval and verification of the scheduler, PHP executable/extensions and retention; package 2's runner instability; final device/cross-workflow acceptance. Local cleanup success does not establish zero future storage growth, production performance, provider-side retention or backup deletion.
+
+### Approved live fixture checks completed — 2026-10-28, 20:14–20:16 UTC
+
+The owner explicitly approved transmission of the project's fictional `supplier-invoice.pdf` and `notes.txt` fixtures to OpenAI at `api.openai.com`. This resolves the preceding automatic-review blocker and pending permission gate. Each queued job was processed by a bounded, single-job `ai` worker; no additional persistent worker was left running.
+
+- **Invoice:** Herd recorded `ExtractSupplierInvoice` processed in 3,779 ms, including one HTTP call (2,979 ms). The browser displayed proposed fields, identified the deliberately inconsistent line/total amounts, and disabled confirmation. A read-only check confirmed the linked AI run completed with both payload and error absent.
+- **Document:** the actual file picker uploaded `notes.txt`, and `IndexWorkspaceDocument` processed in 1,645 ms, including one HTTP call (756 ms). The browser displayed **Ready for answers**; a read-only check confirmed one ready notes document. The final queue and failed-job counts were both zero. The active fixtures remain subject to normal expiry.
+- **Performance follow-up, F10:** Herd reported the invoice-line query repeated three times on the invoice GET (322 ms). Document indexing repeated document lookups 11 times and workspace lookups nine times. These observations are not a proven user-visible slowdown; assess ownership/generation safety checks before consolidating them. Keep this evidence for package 5 rather than silently closing performance findings or expanding package 1.
+- **Visual limitation:** the inspection browser did not load the local development styling (the project advertises the HTTPS Vite endpoint on port 5173). Functional UI states were verified, but this does not establish visual quality or device acceptance. No new source change was made for these checks; earlier automated validation still applies.
+
+Package 1's two newly approved happy-path file-picker/queue checks are complete locally. Recovery, rejection and resource-limit behavior retain the isolated automated evidence above; broader runtime failure recovery and production/device sign-off remain open.
+
+### Local styling restored — 2026-10-28
+
+The earlier missing styling was caused by a stale ignored `public/hot` marker dated October 26 pointing to port 5173 with no listening development server. Removed that runtime marker and ran `npm run build` successfully, allowing Laravel to serve its built assets without a separate Vite process. Laravel 13's official Vite documentation was checked. The documents page now renders with the Lucid navigation, fonts, colors, columns and controls; the inspection browser reported no warning/error entries. No source, dependency or production change was needed. The build still reports the known optional `fontaine` font-fallback optimization warning; it does not prevent styles/fonts from building. This resolves the missing-styles inspection blocker, not the outstanding responsive/device/accessibility review.
+
+### Authorized release preparation — 2026-10-28
+
+The owner authorized committing, pushing and deploying package 1 after checking loose ends, then verifying CI and Forge. Remaining package 2/3/5 findings remain explicitly open; deployment does not close the whole audit.
+
+A fresh Composer scan reported Symfony Mime advisory `PKSA-wtxr-p26d-nn42` / `CVE-2026-45070`, affecting installed 8.1.4. With explicit owner approval, the minimal update changed only Mime to 8.1.10; the subsequent Composer audit reported zero advisories. npm audit also reported zero. The vendor advisory page was inaccessible through the web tool; Composer's current advisory/version evidence and the one-package dry-run were verified rather than claiming the vendor page was read. Official Forge deployment documentation was reachable; guessed API documentation pages were inaccessible, so installed CLI/resource responses supplied operational evidence.
+
+The first release-preparation suite hit a PostgreSQL test-database deadlock during schema reset (489 passed, one error, two skipped). The affected three tests passed separately; a sequential full `composer test` rerun with PAO disabled passed Pint, Rector dry-run, Larastan and **490 tests / 3,636 assertions**, with two optional smoke tests skipped and no warnings. This is a successful current baseline, not a resolved root cause for F07. All nine deployment-gate tests passed. Fresh local chat waves at concurrency 1/2/4 completed 7/7, first visible deltas 1.66 s / 1.84–2.66 s / 1.70–2.30 s, with no stream errors or raw citation markers.
+
+Pre-deployment Forge inspection confirmed revision `d66b093`, PHP 8.5.12 with ZIP/XML/mbstring and PostgreSQL support, one Octane worker on 8001, the `ai,default` worker, and the every-minute system-crontab scheduler. The live deploy script exactly matched the repository's tested-SHA/CI gate; push-to-deploy was off. Disk had 14 GiB available. CareerForge's separate worker was running and was left unchanged. Existing untracked production PHP configuration files were preserved. Production `LOG_STACK=single` needs the approved daily-rotation setting during this release. Live-AI evaluations were explicitly approved and started; their final result, CI execution, deployment completion and live checks must be checked before reporting success. GitHub Actions and Forge deployment history are authoritative for execution status after this timestamp.

@@ -10,3 +10,6 @@ Local demo allowances are 30 tickets per browser, 200 shared visitor tickets, 30
 
 ## /up heartbeat must name ai and default
 DiagnosingHealth requires a cache heartbeat whose queues include ai and default (config supportflow.health.required_queues). Forge CACHE_STORE must be database. queue:listen only pops jobs, so RecordQueueHeartbeat also listens for JobPopping. Feature coverage: tests/Feature/HealthCheckTest.php.
+
+## Showroom limits protect reliability rather than nominal AI cost
+The owner prioritizes thorough testing, performance, and smooth client demos. Do not lower AI allowances just to save small provider costs. Keep admission limits generous for normal use; use shared storage budgets, atomic admission, and bounded parser processes to protect reliability.
