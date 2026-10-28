@@ -108,7 +108,7 @@ test('orphan cleanup refuses nonlocal disks', function () {
     $this->artisan('uploads:purge-orphans --execute')->assertFailed();
 });
 
-test('log maintenance previews changes and bounds logs without breaking the active browser logger', function () {
+test('log maintenance previews changes and bounds logs without breaking the active logger', function (string $channel) {
     $disk = Storage::fake('maintenance-test');
     app()->useStoragePath($disk->path('storage'));
     $disk->makeDirectory('storage/logs');
@@ -117,27 +117,29 @@ test('log maintenance previews changes and bounds logs without breaking the acti
         'supportflow.retention.log_max_bytes' => 200,
         'supportflow.retention.log_keep_bytes' => 120,
         'logging.channels.browser.path' => $logs.'/browser.log',
+        'logging.channels.daily.path' => $logs.'/laravel.log',
     ]);
-    $logger = Log::channel('browser');
+    $logPath = $logs.'/'.($channel === 'daily' ? 'laravel-'.now()->format('Y-m-d').'.log' : 'browser.log');
+    $logger = Log::channel($channel);
     $logger->info(str_repeat('old ', 100));
     $logger->info('Newest diagnostic stays.');
     file_put_contents($logs.'/laravel-2020-01-01.log', 'old diagnostic');
     touch($logs.'/laravel-2020-01-01.log', now()->subDays(15)->timestamp);
     file_put_contents($logs.'/important.log', str_repeat('keep ', 100));
-    $before = filesize($logs.'/browser.log');
+    $before = filesize($logPath);
 
     $this->artisan('logs:prune')->expectsOutputToContain('Dry run: 2')->assertSuccessful();
     clearstatcache();
-    expect(filesize($logs.'/browser.log'))->toBe($before);
+    expect(filesize($logPath))->toBe($before);
     $this->artisan('logs:prune --execute')->assertSuccessful();
     clearstatcache();
-    expect(filesize($logs.'/browser.log'))->toBeLessThanOrEqual(120);
-    expect(file_get_contents($logs.'/browser.log'))->toContain('Newest diagnostic stays.');
+    expect(filesize($logPath))->toBeLessThanOrEqual(120);
+    expect(file_get_contents($logPath))->toContain('Newest diagnostic stays.');
     expect(file_get_contents($logs.'/laravel-2020-01-01.log'))->toBe('');
     expect(file_get_contents($logs.'/important.log'))->toBe(str_repeat('keep ', 100));
     $logger->info('Logging still works.');
-    expect(file_get_contents($logs.'/browser.log'))->toContain('Logging still works.');
-});
+    expect(file_get_contents($logPath))->toContain('Logging still works.');
+})->with(['browser', 'daily']);
 
 test('cleanup is scheduled with overlap protection and keeps the existing demo cleanup', function () {
     $expected = [

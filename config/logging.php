@@ -79,6 +79,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'locking' => true,
         ],
 
         'monthly' => [
