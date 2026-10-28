@@ -78,3 +78,12 @@ The owner wants documentation checks by default, without repeating the request. 
 
 ## Use Conventional Commits for future commit messages
 The owner adopted Conventional Commits 1.0.0 for this project going forward. Use lowercase type and a short meaningful lowercase scope where useful: fix(security): prevent unsafe uploads. Common types: feat, fix, docs, refactor, perf, test, build, ci, chore. Keep descriptions concise, imperative and without a trailing period; use ! and a BREAKING CHANGE footer for actual breaking changes. Scope is optional under the specification; do not invent one for changes with no useful single area. Preserve existing history. This message-format preference does not authorize commits, pushes or deployment; obtain the owner's approval as already required.
+
+## Multiple Octane workers are an owner preference for package 5
+The one-worker Forge setting is a temporary measured capacity decision, not the owner's preferred permanent limit. In package 5, reassess current RAM, CPU, swap, database connections and GET/chat behavior before trialing two workers in the existing Octane command. CareerForge may be stopped or removal proposed then; never delete shared resources as a side effect. A larger or separate server is an option after measurement. Older absolute one-worker/no-more-RAM wording must not override this preference; keep current production settings until the reviewed capacity change is approved.
+
+## Current release status supersedes historical checkpoints
+Read the top current checkpoint in docs/release-readiness.md and the newest package checkpoint in docs/system-design-audit.md before reporting status. Older tables and appended deployment notes are historical evidence, not current failures or pending approvals. Verify CI by exact SHA and the deployed SHA separately; local package completion does not imply CI/Forge verification of unpushed changes. The direct-main workflow and current Conventional Commits preference in .ai/rules override older .cursor git-workflow guidance; commits/push/deploy still require owner authorization.
+
+## Print checkpoint additions in the chat
+When updating audit or readiness checkpoints, tell the owner directly in the normal chat what was newly added, what passed and what remains; do not expect them to reread the document. Name and link the exact updated section, ideally its heading line. Keep the documents for durable continuity, and keep the user-facing change summary concise.

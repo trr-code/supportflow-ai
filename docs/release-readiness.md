@@ -1,8 +1,22 @@
 # Release-readiness
 
-Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-28** after package 1 security/data-lifecycle deployment verification.
+Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-28** during package 2 reliable-verification work.
 
-## Current package 1 checkpoint — 2026-10-28
+## Current checkpoint — package 2, 2026-10-28
+
+This summary supersedes the historical tables and checkpoints below. Package 1, including the Excel Unicode correction, is deployed at `d694dbc3af4211b046a32864633834e059e7a4f2`: GitHub Actions [40780287297](https://github.com/trr-code/supportflow-ai/actions/runs/40780287297) passed, and a fresh SSH readback in package 2 confirmed that exact live SHA. The old dialog-focus failure and uncommitted-fix labels below are historical. Excel formula protection and Unicode preservation passed the tested open/save/reopen paths; arbitrary spreadsheet transformations and other applications are not certified.
+
+Package 2 changes are local and uncommitted: deterministic matching embeddings and separate vector/lexical regression coverage, a pre-migration test-runner lock, a tested Pest Browser screenshot-cleanup compatibility workaround, warning enforcement, browser entry-page/focus acceptance checks, and CI tooling maintenance. Verification results and the remaining historical-cause limits are recorded in the audit's package 2 checkpoint. These changes have not run in GitHub Actions or been deployed.
+
+Local package 2 acceptance passed: full `composer test` (Pint, Rector dry run, Larastan, 500 tests / 3,749 assertions) and a separate randomized normal-suite run with seed `20261028` both passed without warnings; each had two optional live-AI skips. All nine deployment-gate scenarios passed. The exact historical retrieval/deadlock causes remain qualified in the audit. Review/approval for commit and push is the next release step; a successful local run cannot verify the edited GitHub workflow.
+
+**Optional live-AI follow-up:** at the owner's request, both previously skipped OpenAI smoke tests were run separately and passed: two tests / 10 assertions, no skips or warnings. Real ticket triage produced a summary; real invoice extraction preserved the review boundary, expected fixture fields, token accounting and absence of retained AI payload. Only fictional project test data was sent. This verifies those two local API paths, not the broader package 4 AI-quality evaluation or the unpushed CI workflow.
+
+The owner prefers multiple Octane workers when capacity permits. One worker is the current temporary production setting, not a permanent owner requirement. Package 5 will measure capacity and assess two workers, stopping CareerForge if useful, and a larger or separate server if needed. No worker/server change or CareerForge removal is part of package 2.
+
+Package 3 still owns the full mobile/tablet/zoom/accessibility and showroom design review; package 4 owns AI answer/tone acceptance; package 5 owns performance, billing, backups/recovery and worker capacity. The new browser checks establish a small regression baseline, not full device or accessibility sign-off. Commits, pushes and deployment require the owner's approval.
+
+## Historical package 1 checkpoint — 2026-10-28
 
 **Excel follow-up:** the actual exporter passed a desktop Excel 16.0.20527.20088 formula-cell check both on first open and after CSV save/close/reopen. That replaces the earlier wholly unverified Excel check for the tested examples only. Direct opening misdecoded full-width Unicode symbols, so F04 now has a concrete export-encoding compatibility follow-up; a page redesign will not fix it. See the audit's “F04 desktop Excel acceptance” checkpoint. No app-code change or deployment was made for this check.
 
@@ -14,7 +28,7 @@ Next is package 2: reproducible verification and current status, including the i
 
 Do not treat a local Feature pass as Forge verification. Do not treat a Forge deploy as readiness to show clients.
 
-## Gates
+## Historical gates — superseded by the current checkpoint above
 
 | Gate | Meaning | Current status |
 | --- | --- | --- |
@@ -155,7 +169,7 @@ These stay **Open**. They are not passed.
 
 Passwordless Agent desk, simulated send, caps/TTL, seeded Harbor catalog, regex injection gate as a demo control, estimated `AiRun` cost. No org tenancy, email, or evals-in-CI. Do not delete CareerForge or shared Lucid resources. Do not change unique/`tries`.
 
-## Next action
+## Historical next action — superseded by the current checkpoint above
 
 1. Device check now: Preview real upload on Forge Your documents (`/demo/documents` or `/preview`). One of your files, ≤ 8 MB → Upload → Ready for answers → ask a question only that file can answer.
 2. Then, in order: invoice PDF extract → chat mic → ticket mic → iPad → optional leftover AI-unavailable Retry → optional Forge follow-up/Stop.

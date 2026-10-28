@@ -24,5 +24,6 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Services/DemoScenarioService.php, app/Services/TicketIntakeService.php, app/Services/SuggestedReplyService.php, app/Services/ChatService.php, app/Services/KnowledgeIndexService.php, app/Services/RetrievalService.php, app/Services/SupplierInvoiceExport.php | .ai/rules/services.md |
 | tests/Stress/** | .ai/rules/stress.md |
 | app/Support/Chat*.php, app/Support/CitedChunkIds.php, app/Support/CitedSources.php, app/Support/ChatFollowUpQuery.php, app/Support/DocumentTextExtractor.php | .ai/rules/support.md |
+| tests/** | .ai/rules/tests.md |
 | resources/views/** | .ai/rules/views.md |
 | .github/workflows/tests.yml | .ai/rules/workflows.md |
