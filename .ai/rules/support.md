@@ -4,6 +4,7 @@ paths:
   - app/Support/CitedChunkIds.php
   - app/Support/CitedSources.php
   - app/Support/ChatFollowUpQuery.php
+  - app/Support/DocumentTextExtractor.php
 ---
 
 # Support
@@ -22,3 +23,6 @@ A follow-up of at most three words with no topic of its own, such as “time” 
 
 ## Underspecified follow-ups keep the previous citations
 When a follow-up is contextual, ChatFollowUpPassages merges the immediately previous assistant message's cited chunks ahead of the new search, still within the retrieval limit. A gap with no citations does not pull an older subject forward. An explicit new question stays current-query only. Never prefix a ChatInjectionGate-blocked turn.
+
+## Parser subprocess output must ignore parent queue quiet mode
+Forge's existing queue:work uses --quiet, which sets SHELL_VERBOSITY=-1 and otherwise suppresses the child Artisan command's JSON response. Set SHELL_VERBOSITY=0 only in the parser subprocess environment; preserve parent worker flags and parser time/memory limits. Keep the real-subprocess quiet-worker regression and verify invoice/document uploads on Forge after parser changes.

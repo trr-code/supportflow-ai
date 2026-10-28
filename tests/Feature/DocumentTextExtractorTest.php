@@ -11,6 +11,30 @@ use Symfony\Component\Process\Exception\ProcessTimedOutException as SymfonyTimeo
 use Symfony\Component\Process\Process as SymfonyProcess;
 
 // Real subprocesses here only read small fixtures; no provider requests are made.
+test('quiet queue workers do not suppress the parser response', function () {
+    $previous = [getenv('SHELL_VERBOSITY'), $_ENV['SHELL_VERBOSITY'] ?? null, $_SERVER['SHELL_VERBOSITY'] ?? null];
+    putenv('SHELL_VERBOSITY=-1');
+    $_ENV['SHELL_VERBOSITY'] = '-1';
+    $_SERVER['SHELL_VERBOSITY'] = '-1';
+
+    try {
+        expect(app(DocumentTextExtractor::class)->extract(base_path('tests/Fixtures/supplier-invoice.pdf'), 'pdf'))
+            ->toContain('Northwind Supply');
+    } finally {
+        putenv($previous[0] === false ? 'SHELL_VERBOSITY' : 'SHELL_VERBOSITY='.$previous[0]);
+        if ($previous[1] === null) {
+            unset($_ENV['SHELL_VERBOSITY']);
+        } else {
+            $_ENV['SHELL_VERBOSITY'] = $previous[1];
+        }
+        if ($previous[2] === null) {
+            unset($_SERVER['SHELL_VERBOSITY']);
+        } else {
+            $_SERVER['SHELL_VERBOSITY'] = $previous[2];
+        }
+    }
+});
+
 test('isolated extraction preserves supported document formats', function (string $fixture, string $expected) {
     $text = app(DocumentTextExtractor::class)->extract(base_path('tests/Fixtures/'.$fixture), pathinfo($fixture, PATHINFO_EXTENSION));
 

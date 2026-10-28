@@ -15,6 +15,7 @@ class DocumentTextExtractor
 
         try {
             $result = Process::path(base_path())
+                ->env(['SHELL_VERBOSITY' => '0'])
                 ->timeout((int) config('supportflow.workspaces.extract_seconds', 30))
                 ->run([
                     (string) config('supportflow.workspaces.extract_php_binary'),
