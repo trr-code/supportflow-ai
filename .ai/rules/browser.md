@@ -13,3 +13,6 @@ Playwright locator clicks retry after Livewire removes the button, so Back to ti
 
 ## Touch taps hit wire:click once
 Touch coverage uses a hasTouch viewport with isMobile false and a width under 1280 so the queue stays at 11 rows. Tap the control once with Playwright's element tap so the wire:click handler runs. Do not add a mouse click on that same control, call the Livewire method directly, or swallow a timeout. A mouse click on a touch-emulated device can reload the page.
+
+## Browser tests use built assets even when Vite is running
+BrowserTestCase sets Vite::useHotFile to storage/framework/testing-vite.hot so tests use public/build instead of the developer public/hot server. Development HMR reloads can destroy polling test execution contexts. Build assets before browser tests; keep the assertion that test HTML excludes @vite/client.
