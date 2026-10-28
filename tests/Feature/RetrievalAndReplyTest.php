@@ -25,6 +25,7 @@ use App\Support\RetrievalQuery;
 use App\Support\SuggestedReplyPanelState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Embeddings;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Livewire\Livewire;
 
@@ -159,7 +160,47 @@ test('retrieval returns chunks above the minimum similarity gate', function () {
     );
 
     expect($results)->not->toBeEmpty()
-        ->and($results->first()['similarity'])->toBeGreaterThan(0.05);
+        ->and($results->first()['similarity'])->toBeGreaterThan(0.05)
+        ->and($results->first()['similarity'])->toBe(1.0);
+});
+
+test('vector-only retrieval excludes below-threshold chunks without lexical rescue', function () {
+    $dimensions = (int) config('supportflow.embeddings.dimensions');
+    $queryVector = array_fill(0, $dimensions, 0.0);
+    $queryVector[0] = 1.0;
+    $orthogonal = array_fill(0, $dimensions, 0.0);
+    $orthogonal[1] = 1.0;
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Archive', 'slug' => 'vector-gate', 'category' => 'general',
+        'body' => 'Archive', 'is_published' => true, 'is_seeded' => true,
+    ]);
+    $matching = $article->chunks()->create(['body' => 'First passage', 'embedding' => $queryVector]);
+    $article->chunks()->create(['body' => 'Second passage', 'embedding' => $orthogonal]);
+    Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $queryVector));
+
+    $results = app(RetrievalService::class)->search('quasar', KnowledgeCorpus::harbor(), 4, 0.5);
+
+    expect($results->pluck('chunk.id')->all())->toBe([$matching->id]);
+    expect($results->pluck('similarity')->all())->toBe([1.0]);
+});
+
+test('lexical retrieval can return a passage when its vector is below the similarity threshold', function () {
+    $dimensions = (int) config('supportflow.embeddings.dimensions');
+    $queryVector = array_fill(0, $dimensions, 0.0);
+    $queryVector[0] = 1.0;
+    $orthogonal = array_fill(0, $dimensions, 0.0);
+    $orthogonal[1] = 1.0;
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Quasar', 'slug' => 'lexical-gate', 'category' => 'general',
+        'body' => 'Quasar', 'is_published' => true, 'is_seeded' => true,
+    ]);
+    $chunk = $article->chunks()->create(['body' => 'Quasar archive', 'embedding' => $orthogonal]);
+    Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $queryVector));
+
+    $results = app(RetrievalService::class)->search('quasar', KnowledgeCorpus::harbor(), 4, 0.5);
+
+    expect($results->pluck('chunk.id')->all())->toBe([$chunk->id]);
+    expect($results->pluck('similarity')->all())->toBe([0.5]);
 });
 
 test('below-threshold retrieval escalates instead of drafting from classification confidence', function () {

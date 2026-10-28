@@ -96,15 +96,18 @@ function fakeTriagePayload(array $overrides = []): array
 }
 
 /**
- * Point stored chunks and later Embeddings::for() calls at the same official fake vector
- * so pgvector tests can assert a retrieval hit without a custom embedding model.
+ * Point stored chunks and later Embeddings::for() calls at the same unit vector
+ * so retrieval hits do not depend on random fake embeddings.
  *
  * @param  list<float>|null  $vector
  * @return list<float>
  */
 function fakeMatchingKnowledgeEmbeddings(?array $vector = null): array
 {
-    $vector ??= Embeddings::fakeEmbedding((int) config('supportflow.embeddings.dimensions', 1536));
+    if ($vector === null) {
+        $vector = array_fill(0, (int) config('supportflow.embeddings.dimensions', 1536), 0.0);
+        $vector[0] = 1.0;
+    }
 
     KnowledgeChunk::query()->each(function (KnowledgeChunk $chunk) use ($vector): void {
         $chunk->forceFill(['embedding' => $vector])->save();
