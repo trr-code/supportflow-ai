@@ -40,6 +40,11 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # Fail on every advisory. Any temporary exception needs owner approval,
+      # an advisory ID, a reason, and an expiry date in the reviewed change.
+      - name: Audit Composer dependencies
+        run: composer audit --locked --abandoned=fail
+
       - name: Copy environment
         run: |
           cp .env.example .env
@@ -61,6 +66,9 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci
+
+      - name: Audit Node dependencies
+        run: npm audit
 
       - name: Build frontend assets
         run: npm run build
