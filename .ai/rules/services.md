@@ -6,6 +6,7 @@ paths:
   - app/Services/ChatService.php
   - app/Services/KnowledgeIndexService.php
   - app/Services/RetrievalService.php
+  - app/Services/SupplierInvoiceExport.php
 ---
 
 # Services
@@ -48,3 +49,6 @@ Contextual follow-ups still search the previous non-gated user turn plus the cur
 
 ## Batch retrieval embeddings in one generate()
 RetrievalService::search() must embed the visitor query plus matching topic/facet catalog strings in one Embeddings::for()->generate() call (embeddingsFor/embedMany). Sequential embed() round-trips sit on the Octane worker before the first chat delta. Do not add Forge Octane workers to chase concurrent chat TTFB; 1 worker still serializes overlapping POST /chat/stream.
+
+## Invoice CSV declares UTF-8 for Excel and keeps formula protection
+Invoice CSV starts with one UTF-8 BOM so Excel can recognize non-ASCII supplier/line text on opening. Preserve the existing protective tab on formula-like text and RFC-style CSV quoting, readable decimal amounts and JSON integer cents. Test the actual download route with multilingual text, a full-width formula prefix, quotes/commas and JSON fidelity. CSV consumers must account for the BOM before reading the first header; do not substitute page styling for spreadsheet acceptance.

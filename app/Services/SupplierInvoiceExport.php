@@ -16,6 +16,8 @@ class SupplierInvoiceExport
             return '';
         }
 
+        fwrite($handle, "\xEF\xBB\xBF");
+
         fputcsv($handle, [
             'Supplier',
             'Invoice number',

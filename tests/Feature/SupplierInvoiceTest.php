@@ -172,6 +172,46 @@ test('a confirmed csv uses decimal amounts and json keeps cents', function () {
         ->assertForbidden();
 });
 
+test('csv opens as utf8 in Excel while preserving protected text and json values', function () {
+    $token = str_repeat('u', 64);
+    $description = '＝2+2 — 靴下, "été"';
+    $invoice = SupplierInvoice::factory()->confirmed()->create([
+        'token_hash' => hash('sha256', $token),
+        'supplier_name' => 'Café 北風',
+        'invoice_number' => 'ÉTÉ-2026',
+        'currency' => 'EUR',
+        'tax_cents' => 10,
+        'stated_total_cents' => 1999,
+    ]);
+    $invoice->lines()->create([
+        'position' => 1, 'description' => $description, 'quantity' => 1,
+        'unit_price_cents' => 1989, 'stated_line_total_cents' => 1989,
+    ]);
+
+    $csv = $this->withCookie(SupplierInvoiceAccess::COOKIE, $token)
+        ->get(route('documents.invoices.export.csv', $invoice))
+        ->assertOk()->assertHeader('Content-Type', 'text/csv; charset=UTF-8')->streamedContent();
+    expect($csv)->toStartWith("\xEF\xBB\xBFSupplier,");
+    $stream = fopen('php://temp', 'r+');
+    fwrite($stream, substr($csv, 3));
+    rewind($stream);
+    $headings = fgetcsv($stream, escape: '');
+    $row = fgetcsv($stream, escape: '');
+    fclose($stream);
+
+    expect($headings)->toHaveCount(10)->and($headings[0])->toBe('Supplier')
+        ->and($row)->toHaveCount(10)
+        ->and([$row[0], $row[1], $row[6], $row[8]])->toBe(['Café 北風', 'ÉTÉ-2026', "\t".$description, '19.89']);
+
+    $json = $this->withCookie(SupplierInvoiceAccess::COOKIE, $token)
+        ->get(route('documents.invoices.export.json', $invoice))->assertOk()->streamedContent();
+    $payload = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+    expect($json)->toStartWith('{')
+        ->and($payload['supplier_name'])->toBe('Café 北風')
+        ->and($payload['lines'][0]['description'])->toBe($description)
+        ->and($payload['stated_total_cents'])->toBe(1999);
+});
+
 test('the first upload stays visible before the browser sends the cookie back', function () {
     SupplierInvoiceExtractionAgent::fake([[
         'supplier_name' => 'Northwind Supply',

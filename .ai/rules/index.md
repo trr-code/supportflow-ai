@@ -21,7 +21,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Livewire/Pages/TicketCreate.php, app/Livewire/Pages/TicketShow.php, app/Livewire/Pages/TicketStatus.php, app/Livewire/Pages/SupplierInvoicePage.php | .ai/rules/pages.md |
 | resources/views/partials/head.blade.php | .ai/rules/partials.md |
 | database/seeders/KnowledgeSeeder.php | .ai/rules/seeders.md |
-| app/Services/DemoScenarioService.php, app/Services/TicketIntakeService.php, app/Services/SuggestedReplyService.php, app/Services/ChatService.php, app/Services/KnowledgeIndexService.php, app/Services/RetrievalService.php | .ai/rules/services.md |
+| app/Services/DemoScenarioService.php, app/Services/TicketIntakeService.php, app/Services/SuggestedReplyService.php, app/Services/ChatService.php, app/Services/KnowledgeIndexService.php, app/Services/RetrievalService.php, app/Services/SupplierInvoiceExport.php | .ai/rules/services.md |
 | tests/Stress/** | .ai/rules/stress.md |
 | app/Support/Chat*.php, app/Support/CitedChunkIds.php, app/Support/CitedSources.php, app/Support/ChatFollowUpQuery.php, app/Support/DocumentTextExtractor.php | .ai/rules/support.md |
 | resources/views/** | .ai/rules/views.md |
