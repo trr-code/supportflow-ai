@@ -34,6 +34,9 @@ jobs:
           extensions: mbstring, pdo_pgsql
           coverage: none
 
+      - name: Test deployment safety gate
+        run: bash .github/forge-deploy-test.sh
+
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
@@ -87,3 +90,24 @@ jobs:
           path: |
             tests/Browser/Screenshots
             tests/Browser/Traces
+
+  deploy:
+    needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: forge-production
+      cancel-in-progress: false
+    steps:
+      - name: Deploy the tested commit to Forge
+        env:
+          FORGE_DEPLOY_HOOK: ${{ secrets.FORGE_DEPLOY_HOOK }}
+        run: |
+          test -n "$FORGE_DEPLOY_HOOK" || { echo "Missing Forge deploy hook."; exit 1; }
+          curl --fail --silent --show-error --max-time 60 \
+            --output /dev/null --get "$FORGE_DEPLOY_HOOK" \
+            --data-urlencode "forge_deploy_branch=main" \
+            --data-urlencode "forge_deploy_commit=$GITHUB_SHA" \
+            --data-urlencode "ci_commit=$GITHUB_SHA"
