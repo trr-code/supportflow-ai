@@ -1,6 +1,12 @@
 # Release-readiness
 
-Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-28** after the dialog-focus fix, worker revisit, and response-time targets.
+Living status of Stages 0–7 and P0–P3. The showroom follow-on plan is the historical gate; this file is the operator checklist. Last updated **2026-10-28** after package 1 security/data-lifecycle deployment verification.
+
+## Current package 1 checkpoint — 2026-10-28
+
+The tables below retain earlier evidence; this checkpoint supersedes their older CI, invoice/file-picker and local-worker status claims. Application revision `a957299` passed CI run `40771079936` (492 tests, 3,647 assertions; two optional smoke tests skipped) and completed Forge deployment `81501820`. The final release-notes commit changes documentation only; GitHub Actions/Forge history remain authoritative for its execution status. The production invoice upload/extract/correct/confirm/CSV/JSON journey and private-document upload/Ready/cited-answer journey passed with fictional project fixtures. `/up` returned 200, queue/failed-job counts were zero, and the deployed migration, parser binary, scheduler and daily log rotation were verified. Historical AI-content cleanup completed with accounting totals preserved. See [system-design-audit.md](system-design-audit.md), “Package 1 production acceptance,” for evidence and limitations.
+
+Next is package 2: reproducible verification and current status, including the intermittent local test-database deadlock, evaluation warning details and CI tooling notices. Repeated queries stay in package 5; tone polish stays in package 4. Hands-on Excel/LibreOffice CSV transformations, real microphone, mobile/iPad and assistive-technology acceptance remain open in their respective scope. Broader production recovery, provider retention/billing and off-peak capacity checks are not closed by this deployment. No full-showroom-readiness claim is made.
 
 Do not treat a local Feature pass as Forge verification. Do not treat a Forge deploy as readiness to show clients.
 
