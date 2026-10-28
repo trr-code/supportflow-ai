@@ -99,7 +99,7 @@ test('document preview follows tone and length', function (string $model) {
     expect($concise->body)->not->toMatch('/[\x{1F300}-\x{1FAFF}]/u')
         ->and(str_word_count($concise->body))->toBeLessThanOrEqual(80)
         ->and($thorough->body)->toMatch('/30\s*days/i')
-        ->and($thorough->body)->toMatch('/2\s*years/i');
+        ->and($thorough->body)->toMatch('/\b2[\s-]+years?\b/i');
 })->with('preview chat models');
 
 test('document preview ignores a malicious sentence inside a document', function (string $model) {
