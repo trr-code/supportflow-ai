@@ -76,7 +76,8 @@ test('the opened ticket fits the desktop viewport and keeps reply, note, and app
         'viewport' => ['width' => 1440, 'height' => 900],
     ]);
 
-    $page->assertSee('Can I still return the Harbor Trail Pack?')
+    $page->assertSourceMissing('@vite/client')
+        ->assertSee('Can I still return the Harbor Trail Pack?')
         ->assertSee('Maya Chen')
         ->assertSee('Customer request')
         ->assertSee('Reply history')
@@ -281,7 +282,7 @@ test('the opened ticket fits the desktop viewport and keeps reply, note, and app
     $page->fill('#ticket-draft', 'Phone draft stays private.')
         ->click('#ticket-manual-open')
         ->assertSee('Simulate send');
-    expect($page->script("document.activeElement.closest('dialog[open]') !== null"))->toBeTrue();
+    expect(waitUntilScriptIsTrue($page, "document.activeElement.closest('dialog[open]') !== null"))->toBeTrue();
     $page->keys('#ticket-reply', 'Tab');
     expect($page->script("document.activeElement.closest('dialog[open]') !== null"))->toBeTrue();
     $page->type('#ticket-reply', 'Keep this unsent reply.')
@@ -346,6 +347,19 @@ test('the opened ticket fits the desktop viewport and keeps reply, note, and app
         ->click('Approve and send')
         ->assertSee('Reply sent to the customer status page');
 });
+
+function waitUntilScriptIsTrue(object $page, string $expression): bool
+{
+    for ($attempt = 0; $attempt < 25; $attempt++) {
+        if ($page->script($expression)) {
+            return true;
+        }
+
+        usleep(40_000);
+    }
+
+    return (bool) $page->script($expression);
+}
 
 function clickTicketControl(object $page, string $name): void
 {

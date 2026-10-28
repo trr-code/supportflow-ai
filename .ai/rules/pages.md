@@ -26,3 +26,6 @@ After regenerate settles, if the latest event is SuggestionRegenerated with unch
 ## Invoice form uses decimal amounts and does not toast
 Show and accept decimal amounts such as $32.00. Convert with InvoiceMoney string arithmetic and store integer cents. Reject floats and more than two decimal places. CSV uses readable headings and decimal amounts such as 32.00, with the currency code in its own column. JSON stays integer cents.
 Do not toast on save, confirm, extraction finish, refresh, or poll. The checklist, review form, and confirmed heading already show that state. Keep validation beside the fields.
+
+## Focus the manual reply after the dialog opens
+openManualReply and addToComposer must not focus #ticket-reply until its dialog has [open]. Immediate $this->js() focus races Flux opening the modal (inert textarea), so CI can see Simulate send while activeElement is still outside dialog[open]. Retry with requestAnimationFrame until the open dialog holds focus. Keep x-on:close restoring #ticket-manual-open.

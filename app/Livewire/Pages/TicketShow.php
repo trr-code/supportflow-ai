@@ -209,7 +209,7 @@ class TicketShow extends Component
         $this->authorize('update', $this->ticket);
         $this->workspace = 'review';
         $this->manualReply = true;
-        $this->js("document.getElementById('ticket-reply')?.focus()");
+        $this->focusManualReplyComposer();
     }
 
     public function addNote(TicketService $tickets): void
@@ -235,7 +235,7 @@ class TicketShow extends Component
         $this->workspace = 'review';
         $this->manualReply = true;
         $this->customReply = $draft;
-        $this->js("document.getElementById('ticket-reply')?.focus()");
+        $this->focusManualReplyComposer();
     }
 
     public function sendCustom(SuggestedReplyService $replies): void
@@ -392,5 +392,29 @@ class TicketShow extends Component
             $this->draftBody = $pending->body;
             $this->draftReplyId = $pending->id;
         }
+    }
+
+    private function focusManualReplyComposer(): void
+    {
+        $this->js(<<<'JS'
+            const focusManualReply = () => {
+                const reply = document.getElementById('ticket-reply');
+                if (! (reply instanceof HTMLTextAreaElement) || reply.closest('dialog')?.open !== true) {
+                    return false;
+                }
+                reply.focus();
+                return document.activeElement === reply;
+            };
+            if (! focusManualReply()) {
+                let frames = 0;
+                const tick = () => {
+                    if (focusManualReply() || ++frames > 30) {
+                        return;
+                    }
+                    requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            }
+        JS);
     }
 }

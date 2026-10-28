@@ -415,6 +415,7 @@
                     <textarea
                         id="ticket-reply"
                         rows="2"
+                        autofocus
                         wire:model="customReply"
                         class="lucid-composer-field max-h-[calc(1.5rem*7)] min-h-[1.5rem] w-full min-w-0 flex-1 resize-none rounded-lg border border-harbor-sand-deep bg-white px-3 py-1.5 text-sm leading-6 text-harbor-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb]"
                         x-on:keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $el.form?.requestSubmit() }"
