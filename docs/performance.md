@@ -2,6 +2,12 @@
 
 SupportFlow measures HTTP capacity with Pest Stressless only. There is no raw k6 suite. Chat streaming is a separate one-shot `POST /chat/stream` client, never a repeating Stressless GET loop.
 
+## Current local Herd GET verification — 2026-11-09
+
+Ran the 21 previously gated Stressless cases against https://supportflow-ai.test only, sequentially: four smoke, five normal-load/runtime, six higher-load, three stability and three capacity cases. All passed; 20,591 total GET requests had zero failures. Scope was /up, /, /knowledge and /knowledge/return-window; no repeating chat/ticket/dictation writes, Forge traffic, server changes or Octane worker changes. Cookies persisted across iterations. Local PHP test runners used a process-only 512 MB memory allowance; application configuration was unchanged.
+
+At four simultaneous requests, normal-load page p95 was approximately 211–218 ms; 45-second stability page p95 was approximately 214–220 ms. Capacity ladders used the existing levels 2,4,8,12,16,24,32,48,64,96,128 for each representative page. No HTTP-failing plateau was found through 128. The existing capacity predicate tests availability, not latency: all three pages exceeded 500 ms p95 at concurrency 16 (approximately 550–599 ms), and p95 at 128 was 3,882 ms for /, 4,391 ms for /knowledge and 4,093 ms for /knowledge/return-window. Maximum observed capacity request duration was 4,520 ms. Preserve this as a Package 5 latency follow-up; do not equate successful requests at 128 with fast service, a measured maximum capacity, streaming-chat capacity or Forge capacity. Historical Octane measurements below describe a different runtime and remain historical.
+
 ## Local GET capacity (2026-09-19)
 
 Machine: Windows 11, Intel Core i9-10850K (20 logical CPUs / 10 cores), 32 GB RAM, Herd PostgreSQL (`max_connections=100`).

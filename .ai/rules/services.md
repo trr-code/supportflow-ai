@@ -7,6 +7,7 @@ paths:
   - app/Services/KnowledgeIndexService.php
   - app/Services/RetrievalService.php
   - app/Services/SupplierInvoiceExport.php
+  - 'app/Services/**'
 ---
 
 # Services
@@ -52,3 +53,9 @@ RetrievalService::search() must embed the visitor query plus matching topic/face
 
 ## Invoice CSV declares UTF-8 for Excel and keeps formula protection
 Invoice CSV starts with one UTF-8 BOM so Excel can recognize non-ASCII supplier/line text on opening. Preserve the existing protective tab on formula-like text and RFC-style CSV quoting, readable decimal amounts and JSON integer cents. Test the actual download route with multilingual text, a full-width formula prefix, quotes/commas and JSON fidelity. CSV consumers must account for the BOM before reading the first header; do not substitute page styling for spreadsheet acceptance.
+
+## Shared workflow services
+Keep reusable workflow decisions in named services called by controllers, Livewire pages, and jobs.
+
+## Session-owned workflow records
+Reuse the owning service to initialize chat conversations and replacement cases so each workflow keeps its existing ownership scope.

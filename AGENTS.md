@@ -1,6 +1,13 @@
 # SupportFlow AI
 
-Release-readiness: [docs/release-readiness.md](docs/release-readiness.md). Open [.ai/rules/index.md](.ai/rules/index.md) before planning or editing.
+## Start here before editing
+
+- Read the [current handoff](docs/release-readiness.md), then [.ai/rules/index.md](.ai/rules/index.md) and every matching rule. Search the rules for the task keywords too. Current explicit owner decisions take priority over historical notes.
+- **UI work:** follow [.ai/guidelines/ui-review.md](.ai/guidelines/ui-review.md) and its linked walkthrough. Compare shared component roles and inspect the rendered desktop/phone states yourself, including user/assistant bubble colors, corners/tails and source controls. Existing code and passing tests are not design approval. Record unresolved choices instead of guessing.
+- **Verification:** follow [.ai/guidelines/testing-verification.md](.ai/guidelines/testing-verification.md). During visual iteration, run focused checks and inspect the rendered result, then hand back a clearly labelled review preview. Run `composer test` once when the view/batch is approved for completion, before authorized commit/push/deploy, and earlier for risky or broad behavior changes. Account for relevant live-AI/performance checks; the agent runs them, not Terry.
+- **Workspace bottoms:** align fixed middle footer dividers with the Help and instructions dividers on desktop. Leave the middle open when it has no footer. Check the rendered bottom on desktop and phone.
+- **Cleanup:** follow [.ai/guidelines/change-cleanup.md](.ai/guidelines/change-cleanup.md). Remove replaced/abandoned code and temporary diagnostics, preserve shared behavior/tests and unrelated owner work, and reconcile superseded instructions.
+- Keep current decisions in indexed rules, work procedures in guidelines, task-specific sequences in skills, and historical evidence in docs. State what actually passed and what remains; do not claim whole-app acceptance from a sampled view. Do not commit, push or deploy without authorization.
 
 <laravel-boost-guidelines>
 === .ai/livewire-loop-keys rules ===
@@ -136,7 +143,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 # Test Enforcement
 
-- Test every code change by adding or updating a test.
+- Cover changed behavior and important failure modes with meaningful tests. Reuse existing checks for copy/style-only edits; do not add tests that merely repeat markup.
 - Run the affected tests and ensure they pass.
 - Test the changed behavior and its important failure modes, but do not add tests beyond them.
 - Read the `testing-best-practices` skill before writing tests.
@@ -200,6 +207,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
 - Rerun a test after each change to it.
 - Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
-- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
+- Follow the mandatory verification schedule at the top of this file. `composer test` is the approved-batch/release validation gate, not a requirement before each low-risk visual-review preview. Focused Pest checks support previews; they do not establish a full-suite pass. Composer owns test-only memory/timeout. Do not change production settings for test-runner limits.
 
 </laravel-boost-guidelines>

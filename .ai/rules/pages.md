@@ -4,6 +4,7 @@ paths:
   - app/Livewire/Pages/TicketShow.php
   - app/Livewire/Pages/TicketStatus.php
   - app/Livewire/Pages/SupplierInvoicePage.php
+  - 'app/Livewire/Pages/**'
 ---
 
 # Pages
@@ -27,5 +28,17 @@ After regenerate settles, if the latest event is SuggestionRegenerated with unch
 Show and accept decimal amounts such as $32.00. Convert with InvoiceMoney string arithmetic and store integer cents. Reject floats and more than two decimal places. CSV uses readable headings and decimal amounts such as 32.00, with the currency code in its own column. JSON stays integer cents.
 Do not toast on save, confirm, extraction finish, refresh, or poll. The checklist, review form, and confirmed heading already show that state. Keep validation beside the fields.
 
-## Focus the manual reply after the dialog opens
-openManualReply and addToComposer must not focus #ticket-reply until its dialog has [open]. Immediate $this->js() focus races Flux opening the modal (inert textarea), so CI can see Simulate send while activeElement is still outside dialog[open]. Retry with requestAnimationFrame until the open dialog holds focus. Keep x-on:close restoring #ticket-manual-open.
+## Sample invoices use the normal review pipeline
+Offer a fictional sample invoice alongside own-file upload. Both use the same upload admission, rate limits, ownership, extraction job and explicit review/confirmation/export gates; never seed extracted answers or auto-confirm the sample. Repeated sample actions must preserve an active invoice.
+
+## Embedded walkthrough follows child polling state
+Embedded ticket status notifies parent walkthrough only when approved public agent reply presence changes. Embedded TicketShow similarly signals status/pending-draft changes from existing polling. Do not add a second polling loop or full-page refresh. Guide readiness/completion must reflect actual pending drafts/approved public agent messages.
+
+## Reply modes are presentation state; sending remains authorized
+Switch manualReply locally without a server roundtrip. Keep send/save/regenerate actions authorized and validated server-side. Do not restore obsolete modal, Add to composer or server focus-retry handlers for changing editor modes.
+
+## Ticket guide follows the current tool or workspace task
+Details and Activity clicks activate their focused instructions; Sources and primary workspace tabs return to the corresponding workspace guide. Local manual/suggested reply switches clear tool guidance immediately with the existing deferred presentation state and preventScroll focus. Keep selected tool/form state and independent drafts. Persist the guide-context flag through policy draft restoration; do not add another server roundtrip or scrolling workaround for reply switches.
+
+## Showroom Livewire page structure
+Use a PHP component class and a separate Blade view for showroom pages. Account settings have their own single-file component pattern.

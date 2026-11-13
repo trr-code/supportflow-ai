@@ -1,6 +1,7 @@
 ---
 paths:
   - app/Http/Controllers/StreamChatController.php
+  - 'app/Http/Controllers/**'
 ---
 
 # Controllers
@@ -10,3 +11,6 @@ Chat validation, throttle:chat, and recordUser live only on POST chat.stream. Wi
 
 ## Done SSE includes citation labels
 done payloads include id, html, and sources from CitedSources::streamLabels. stopped payloads stay {id} with no sources. Do not wait for Livewire morph to introduce Source: lines.
+
+## Single-purpose HTTP controllers
+Use invokable controllers for single-purpose endpoints. Keep related export formats together in one controller and delegate shared workflow logic to services.

@@ -16,3 +16,6 @@ Touch coverage uses a hasTouch viewport with isMobile false and a width under 12
 
 ## Browser tests use built assets even when Vite is running
 BrowserTestCase sets Vite::useHotFile to storage/framework/testing-vite.hot so tests use public/build instead of the developer public/hot server. Development HMR reloads can destroy polling test execution contexts. Build assets before browser tests; keep the assertion that test HTML excludes @vite/client.
+
+## Wait for asynchronous focus with an executed expectation
+Use Pest Browser Execution::instance()->waitForExpectation with an actual focus assertion, or the existing bounded script-polling helper, before checking editor focus after Livewire mode changes. The currently installed Playwright Page::waitForFunction calls Client::execute without consuming the generator, so it does not establish that the condition finished. Inspect the installed implementation before replacing this workaround; do not patch vendor files.
