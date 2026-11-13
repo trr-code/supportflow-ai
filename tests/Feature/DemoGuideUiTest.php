@@ -6,6 +6,7 @@ use App\Jobs\RecordSyntheticAiFailure;
 use App\Livewire\Chat\Widget;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoSafety;
+use App\Livewire\Pages\DemoWorkspace;
 use App\Livewire\Pages\TicketCreate;
 use App\Livewire\Pages\TicketIndex;
 use App\Livewire\Pages\Welcome;
@@ -19,8 +20,8 @@ use Livewire\Livewire;
 
 test('the prepared question path opens chat without filling or sending', function () {
     Livewire::test(Welcome::class)
-        ->assertSee('Try the workspace')
-        ->assertSee('Clear answers.')
+        ->assertSee('Instructions update as you go.')
+        ->assertSee('Less busywork.')
         ->assertDontSee('Use a return question');
 });
 
@@ -77,9 +78,7 @@ test('fill question ignores unknown keys and streaming turns', function () {
 });
 
 test('use a sample return prefills the ticket form without submitting', function () {
-    Livewire::test(TicketCreate::class)
-        ->assertSee('Use a sample return')
-        ->call('fillSample')
+    Livewire::test(TicketCreate::class, ['prepareSample' => true])
         ->assertSet('customer_name', 'Maya Chen')
         ->assertSet('customer_email', 'maya.chen@example.test')
         ->assertSet('subject', 'Can I still return the Harbor Trail Pack?')
@@ -266,13 +265,11 @@ test('the agent dashboard opens each attention queue and leaves the harbor desk 
         ->assertSee('href="'.route('agent.tickets.index', ['filter' => 'escalated']).'"', false)
         ->assertSee('href="'.route('agent.tickets.index', ['filter' => 'failed']).'"', false);
 
-    expect(file_get_contents(resource_path('views/livewire/pages/demo-workspace.blade.php')))
-        ->toContain('Open ticket queue')
-        ->toContain('Open Agent desk')
-        ->toContain("route('agent.tickets.index')")
-        ->and(file_get_contents(resource_path('views/components/demo-chrome.blade.php')))
-        ->toContain("route('dashboard')");
-
+    Livewire::test(DemoWorkspace::class)
+        ->call('showHumanReview')
+        ->assertSet('center', 'human')
+        ->assertSee('Use a prepared ticket')
+        ->assertSee('Write a ticket');
     Livewire::withQueryParams(['filter' => 'failed'])
         ->test(TicketIndex::class)
         ->assertSet('filter', 'failed');

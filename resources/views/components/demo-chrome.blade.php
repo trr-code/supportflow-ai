@@ -9,7 +9,7 @@
     <nav class="order-3 flex w-full items-center gap-7 text-sm text-white lg:order-2 lg:ms-6 lg:w-auto lg:flex-1" aria-label="Lucid">
         <a href="{{ route('demo.harbor') }}" wire:navigate @class([
             'relative px-0.5 py-2.5 hover:text-[#d5c5fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d5c5fc]',
-            'after:absolute after:inset-x-0 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#d5c5fc]' => request()->routeIs('demo.harbor', 'demo.documents', 'demo.invoices', 'demo.replacement'),
+            'after:absolute after:inset-x-0 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#d5c5fc]' => request()->routeIs('demo.harbor', 'demo.documents', 'demo.invoices'),
         ])>
             Demos
         </a>

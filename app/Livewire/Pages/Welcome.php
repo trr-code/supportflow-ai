@@ -12,6 +12,10 @@ class Welcome extends Component
 
     public function render(): View
     {
-        return view('livewire.pages.welcome')->layout('components.layouts.lucid');
+        return view('livewire.pages.welcome')->layout('components.layouts.lucid', [
+            'metaTitle' => 'Lucid | AI for customer support and business automation',
+            'description' => 'Explore working AI demos for customer support, document answers, invoice review, and approved order actions. Custom software. Practical AI.',
+            'canonical' => route('home'),
+        ]);
     }
 }

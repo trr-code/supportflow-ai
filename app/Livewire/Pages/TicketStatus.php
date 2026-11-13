@@ -6,6 +6,7 @@ use App\Enums\MessageAuthorType;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\Ticket;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class TicketStatus extends Component
@@ -13,6 +14,11 @@ class TicketStatus extends Component
     use HeartbeatsDemoSession;
 
     public Ticket $ticket;
+
+    public bool $embedded = false;
+
+    #[Locked]
+    public ?bool $lastHasSentReply = null;
 
     public function mount(string $publicToken): void
     {
@@ -40,8 +46,14 @@ class TicketStatus extends Component
             ->orderBy('id')
             ->get();
 
+        $hasSentReply = $messages->contains('author_type', MessageAuthorType::Agent);
+        if ($this->embedded && $this->lastHasSentReply !== null && $this->lastHasSentReply !== $hasSentReply) {
+            $this->dispatch('ticket-walkthrough-changed');
+        }
+        $this->lastHasSentReply = $hasSentReply;
+
         return view('livewire.pages.ticket-status', [
             'messages' => $messages,
-        ])->layout('components.layouts.public', ['title' => $this->ticket->reference]);
+        ])->layout('components.layouts.lucid', ['title' => $this->ticket->reference]);
     }
 }

@@ -1,17 +1,19 @@
 @props([
     'status',
+    'label' => null,
 ])
 
 @php
-    $label = $status instanceof \App\Enums\TicketStatus ? $status->label() : (string) $status;
+    $label = $label ?? ($status instanceof \App\Enums\TicketStatus ? $status->label() : (string) $status);
     $value = $status instanceof \App\Enums\TicketStatus ? $status->value : (string) $status;
     $classes = match ($value) {
-        'submitted' => 'bg-harbor-sand-deep text-harbor-ink ring-1 ring-inset ring-harbor-pine/25',
-        'triaging' => 'bg-harbor-ocean/10 text-harbor-ocean ring-1 ring-inset ring-harbor-ocean/35',
-        'awaiting_review' => 'bg-amber-200 text-amber-950 ring-1 ring-inset ring-amber-400/70',
-        'escalated' => 'bg-orange-100 text-orange-950 ring-1 ring-inset ring-orange-400/80',
-        'ai_failed' => 'bg-harbor-coral/15 text-red-950 ring-1 ring-inset ring-harbor-coral/45',
-        'resolved', 'waiting_on_customer' => 'bg-emerald-100 text-emerald-950 ring-1 ring-inset ring-emerald-400/70',
+        'submitted', 'queued', 'processing' => 'bg-blue-50 text-blue-950 ring-1 ring-inset ring-blue-200',
+        'triaging' => 'bg-blue-50 text-blue-950 ring-1 ring-inset ring-blue-200',
+        'awaiting_review' => 'bg-amber-50 text-amber-950 ring-1 ring-inset ring-amber-200',
+        'escalated' => 'bg-orange-50 text-orange-950 ring-1 ring-inset ring-orange-200',
+        'ai_failed', 'failed' => 'bg-red-50 text-red-950 ring-1 ring-inset ring-red-200',
+        'resolved', 'ready' => 'bg-emerald-50 text-emerald-950 ring-1 ring-inset ring-emerald-200',
+        'waiting_on_customer' => 'bg-zinc-100 text-zinc-800 ring-1 ring-inset ring-zinc-200',
         default => 'bg-harbor-sand-deep text-harbor-ink ring-1 ring-inset ring-harbor-pine/25',
     };
     $mark = match ($value) {
@@ -26,7 +28,7 @@
     };
 @endphp
 
-<span {{ $attributes->merge(['class' => 'inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold '.$classes]) }} wire:key="status-{{ $value }}">
+<span {{ $attributes->merge(['class' => 'inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold '.$classes, 'wire:key' => 'status-'.$value]) }}>
     <span aria-hidden="true" class="size-1.5 shrink-0 bg-current {{ $mark }}"></span>
     <span class="truncate">{{ $label }}</span>
 </span>

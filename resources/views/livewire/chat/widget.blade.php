@@ -35,71 +35,7 @@
         streamUrl: @js(route('chat.stream')),
         streamProbeUrl: @js(url('/robots.txt')),
         streamStallMs: 20000,
-        citeOpen: false,
-        citeHover: false,
-        citeFocus: false,
-        citeCloseTimer: null,
-        citeTitle: '',
-        citeExcerpt: '',
-        citeTop: 0,
-        citeLeft: 0,
-        openCite(event) {
-            const el = event.currentTarget
-            if (! el) {
-                return
-            }
-            clearTimeout(this.citeCloseTimer)
-            const rect = el.getBoundingClientRect()
-            const width = 256
-            this.citeTitle = el.dataset.citeTitle || ''
-            this.citeExcerpt = el.dataset.citeExcerpt || ''
-            this.citeLeft = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
-            const below = rect.bottom + 8
-            this.citeTop = below + 160 > window.innerHeight ? Math.max(8, rect.top - 160) : below
-            this.citeOpen = true
-        },
-        pointerOverCite(event) {
-            this.citeHover = true
-            this.openCite(event)
-        },
-        focusCite(event) {
-            const el = event.currentTarget
-            if (! el || ! el.matches(':focus-visible')) {
-                return
-            }
-            this.citeFocus = true
-            this.openCite(event)
-        },
-        pointerLeftCite() {
-            this.citeHover = false
-            this.queueCiteClose()
-        },
-        focusLeftCite() {
-            this.citeFocus = false
-            this.queueCiteClose()
-        },
-        pointerOverPreview() {
-            this.citeHover = true
-            clearTimeout(this.citeCloseTimer)
-        },
-        pointerLeftPreview() {
-            this.citeHover = false
-            this.queueCiteClose()
-        },
-        queueCiteClose() {
-            clearTimeout(this.citeCloseTimer)
-            this.citeCloseTimer = setTimeout(() => {
-                if (! this.citeHover && ! this.citeFocus) {
-                    this.citeOpen = false
-                }
-            }, 120)
-        },
-        closeCite() {
-            clearTimeout(this.citeCloseTimer)
-            this.citeHover = false
-            this.citeFocus = false
-            this.citeOpen = false
-        },
+        ...window.lucidCitationPreview(),
         transcriptEl() {
             const root = this.$root ?? this.$el
             if (! root) {
@@ -657,6 +593,9 @@
     @offline.window="failOpenStream()"
     @online.window="commitLivewireRecovery()"
 >
+    @if ($inline)
+        <x-lucid.policy-draft :storage-key="'policy-chat-'.$conversationId" :version="(string) $conversationId" :fields="['question']" />
+    @endif
     @if ($open)
         <div @class([
             'chat-dock-panel flex w-full min-w-0 flex-col overflow-hidden',
@@ -714,7 +653,7 @@
                         @if ($message->role === 'user')
                             <div class="text-end">
                                 @if ($inline)
-                                    <p class="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eee7ff] px-3 py-2 text-left text-harbor-ink">{{ $message->body }}</p>
+                                    <p class="showroom-message-bubble is-user whitespace-pre-wrap">{{ $message->body }}</p>
                                 @else
                                     <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $message->body }}</p>
                                 @endif
@@ -722,7 +661,7 @@
                         @else
                             <div @class([
                                 'inline-block break-words px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4',
-                                'max-w-[85%] rounded-2xl bg-harbor-sand' => $inline,
+                                'showroom-message-bubble is-assistant' => $inline,
                                 'max-w-full rounded-lg bg-harbor-sand' => ! $inline,
                             ])>
                                 @if ($inline)
@@ -748,8 +687,10 @@
                 @empty
                     @unless ($streaming)
                         @if ($inline)
-                            <div class="text-start">
-                                <p class="inline-block max-w-[85%] rounded-2xl bg-harbor-sand px-3 py-2 text-start text-harbor-ink">{{ "Hi, I'm Lucid, the AI support assistant for Harbor & Co., a fictional outdoor retailer." }}</p>
+                            <div class="showroom-chat-welcome">
+                                <x-lucid.icon name="chat" />
+                                <h2>How can we help?</h2>
+                                <p>Choose an example or ask your own question.</p>
                             </div>
                         @else
                             <p class="text-zinc-500">Ask a question about Harbor Outfitters policies. If it isn’t in the knowledge base, I’ll suggest a ticket.</p>
@@ -777,7 +718,7 @@
                 @if ($streaming && $pendingQuestion !== '')
                     <div wire:key="chat-pending-user" class="text-end" x-show="!streamFailed">
                         @if ($inline)
-                            <p class="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eee7ff] px-3 py-2 text-left text-harbor-ink">{{ $pendingQuestion }}</p>
+                            <p class="showroom-message-bubble is-user whitespace-pre-wrap">{{ $pendingQuestion }}</p>
                         @else
                             <p class="inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">{{ $pendingQuestion }}</p>
                         @endif
@@ -788,7 +729,7 @@
                         <p class="sr-only">Assistant is writing</p>
                         <div @class([
                             'inline-block break-words px-3 py-2 text-start text-harbor-ink [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4',
-                            'max-w-[85%] rounded-2xl bg-harbor-sand' => $inline,
+                            'showroom-message-bubble is-assistant' => $inline,
                             'max-w-full rounded-lg bg-harbor-sand' => ! $inline,
                         ]) x-html="liveHtml === '' ? 'Thinking…' : liveHtml"></div>
                         <ul class="mt-1 text-start text-xs text-zinc-500" x-show="! {{ $inline ? 'true' : 'false' }} && liveSources.length > 0">
@@ -803,15 +744,9 @@
                 @endif
             </div>
             @if ($inline && $messages->isEmpty() && ! $streaming)
-                <div class="flex shrink-0 flex-col items-start gap-1.5 px-3 pt-1" role="group" aria-label="Suggested questions">
-                    @foreach ($primaryPrompts as $key => $prompt)
-                        <button
-                            type="button"
-                            wire:key="inline-prompt-{{ $key }}"
-                            wire:click="fillQuestion('{{ $key }}')"
-                            class="max-w-full rounded-2xl bg-harbor-sand px-3 py-1.5 text-left text-xs leading-snug text-harbor-ink hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]"
-                        >{{ $prompt['question'] }}</button>
-                    @endforeach
+                <div class="showroom-chat-examples" role="group" aria-label="Suggested questions">
+                    <button type="button" wire:click="fillQuestion('return_window')"><x-lucid.icon name="restart" />Ask about returns</button>
+                    <button type="button" wire:click="fillReplacementExample"><x-lucid.icon name="box" />Replace a damaged item</button>
                 </div>
             @endif
             <form wire:submit="send" @class([
@@ -821,12 +756,12 @@
             ]) x-on:submit="pinNewest(); if (livewireRecoveryPending) { $event.preventDefault(); $event.stopImmediatePropagation(); commitLivewireRecovery() }">
                 @if ($inline)
                     <label for="chat-question" class="sr-only">Ask about returns, shipping, warranty</label>
-                    <div class="relative -top-0.5 flex items-end gap-1 rounded-[22px] border border-harbor-sand-deep bg-white py-1.5 ps-3 pe-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#8764cb]">
+                    <div class="relative -top-0.5 flex items-end gap-1 showroom-composer rounded-xl border border-harbor-sand-deep bg-white py-1.5 ps-3 pe-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#8764cb]">
                         <textarea
                             id="chat-question"
                             rows="1"
                             wire:model="question"
-                            placeholder="Ask about returns, shipping, warranty…"
+                            placeholder="Ask Harbor support…"
                             x-bind:disabled="$wire.streaming && !streamFailed"
                             @if ($errors->has('question')) aria-describedby="chat-question-error" @endif
                             class="lucid-composer-field max-h-[calc(1.5rem*7)] min-h-[1.5rem] w-full min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm leading-6 text-harbor-ink outline-none placeholder:text-[#64617d]"
@@ -834,6 +769,7 @@
                             x-effect="$wire.question; resizeComposer($el)"
                             x-on:keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); $el.form?.requestSubmit() }"
                         ></textarea>
+                        <div class="lucid-reply-editor-tools">
                         <x-dictation-button target="question" noun="question" variant="icon" />
                         @if ($streaming)
                             <button
@@ -841,7 +777,7 @@
                                 type="button"
                                 wire:click.async="$js.stop"
                                 x-show="!streamFailed"
-                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb]"
+                                class="showroom-send grid size-9 shrink-0 place-items-center rounded-lg bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb]"
                                 aria-label="Stop"
                             >
                                 <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
@@ -851,7 +787,7 @@
                                 type="submit"
                                 x-show="streamFailed"
                                 style="display: none;"
-                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
+                                class="showroom-send grid size-9 shrink-0 place-items-center rounded-lg bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
                                 aria-label="Send"
                             >
                                 <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6" /></svg>
@@ -860,12 +796,13 @@
                             <button
                                 wire:key="chat-send"
                                 type="submit"
-                                class="grid size-9 shrink-0 place-items-center rounded-full bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
+                                class="showroom-send grid size-9 shrink-0 place-items-center rounded-lg bg-[#eee7ff] text-harbor-ink hover:bg-[#e4d9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8764cb] disabled:opacity-40"
                                 aria-label="Send"
                             >
                                 <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6" /></svg>
                             </button>
                         @endif
+                        </div>
                     </div>
                 @else
                     <flux:input
@@ -903,13 +840,16 @@
                     style="display: none;"
                 ></p>
                 <flux:error name="question" id="chat-question-error" />
+                @if ($inline)
+                    <p class="mt-2 text-xs text-[#716a81]">AI assistant · Demo data only</p>
+                @endif
             </form>
         </div>
 
         <flux:modal name="confirm-new-conversation" class="max-w-lg">
             <div class="space-y-4">
                 <div>
-                    <flux:heading size="lg">Start a new conversation?</flux:heading>
+                    <flux:heading size="lg" level="2" class="lucid-content-heading">Start a new conversation?</flux:heading>
                     <flux:subheading class="mt-2">
                         This permanently deletes the current thread. This demo does not keep a conversation history list.
                     </flux:subheading>
@@ -949,19 +889,7 @@
     @endunless
 
     @if ($inline)
-        <div
-            x-cloak
-            x-show="citeOpen"
-            data-cite-preview
-            class="pointer-events-auto fixed z-50 w-64 rounded-xl border border-harbor-sand-deep bg-white p-3 shadow-lg"
-            :style="{ top: citeTop + 'px', left: citeLeft + 'px' }"
-            x-on:mouseenter="pointerOverPreview()"
-            x-on:mouseleave="pointerLeftPreview()"
-            role="tooltip"
-        >
-            <p class="text-sm font-semibold text-harbor-ink" x-text="citeTitle"></p>
-            <p class="mt-1 text-sm leading-snug text-harbor-ink" x-text="citeExcerpt"></p>
-        </div>
+        <x-lucid.citation-preview />
     @endif
 
 </div>

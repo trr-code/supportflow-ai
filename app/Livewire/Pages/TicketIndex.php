@@ -22,6 +22,10 @@ class TicketIndex extends Component
 
     public ?string $notice = null;
 
+    public string $noticeTone = 'info';
+
+    public int $noticeRevision = 0;
+
     public bool $showScenarios = false;
 
     public string $scenarioKey = 'supported_answer';
@@ -92,13 +96,18 @@ class TicketIndex extends Component
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = max(1, RateLimiter::availableIn($key));
             $unit = $seconds === 1 ? 'second' : 'seconds';
-            $this->notice = "Reset limit reached. Try again in {$seconds} {$unit}.";
+            $this->notice = "Please wait {$seconds} {$unit} before clearing inactive demo data again.";
+            $this->noticeTone = 'warning';
         } else {
             RateLimiter::hit($key, 60);
             $result = $prune->pruneStale();
-            $this->notice = "Removed {$result['tickets']} stale visitor tickets and {$result['sessions']} idle sessions. Seeded showcase tickets were kept.";
+            $ticketLabel = $result['tickets'] === 1 ? 'ticket' : 'tickets';
+            $visitLabel = $result['sessions'] === 1 ? 'visit' : 'visits';
+            $this->notice = "Cleared {$result['tickets']} inactive visitor {$ticketLabel} and {$result['sessions']} inactive demo {$visitLabel}. Active work and prepared examples were kept.";
+            $this->noticeTone = 'success';
         }
 
+        $this->noticeRevision++;
         $this->dispatch('modal-close', name: 'confirm-demo-reset');
     }
 

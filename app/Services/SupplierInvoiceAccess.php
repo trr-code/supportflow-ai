@@ -45,6 +45,13 @@ class SupplierInvoiceAccess
         return $invoice->load('lines');
     }
 
+    public function leave(Request $request, string $invoiceId): void
+    {
+        if ($this->owned($request, $invoiceId) !== null) {
+            session()->put('invoice_review_left', $invoiceId);
+        }
+    }
+
     public function latest(Request $request): ?SupplierInvoice
     {
         $token = $request->cookie(self::COOKIE);
@@ -58,6 +65,10 @@ class SupplierInvoiceAccess
             ->where('expires_at', '>', now())
             ->latest('created_at')
             ->first();
+
+        if ($invoice !== null && $invoice->id === session()->get('invoice_review_left')) {
+            return null;
+        }
 
         return $invoice?->load('lines');
     }

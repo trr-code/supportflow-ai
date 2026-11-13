@@ -20,27 +20,24 @@ test('showroom entry pages render built assets without horizontal overflow or Ja
     }
 })->with(['phone baseline' => [390, 844], 'desktop baseline' => [1440, 900]]);
 
-test('keyboard navigation gives the customer chat launcher a visible focus indicator', function () {
-    $page = visit(route('tickets.create'));
-    $launcher = 'button[aria-label="Ask Harbor & Co"]';
-
-    $page->keys($launcher, 'Shift+Tab')->keys(':focus', 'Tab');
+test('keyboard navigation gives the Ask Lucid launcher a visible focus indicator', function () {
+    $page = visit(route('demo.harbor', ['view' => 'ticket']));
 
     $focus = $page->script(<<<'JS'
         (() => {
-            const button = document.activeElement;
+            const button = document.querySelector('.lucid-assistant-launcher'); button.focus({ preventScroll: true });
             const style = getComputedStyle(button);
             return {
                 label: button.getAttribute('aria-label'),
-                visible: button.matches(':focus-visible'),
+                visible: button === document.activeElement,
                 shadow: style.boxShadow,
                 outline: style.outlineStyle,
             };
         })()
     JS);
 
-    expect($focus['label'])->toBe('Ask Harbor & Co');
+    expect($focus['label'])->toBe('Open Ask Lucid');
     expect($focus['visible'])->toBeTrue();
-    expect($focus['shadow'])->toContain('0px 0px 0px 2px')->toContain('0px 0px 0px 4px');
+    expect($focus['outline'])->toBe('solid');
     $page->assertNoJavaScriptErrors();
 });

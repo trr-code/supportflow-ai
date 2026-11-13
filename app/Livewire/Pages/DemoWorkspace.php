@@ -3,6 +3,7 @@
 namespace App\Livewire\Pages;
 
 use App\Enums\ReplacementProposalStatus;
+use App\Enums\WorkspaceDocumentStatus;
 use App\Models\ChatMessage;
 use App\Models\DemoSession;
 use App\Models\KnowledgeChunk;
@@ -32,6 +33,8 @@ class DemoWorkspace extends Component
 
     public string $center = 'chat';
 
+    public bool $guideOpen = true;
+
     public bool $prepareTicket = false;
 
     public bool $startBlank = false;
@@ -55,15 +58,25 @@ class DemoWorkspace extends Component
     /** @var Collection<int, KnowledgeChunk>|null */
     private ?Collection $harborChunkCache = null;
 
+    private ?DemoSession $demoSessionCache = null;
+
     /** @var array<string, bool> */
     public array $openGuides = [
         'ask' => true,
+        'sources' => false,
         'workflow' => false,
         'safety' => false,
     ];
 
     #[On('harbor-thread-changed')]
-    public function refreshHarborPanel(): void {}
+    #[On('ticket-reply-sent')]
+    #[On('ticket-walkthrough-changed')]
+    public function refreshHarborPanel(): void
+    {
+        if ($this->pendingProposal() instanceof ReplacementProposal) {
+            $this->guideOpen = true;
+        }
+    }
 
     #[On('harbor-open-ticket')]
     public function openEscalatedTicket(): void
@@ -79,6 +92,60 @@ class DemoWorkspace extends Component
         }
 
         $this->sideTab = $tab;
+        $this->guideOpen = true;
+    }
+
+    public function hideGuide(): void
+    {
+        $this->guideOpen = false;
+        $this->js("requestAnimationFrame(() => document.querySelector('[data-open-guide]')?.focus())");
+    }
+
+    public function showGuide(): void
+    {
+        $this->guideOpen = true;
+        $this->js("requestAnimationFrame(() => document.querySelector('#demo-guide-heading')?.focus())");
+    }
+
+    public function showHumanReview(): void
+    {
+        if ($this->mode !== 'harbor') {
+            return;
+        }
+
+        $this->center = 'human';
+        session(['supportflow.harbor.center' => 'human']);
+    }
+
+    public function restartDemo(ChatService $chat, ReplacementCaseService $replacements): void
+    {
+        if ($this->mode !== 'harbor') {
+            return;
+        }
+
+        $session = $this->demoSession();
+
+        if ($session instanceof DemoSession) {
+            $chat->startNewConversation($session);
+
+            if ($session->replacementCase !== null) {
+                $replacements->reset($session->replacementCase);
+            }
+        }
+
+        session()->forget('supportflow.harbor');
+        $this->redirectRoute('demo.harbor', navigate: true);
+    }
+
+    public function fillReplacementExample(): void
+    {
+        if ($this->mode !== 'harbor') {
+            return;
+        }
+
+        $this->returnToChat();
+        $this->openGuides['workflow'] = true;
+        $this->dispatch('harbor-fill-replacement');
     }
 
     public function toggleGuide(string $section): void
@@ -162,6 +229,7 @@ class DemoWorkspace extends Component
         }
 
         $this->sideTab = 'sources';
+        $this->guideOpen = true;
         $this->inspectedMessageId = $messageId;
         $this->inspectedChunkId = $chunkId;
 
@@ -188,11 +256,31 @@ class DemoWorkspace extends Component
         $this->mode = match (request()->route()?->getName()) {
             'demo.documents' => 'documents',
             'demo.invoices' => 'invoices',
-            'demo.replacement' => 'replacement',
             default => 'harbor',
         };
 
         $this->restoreHarborWalkthrough();
+
+        if ($this->mode === 'harbor' && request()->query('view') === 'ticket') {
+            $this->showTicketForm(request()->boolean('sample'));
+        }
+
+        if ($this->mode === 'harbor' && request()->query('view') === 'chat') {
+            $this->returnToChat();
+            $messageId = filter_var(request()->query('message'), FILTER_VALIDATE_INT);
+            $chunkId = filter_var(request()->query('citation'), FILTER_VALIDATE_INT);
+            if ($messageId !== false && $messageId > 0 && $chunkId !== false && $chunkId > 0) {
+                $chunk = $this->harborChunks()->get($chunkId);
+                if ($chunk instanceof KnowledgeChunk) {
+                    $this->inspectCitation($messageId, (string) $chunk->knowledge_article_id, $chunkId);
+                }
+            }
+        }
+
+        if ($this->mode === 'harbor' && request()->query('example') === 'replacement') {
+            $this->center = 'chat';
+            $this->openGuides['workflow'] = true;
+        }
     }
 
     private function showTicketForm(bool $prepare): void
@@ -246,6 +334,10 @@ class DemoWorkspace extends Component
             $this->prepareTicket = (bool) session('supportflow.harbor.prepare_ticket', false);
             $this->openGuides['workflow'] = true;
         }
+
+        if ($center === 'human') {
+            $this->center = $this->statusToken === null ? 'human' : 'status';
+        }
     }
 
     public function confirmReplacement(ReplacementCaseService $replacements): void
@@ -260,6 +352,8 @@ class DemoWorkspace extends Component
         if (! $replacements->beginConfirm($proposal)) {
             $this->notice = 'That proposal is no longer waiting.';
         }
+
+        $this->demoSessionCache = null;
     }
 
     public function cancelReplacement(ReplacementCaseService $replacements): void
@@ -274,15 +368,16 @@ class DemoWorkspace extends Component
         if (! $replacements->beginCancel($proposal)) {
             $this->notice = 'That proposal is no longer waiting.';
         }
+
+        $this->demoSessionCache = null;
     }
 
     public function render(): View
     {
         $titles = [
             'harbor' => 'Harbor support',
-            'documents' => 'Your documents',
+            'documents' => 'Document chat',
             'invoices' => 'Invoice review',
-            'replacement' => 'Replacements',
         ];
 
         $harborSources = $this->harborSources();
@@ -290,13 +385,26 @@ class DemoWorkspace extends Component
         return view('livewire.pages.demo-workspace', [
             'title' => $titles[$this->mode],
             'proposal' => $this->pendingProposal(),
+            'replacementOutcome' => $this->replacementOutcome(),
             'sourceGroups' => $harborSources['groups'],
             'sourceMessageId' => $harborSources['message_id'],
-            'documents' => $this->sideDocuments(),
+            'hasSentReply' => $this->statusToken !== null && Ticket::query()->where('public_token', $this->statusToken)
+                ->whereHas('messages', fn ($query) => $query->where('visibility', 'public')->where('author_type', 'agent')->whereNotNull('approved_at'))->exists(),
+            'documentStage' => $this->documentStage(),
             'invoice' => $this->sideInvoice(),
             'safetyExamples' => $this->mode === 'harbor' ? $this->safetyExamples() : [],
         ])->layout('components.layouts.lucid', [
             'title' => $titles[$this->mode],
+            'description' => match ($this->mode) {
+                default => 'Try AI customer support with source-backed answers, fictional order replacements, and human review in one Lucid workspace.',
+                'documents' => 'Upload documents and ask questions with supporting sources in a private Lucid demo workspace.',
+                'invoices' => 'Try AI invoice extraction, check totals, correct details, and confirm before exporting with Lucid.',
+            },
+            'canonical' => route(match ($this->mode) {
+                'documents' => 'demo.documents',
+                'invoices' => 'demo.invoices',
+                default => 'demo.harbor',
+            }),
         ]);
     }
 
@@ -335,7 +443,7 @@ class DemoWorkspace extends Component
 
     private function pendingProposal(): ?ReplacementProposal
     {
-        if (! in_array($this->mode, ['harbor', 'replacement'], true)) {
+        if ($this->mode !== 'harbor') {
             return null;
         }
 
@@ -361,7 +469,34 @@ class DemoWorkspace extends Component
     }
 
     /**
-     * @return array{message_id: int|null, groups: list<array{article_id: string, title: string, headings: list<string>, passages: list<array{number: int, chunk_id: int, excerpt: string}>}>}
+     * @return array{busy: bool, status: string|null, reference: string|null}
+     */
+    private function replacementOutcome(): array
+    {
+        $empty = ['busy' => false, 'status' => null, 'reference' => null];
+
+        if ($this->mode !== 'harbor') {
+            return $empty;
+        }
+
+        $case = $this->demoSession()?->replacementCase;
+
+        if ($case === null) {
+            return $empty;
+        }
+
+        $proposal = $case->proposals()->with('request')
+            ->where('generation', $case->generation)->latest()->first();
+
+        return [
+            'busy' => $case->isBusy(),
+            'status' => $proposal?->status->value,
+            'reference' => $proposal?->request?->reference,
+        ];
+    }
+
+    /**
+     * @return array{message_id: int|null, groups: list<array{article_id: string, title: string, policy_url: string|null, headings: list<string>, passages: list<array{number: int, chunk_id: int, excerpt: string}>}>}
      */
     private function harborSources(): array
     {
@@ -399,7 +534,7 @@ class DemoWorkspace extends Component
     }
 
     /**
-     * @return list<array{article_id: string, title: string, headings: list<string>, passages: list<array{number: int, chunk_id: int, excerpt: string}>}>
+     * @return list<array{article_id: string, title: string, policy_url: string|null, headings: list<string>, passages: list<array{number: int, chunk_id: int, excerpt: string}>}>
      */
     private function groupsForMessage(int $messageId): array
     {
@@ -413,10 +548,24 @@ class DemoWorkspace extends Component
         $ids = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
         $chunks = $this->harborChunks()->only($ids);
 
-        return ChatInlineCitations::groups(
+        $groups = ChatInlineCitations::groups(
             $message->body,
             CitedSources::inCitationOrder($chunks, $ids)->all(),
         );
+        $chunksByArticle = $chunks->keyBy('knowledge_article_id');
+
+        return array_map(function (array $group) use ($chunksByArticle, $messageId): array {
+            $article = $chunksByArticle->get($group['article_id'])?->article;
+            $passageIds = array_column($group['passages'], 'chunk_id');
+            $chunkId = in_array($this->inspectedChunkId, $passageIds, true)
+                ? $this->inspectedChunkId
+                : ($passageIds[0] ?? null);
+            $group['policy_url'] = $article !== null && $article->workspace_id === null && $article->is_published && $article->is_seeded
+                ? route('knowledge.show', ['slug' => $article->slug, 'from' => 'chat', 'message' => $messageId, 'citation' => $chunkId])
+                : null;
+
+            return $group;
+        }, $groups);
     }
 
     /**
@@ -471,29 +620,33 @@ class DemoWorkspace extends Component
             ->keyBy('id');
     }
 
-    /**
-     * @return list<array{id: string, name: string}>
-     */
-    private function sideDocuments(): array
+    private function documentStage(): string
     {
         if ($this->mode !== 'documents') {
-            return [];
+            return 'upload';
         }
 
         $workspace = app(WorkspaceAccess::class)->current(request());
 
         if ($workspace === null) {
-            return [];
+            return 'upload';
         }
 
-        return array_values($workspace->documents()
-            ->latest()
-            ->get(['id', 'original_name'])
-            ->map(fn (WorkspaceDocument $document): array => [
-                'id' => $document->id,
-                'name' => $document->original_name,
-            ])
-            ->all());
+        $documents = $workspace->documents()->get(['status']);
+
+        if ($documents->isEmpty()) {
+            return 'upload';
+        }
+
+        if ($documents->contains(fn (WorkspaceDocument $document): bool => in_array($document->status, [WorkspaceDocumentStatus::Queued, WorkspaceDocumentStatus::Processing], true))) {
+            return 'processing';
+        }
+
+        if (! $documents->contains('status', WorkspaceDocumentStatus::Ready)) {
+            return 'failed';
+        }
+
+        return $workspace->conversations()->whereHas('messages', fn ($query) => $query->where('role', 'assistant')->whereJsonLength('cited_chunk_ids', '>', 0))->exists() ? 'answers' : 'ready';
     }
 
     private function sideInvoice(): ?SupplierInvoice
@@ -507,6 +660,10 @@ class DemoWorkspace extends Component
 
     private function demoSession(): ?DemoSession
     {
+        if ($this->demoSessionCache instanceof DemoSession) {
+            return $this->demoSessionCache;
+        }
+
         $id = request()->cookie(DemoSessionService::COOKIE);
 
         if (! is_string($id) || $id === '') {
@@ -515,6 +672,6 @@ class DemoWorkspace extends Component
 
         $session = DemoSession::query()->find($id);
 
-        return $session instanceof DemoSession ? $session : null;
+        return $this->demoSessionCache = $session instanceof DemoSession ? $session : null;
     }
 }

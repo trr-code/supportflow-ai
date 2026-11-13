@@ -10,6 +10,6 @@ class DemoEnvironment extends Component
     public function render(): View
     {
         return view('livewire.pages.demo-environment')
-            ->layout('components.layouts.public', ['title' => 'Demo environment']);
+            ->layout('components.layouts.lucid', ['title' => 'Privacy']);
     }
 }

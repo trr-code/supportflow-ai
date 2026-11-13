@@ -70,7 +70,7 @@ class SupplierInvoiceExtractor
 
         if (! $response instanceof StructuredAgentResponse) {
             $this->recorder->fail($run, 'The invoice extraction did not return fields.');
-            $this->fail($invoiceId, $generation, 'The proposed invoice fields could not be used.');
+            $this->fail($invoiceId, $generation, 'We could read the PDF but couldn’t extract the required invoice details. Try a PDF that shows the supplier, invoice number, date, line items, and total.');
 
             return;
         }
@@ -80,7 +80,7 @@ class SupplierInvoiceExtractor
         $this->recorder->complete($run, $response);
 
         if ($parsed === null) {
-            $this->fail($invoiceId, $generation, 'The proposed invoice fields could not be used.');
+            $this->fail($invoiceId, $generation, 'We could read the PDF but couldn’t extract the required invoice details. Try a PDF that shows the supplier, invoice number, date, line items, and total.');
 
             return;
         }

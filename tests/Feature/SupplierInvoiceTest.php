@@ -16,6 +16,7 @@ use App\Support\WorkspaceCopy;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -500,3 +501,36 @@ function invoicePdf(): UploadedFile
         (string) file_get_contents(base_path('tests/Fixtures/supplier-invoice.pdf')),
     );
 }
+
+test('sample invoice uses extraction and remains subject to review and ownership', function () {
+    SupplierInvoiceExtractionAgent::fake([[
+        'supplier_name' => 'Northwind Supply', 'invoice_number' => 'INV-1001',
+        'issued_on' => '2026-03-01', 'currency' => 'USD', 'tax_cents' => 200,
+        'total_cents' => 3200, 'confidence' => 0.9, 'totals_match' => true,
+        'lines' => [['description' => 'Wool socks', 'quantity' => 2, 'unit_price_cents' => 1500, 'line_total_cents' => 3000]],
+    ]])->preventStrayPrompts();
+    $token = str_repeat('s', 64);
+    $component = Livewire::withCookie(SupplierInvoiceAccess::COOKIE, $token)
+        ->test(SupplierInvoicePage::class)->call('useSample')->assertHasNoErrors()
+        ->assertSet('supplierName', 'Northwind Supply')->assertSet('statedTotal', '$32.00');
+    $invoice = SupplierInvoice::query()->sole();
+    expect($invoice->status)->toBe(SupplierInvoiceStatus::NeedsReview)
+        ->and($invoice->original_name)->toBe('Northwind-sample-invoice.pdf')
+        ->and($invoice->token_hash)->toBe(hash('sha256', $token));
+    Storage::disk('local')->assertExists($invoice->storage_path);
+    $component->call('useSample')->assertHasNoErrors();
+    expect(SupplierInvoice::query()->count())->toBe(1);
+    $component->call('confirm')->assertHasNoErrors();
+    expect($invoice->fresh()->status)->toBe(SupplierInvoiceStatus::Confirmed);
+});
+
+test('sample invoices respect the upload rate limit', function () {
+    $token = str_repeat('r', 64);
+    $key = 'invoice-upload:'.hash('sha256', $token);
+    RateLimiter::hit($key, 60);
+    config(['supportflow.invoices.uploads_per_minute' => 1]);
+    Livewire::withCookie(SupplierInvoiceAccess::COOKIE, $token)
+        ->test(SupplierInvoicePage::class)->call('useSample')->assertHasErrors('document');
+    expect(SupplierInvoice::query()->count())->toBe(0);
+    RateLimiter::clear($key);
+});

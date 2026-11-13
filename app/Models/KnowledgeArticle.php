@@ -50,8 +50,9 @@ class KnowledgeArticle extends Model
 
     public function excerpt(): string
     {
-        $withoutHeadings = preg_replace('/^#+\s+/m', '', $this->body) ?? $this->body;
-        $paragraphs = preg_split('/\n\s*\n/', trim($withoutHeadings)) ?: [];
+        $sections = preg_split('/^\s*#{1,6}\s+.+$/m', $this->body) ?: [];
+        $intro = collect($sections)->first(fn (string $section): bool => trim($section) !== '') ?? '';
+        $paragraphs = preg_split('/\n\s*\n/', trim($intro)) ?: [];
         $first = trim((string) ($paragraphs[0] ?? ''));
         $first = preg_replace('/\s+/', ' ', $first) ?? $first;
 

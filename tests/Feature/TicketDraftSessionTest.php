@@ -12,7 +12,7 @@ test('ticket drafts restore from session after a later visit', function () {
         ->set('product', 'Harbor Trail Pack')
         ->set('description', 'I bought a Harbor Trail Pack 18 days ago. It is unused with tags.');
 
-    $this->get(route('tickets.create'))
+    $this->get(route('demo.harbor', ['view' => 'ticket']))
         ->assertOk()
         ->assertSee('Maya Chen')
         ->assertSee('maya.chen@example.test')
@@ -97,7 +97,7 @@ test('successful submit clears the ticket draft', function () {
     expect($ticket)->not->toBeNull()
         ->and(Ticket::query()->count())->toBe(1);
 
-    $component->assertRedirect(route('tickets.status', ['publicToken' => $ticket->public_token]));
+    $component->assertRedirect(route('demo.harbor'));
 
     Livewire::test(TicketCreate::class)
         ->assertSet('customer_name', '')

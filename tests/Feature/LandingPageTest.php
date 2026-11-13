@@ -17,12 +17,12 @@ test('the home page title is Lucid without a duplicate suffix', function () {
         ->assertDontSee('SupportFlow AI', false);
 
     expect($this->get(route('home'))->getContent())
-        ->toMatch('/<title>\s*Lucid\s*<\/title>/');
+        ->toMatch('/<title>\s*Lucid \| AI for customer support and business automation\s*<\/title>/');
 });
 
 test('the new ticket page suffixes Lucid', function () {
-    expect($this->get(route('tickets.create'))->getContent())
-        ->toMatch('/<title>\s*New ticket - Lucid\s*<\/title>/');
+    expect($this->get(route('demo.harbor', ['view' => 'ticket']))->getContent())
+        ->toMatch('/<title>\s*Harbor support - Lucid\s*<\/title>/');
 });
 
 test('the public layout uses a compact legal footer in document flow', function () {
@@ -48,7 +48,7 @@ test('the public layout uses a compact legal footer in document flow', function 
         ->not->toContain('overflow-y-auto')
         ->and($home)
         ->toContain('Lucid')
-        ->toContain('Clear answers.')
+        ->toContain('Less busywork.')
         ->toContain('© '.now()->year)
         ->toContain('href="'.route('demo.harbor'))
         ->not->toContain('Harbor &amp; Co <span class="font-normal text-zinc-400">/</span> SupportFlow')
@@ -72,66 +72,34 @@ test('the public layout uses a compact legal footer in document flow', function 
 
 test('the landing page invites clients to test a working copilot', function () {
     $this->get(route('home'))
-        ->assertOk()
-        ->assertSee('Lucid')
-        ->assertSee('Clear answers.')
-        ->assertSee('Confident actions.')
-        ->assertSee('Knowledge, documents, and business workflows—connected through AI, with you in control.')
-        ->assertSee('Ready for review')
-        ->assertSee('The fields have been extracted and checked.')
-        ->assertSee('Example invoice review.')
-        ->assertSee('Answer policy questions and hand off with context.')
-        ->assertSee('Upload files. Get answers with sources.')
-        ->assertSee('Extract fields. Check totals. Review and export.')
-        ->assertSee('Check orders. Confirm the next step.')
-        ->assertSee('Use the answer, or approve and move forward.')
-        ->assertDontSee('Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.')
+        ->assertSee('Less busywork.')
+        ->assertSee('More business.')
+        ->assertSee('See AI in action.')
+        ->assertSee('See how custom AI software can answer customer questions, find answers in your files, and cut invoice data entry.')
+        ->assertSee('Answer common questions, check the policy behind an answer, request a replacement, or hand a case to a support agent.')
+        ->assertSee('Ask questions about your files and check the passages behind the answers.')
+        ->assertSee('Pull details from an invoice, check the results, and export the data.')
         ->assertSee('Customer support')
-        ->assertSee('Your documents')
+        ->assertSee('Document chat')
         ->assertSee('Invoice review')
-        ->assertSee('Actions & replacements')
-        ->assertSee('Ask')
-        ->assertSee('Check')
-        ->assertSee('Review')
-        ->assertSee('Act')
-        ->assertSee('Try the workspace')
-        ->assertDontSee('See how it works')
-        ->assertSee('Review and confirm')
-        ->assertDontSee('No invoice is in review yet.')
-        ->assertDontSee('Review an invoice')
-        ->assertSee('Your data stays in your control.')
-        ->assertSee('You decide what happens next.')
-        ->assertDontSee('Browse policies')
-        ->assertDontSee('Try safety tests')
-        ->assertDontSee('What this demonstrates')
-        ->assertSee('How it works')
-        ->assertSee('Agent desk')
-        ->assertDontSee('the conversation limit')
-        ->assertDontSee('What this shows')
-        ->assertDontSee('What this is not')
+        ->assertDontSee('Order actions')
+        ->assertSee('Explore demos')
+        ->assertSee('Sources you can inspect')
+        ->assertSee('Human approval when needed')
+        ->assertSee('Instructions update as you go.')
+        ->assertDontSee('Ask about Lucid')
+        ->assertDontSee('Watch overview')
+        ->assertDontSee('Read steps')
+        ->assertDontSee('Built with Laravel, Livewire, PostgreSQL/pgvector, and OpenAI.')
+        ->assertDontSee('Agent desk')
         ->assertDontSee('Grounded RAG')
-        ->assertDontSee('not a slide deck')
-        ->assertDontSee('Speech-to-text dictation')
-        ->assertDontSee('Try as Customer')
         ->assertDontSee('Coming soon')
-        ->assertDontSee('Open agent view')
-        ->assertDontSee('Recommended demonstration')
-        ->assertDontSee('Optional deeper tests')
-        ->assertDontSee('Use prepared ticket')
-        ->assertDontSee('Write my own ticket')
-        ->assertDontSee('Use an unsupported question')
-        ->assertDontSee('How to run the demo')
-        ->assertDontSee('Speech-to-text dictation, not a conversational voice assistant.')
-        ->assertDontSee('Watch AI triage a ticket')
-        ->assertDontSee('not spoken AI')
-        ->assertDontSee('until an agent approves it')
-        ->assertDontSee('Nothing reaches the customer until a human support agent sends it.')
-        ->assertDontSee('ring-inset ring-harbor-pine/15', false);
+        ->assertDontSee('What this demonstrates')
+        ->assertDontSee('Try the workspace');
 });
-
 test('harbor layouts force a light color scheme and do not apply system appearance', function () {
     $home = $this->get(route('home'))->assertOk()->getContent();
-    $create = $this->get(route('tickets.create'))->assertOk()->getContent();
+    $create = $this->get(route('demo.harbor', ['view' => 'ticket']))->assertOk()->getContent();
     $head = file_get_contents(resource_path('views/partials/head.blade.php'));
     $public = file_get_contents(resource_path('views/components/layouts/public.blade.php'));
     $agent = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
@@ -151,80 +119,41 @@ test('harbor layouts force a light color scheme and do not apply system appearan
         ->not->toContain('class="dark"');
 });
 
-test('the landing hero styles Browse policies as an outlined button and leaves the footer as a text link', function () {
-    $home = $this->get(route('home'))->assertOk()->getContent();
-    $welcome = file_get_contents(resource_path('views/livewire/pages/welcome.blade.php'));
-    $layout = file_get_contents(resource_path('views/components/layouts/public.blade.php'));
+test('the landing hero opens the demos and keeps policy browsing inside support', function () {
+    $this->get(route('home'))
+        ->assertSee('href="'.route('demo.harbor').'"', false)
+        ->assertSee('href="'.route('demo.documents').'"', false)
+        ->assertSee('href="'.route('demo.invoices').'"', false)
+        ->assertSee('Instructions update as you go.')
+        ->assertSee('Privacy')
+        ->assertDontSee('Browse policies')
+        ->assertDontSee('Use prepared ticket');
 
-    expect($welcome)
-        ->toContain('flux:button variant="primary" :href="route(\'demo.harbor\')"')
-        ->not->toContain('See how it works')
-        ->toContain('route(\'demo.documents\')')
-        ->toContain('route(\'demo.invoices\')')
-        ->toContain('route(\'demo.replacement\')')
-        ->not->toContain('route(\'knowledge.index\')')
-        ->not->toContain('route(\'demo.safety\')')
-        ->toContain('sm:grid-cols-2')
-        ->not->toContain('sm:col-span-2')
-        ->not->toContain("route('tickets.create', ['sample' => 1])")
-        ->not->toContain('recommended-demo')
-        ->not->toContain('wire:key="proof-')
-        ->not->toContain('wire:key="step-')
-        ->not->toContain('text-blue')
-        ->not->toContain('bg-blue')
-        ->not->toContain('coming soon')
-        ->not->toContain('uploader')
-        ->and($layout)
-        ->toContain('<a href="{{ route(\'knowledge.index\') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>')
-        ->and($home)
-        ->not->toContain('Browse policies')
-        ->toContain('Actions &amp; replacements')
-        ->toContain('data-flux-button');
+    $this->get(route('knowledge.index'))->assertSee('Harbor Outfitters policies');
 });
-
 test('the homepage hides the signed-in name and leave control', function () {
     $user = User::factory()->create(['name' => 'Casey Harbor']);
 
-    $home = $this->actingAs($user)
-        ->get(route('home'))
-        ->assertOk()
-        ->assertSee('Try the workspace')
-        ->assertDontSee('See how it works')
+    $this->actingAs($user)->get(route('home'))
+        ->assertSee('Explore demos')
         ->assertDontSee('Casey Harbor')
-        ->assertDontSee('>Leave<', false);
+        ->assertDontSee('>Leave<', false)
+        ->assertDontSee('Agent desk');
 
-    expect(substr_count($home->getContent(), 'Try the workspace'))->toBe(2)
-        ->and($home->getContent())->toContain('Agent desk')
-        ->and($home->getContent())->toContain('href="'.route('dashboard').'"');
-
-    $this->actingAs($user)
-        ->get(route('demo.harbor'))
-        ->assertOk()
-        ->assertSee('Casey Harbor')
-        ->assertSee('>Leave<', false);
+    $this->get(route('demo.harbor'))->assertSee('Create a support ticket')->assertDontSee('Casey Harbor');
 });
-
 test('the demo environment page holds the limitations instead of the landing page', function () {
     $this->get(route('demo.environment'))
         ->assertOk()
-        ->assertSee('What this is not')
-        ->assertSee('A full help desk')
-        ->assertSee('A spoken two-way AI assistant')
-        ->assertSee('Real orders or email')
-        ->assertSee('speech-to-text dictation')
-        ->assertSee('This is a live portfolio demo of a customer-support copilot.')
         ->assertSee('Privacy')
-        ->assertSee('Do not enter real personal, order, or payment information.')
-        ->assertSee('Contact')
-        ->assertSee('open an issue on')
-        ->assertSee('https://github.com/trr-code/supportflow-ai', false)
+        ->assertDontSee('https://github.com/trr-code/supportflow-ai', false)
         ->assertDontSee('Start a private preview')
         ->assertDontSee('Your documents')
         ->assertDontSee('Coming soon')
         ->assertDontSee('Open agent view');
 
     expect($this->get(route('demo.environment'))->getContent())
-        ->toMatch('/<title>\s*Demo environment - Lucid\s*<\/title>/');
+        ->toMatch('/<title>\s*Privacy - Lucid\s*<\/title>/');
 });
 
 test('the workflow page walks through customer submission to an approved answer', function () {
@@ -372,7 +301,8 @@ test('customer status poll picks up a later awaiting-review state', function () 
 
     expect(file_get_contents(resource_path('views/livewire/pages/ticket-status.blade.php')))
         ->toContain('wire:poll.5s.visible')
-        ->toContain('$flux.toast({ text: \'Copied.\', variant: \'success\', duration: 3000 })')
+        ->toContain('<x-lucid.copy-ticket-link')
+        ->not->toContain('$flux.toast')
         ->not->toContain('x-show="copied"')
         ->not->toContain('Refresh status');
 });

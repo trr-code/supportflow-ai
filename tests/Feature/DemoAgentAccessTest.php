@@ -10,7 +10,7 @@ test('one-click demo agent login authenticates without a login form', function (
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Agent')
+        ->assertSee('Explore demos')
         ->assertDontSee('Open agent view')
         ->assertDontSee('name="password"', false)
         ->assertDontSee('Log in to your account');

@@ -35,7 +35,23 @@ class Widget extends Component
     {
         if ($this->inline) {
             $this->open = true;
+
+            if (request()->query('example') === 'replacement') {
+                $this->fillReplacementExample();
+            }
         }
+    }
+
+    #[On('harbor-fill-replacement')]
+    public function fillReplacementExample(): void
+    {
+        if ($this->streaming) {
+            return;
+        }
+
+        $this->question = 'My bag arrived damaged. Order HB-10482. Can you replace it?';
+        $this->open = true;
+        $this->dispatch('demo-chat-focus');
     }
 
     public function send(ChatService $chat): void
@@ -101,7 +117,7 @@ class Widget extends Component
             return;
         }
 
-        $this->redirectRoute('tickets.create', navigate: true);
+        $this->redirectRoute('demo.harbor', ['view' => 'ticket'], navigate: true);
     }
 
     public function finishTurn(): void
@@ -220,6 +236,7 @@ class Widget extends Component
         }
 
         return view('livewire.chat.widget', [
+            'conversationId' => $conversation->id,
             'messages' => $messages,
             'sourceGroups' => $sourceGroups,
             'citedChunks' => $citedChunks,

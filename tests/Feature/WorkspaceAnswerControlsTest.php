@@ -238,7 +238,8 @@ test('a preview question over 500 characters is rejected and stays in the box', 
 
     expect(ChatMessage::query()->count())->toBe(0);
 
-    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'))
+        .file_get_contents(resource_path('views/livewire/pages/workspace-preview-chat.blade.php'));
 
     expect($view)
         ->toContain('if (question.length > 500)')
@@ -248,20 +249,23 @@ test('a preview question over 500 characters is rejected and stays in the box', 
         ->toMatch('/if \(rejected\) \{\s+return\s+\}/');
 });
 
-test('deleting a document confirms first and new chat uses the same confirmation as Harbor', function () {
+test('document deletion and new chat explain what is permanently removed', function () {
     $access = app(WorkspaceAccess::class);
     $workspace = $access->start();
     app(WorkspaceDocumentStore::class)->storeMany($workspace, [
         UploadedFile::fake()->createWithContent('returns.txt', 'Unused items can be returned within 30 days.'),
     ]);
     $document = $workspace->documents()->first();
-    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'))
+        .file_get_contents(resource_path('views/livewire/pages/workspace-preview-chat.blade.php'));
 
     expect($view)
         ->toContain('wire:confirm="Delete this document now. The file and its answers are removed."')
         ->toContain('name="confirm-preview-new-chat"')
         ->toContain('Start a new conversation?')
-        ->toContain('This permanently deletes the current thread. This demo does not keep a conversation history list.')
+        ->toContain('This permanently deletes the questions and answers in this conversation.')
+        ->toContain('Your documents and answer settings stay.')
+        ->toContain('The deleted conversation cannot be reopened.')
         ->toContain('wire:click="newChat"');
 
     Livewire::test(WorkspacePreview::class)

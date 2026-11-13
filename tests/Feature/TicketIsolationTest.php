@@ -113,10 +113,11 @@ test('the visitor ticket limit explains the browser cap and idle cleanup', funct
         ->set('subject', 'Can I still return the Harbor Trail Pack?')
         ->set('description', 'I bought a Harbor Trail Pack 18 days ago.')
         ->call('submit')
-        ->assertSee('This browser can submit 2 tickets.')
-        ->assertSee('Prepared examples count')
-        ->assertSee('idle for 45 minutes')
-        ->assertSee('open a private window')
+        ->assertSeeInOrder(['Submit ticket', 'data-ticket-submit-feedback', 'This demo visit has reached its 2-ticket limit.'], false)
+        ->assertSee('This demo visit has reached its 2-ticket limit.')
+        ->assertSee('You can still review existing tickets.')
+        ->assertSee('45 minutes of inactivity')
+        ->assertDontSee('private window')
         ->assertDontSee('prune');
 });
 
@@ -153,7 +154,7 @@ test('the shared demo capacity message does not tell a visitor to reset it', fun
         ->set('subject', 'Can I still return the Harbor Trail Pack?')
         ->set('description', 'I bought a Harbor Trail Pack 18 days ago.')
         ->call('submit')
-        ->assertSee('The shared demo is full.')
-        ->assertSee('does not reset')
+        ->assertSee('The demo is at capacity.')
+        ->assertDontSee('private window')
         ->assertDontSee('prune');
 });

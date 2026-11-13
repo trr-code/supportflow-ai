@@ -5,7 +5,7 @@
 ])
 
 @php
-    $noun = in_array($noun, ['question', 'description'], true) ? $noun : 'question';
+    $noun = in_array($noun, ['question', 'description', 'instruction'], true) ? $noun : 'question';
     $isIcon = $variant === 'icon';
 @endphp
 
@@ -546,7 +546,7 @@
                 return null;
             }
 
-            const named = root.querySelector('textarea[name=' + this.target + '], input[name=' + this.target + ']');
+            const named = Array.from(root.querySelectorAll('textarea[name], input[name]')).find(input => input.name === this.target);
 
             if (named) {
                 return named;
@@ -809,10 +809,7 @@
         ])
     >
         @if ($isIcon)
-            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 11a6 6 0 0 0 12 0M12 17v4" />
-            </svg>
+            <x-lucid.icon name="microphone" class="size-5" />
         @else
             <span class="size-1.5 rounded-full bg-harbor-pine" aria-hidden="true"></span>
             <span>Dictate</span>

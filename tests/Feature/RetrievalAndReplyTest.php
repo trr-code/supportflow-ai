@@ -673,7 +673,8 @@ test('approving an unchanged draft does not record suggestion edited', function 
     Livewire::test(TicketShow::class, ['ticket' => $ticket])
         ->call('approveAndSend')
         ->assertSee('Reply sent to the customer status page (simulated—no email).')
-        ->assertDontSee('Suggestion Edited');
+        ->call('showTools', 'activity')
+        ->assertDontSee('Reply draft edited');
 
     expect($ticket->fresh()->status)->toBe(TicketStatus::WaitingOnCustomer)
         ->and($ticket->events()->where('type', TicketEventType::SuggestionEdited)->count())->toBe(0)
@@ -699,8 +700,9 @@ test('approving an edited draft records suggestion edited', function () {
     Livewire::test(TicketShow::class, ['ticket' => $ticket])
         ->set('draftBody', "Hi Jamie,\n\nEdited draft for the customer.\n\nBest,\nAlex Rivera\nHarbor & Co Support")
         ->call('approveAndSend')
-        ->assertSee('Suggestion Edited')
-        ->assertSee('Suggestion Approved');
+        ->call('showTools', 'activity')
+        ->assertSee('Reply draft edited')
+        ->assertSee('Suggested reply approved');
 
     expect($ticket->events()->where('type', TicketEventType::SuggestionEdited)->count())->toBe(1)
         ->and($ticket->fresh()->status)->toBe(TicketStatus::WaitingOnCustomer);

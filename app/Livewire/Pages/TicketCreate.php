@@ -48,8 +48,6 @@ class TicketCreate extends Component
 
     public ?string $capMessage = null;
 
-    public bool $embedded = false;
-
     public bool $prepareSample = false;
 
     public bool $startBlank = false;
@@ -130,22 +128,17 @@ class TicketCreate extends Component
         ]);
         $this->forgetTicketDraft();
 
-        if ($this->embedded) {
-            session([
-                'supportflow.harbor.center' => 'status',
-                'supportflow.harbor.status_token' => $ticket->public_token,
-            ]);
+        session([
+            'supportflow.harbor.center' => 'status',
+            'supportflow.harbor.status_token' => $ticket->public_token,
+        ]);
 
-            return $this->redirectRoute('demo.harbor', navigate: true);
-        }
-
-        return $this->redirectRoute('tickets.status', ['publicToken' => $ticket->public_token], navigate: true);
+        return $this->redirectRoute('demo.harbor', navigate: true);
     }
 
     public function render(): View
     {
-        return view('livewire.pages.ticket-create')
-            ->layout('components.layouts.public', ['title' => 'New ticket']);
+        return view('livewire.pages.ticket-create');
     }
 
     protected function forgetTicketDraft(): void

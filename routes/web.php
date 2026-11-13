@@ -12,9 +12,7 @@ use App\Livewire\Pages\DemoWorkflow;
 use App\Livewire\Pages\DemoWorkspace;
 use App\Livewire\Pages\KnowledgeIndex;
 use App\Livewire\Pages\KnowledgeShow;
-use App\Livewire\Pages\ReplacementTools;
 use App\Livewire\Pages\SupplierInvoicePage;
-use App\Livewire\Pages\TicketCreate;
 use App\Livewire\Pages\TicketIndex;
 use App\Livewire\Pages\TicketShow;
 use App\Livewire\Pages\TicketStatus;
@@ -29,7 +27,7 @@ Route::get('/', Welcome::class)->name('home');
 Route::get('/demo/harbor', DemoWorkspace::class)->name('demo.harbor');
 Route::get('/demo/documents', DemoWorkspace::class)->name('demo.documents');
 Route::get('/demo/invoices', DemoWorkspace::class)->name('demo.invoices');
-Route::get('/demo/replacement', DemoWorkspace::class)->name('demo.replacement');
+Route::get('/demo/replacement', fn () => redirect()->route('demo.harbor', ['example' => 'replacement']))->name('demo.replacement');
 Route::get('/demo/agent', EnterDemoAgentController::class)
     ->middleware('throttle:demo.enter-agent')
     ->name('demo.agent');
@@ -37,7 +35,7 @@ Route::get('/demo/agent', EnterDemoAgentController::class)
 Route::get('/demo/workflow', DemoWorkflow::class)->name('demo.workflow');
 Route::get('/demo/safety', DemoSafety::class)->name('demo.safety');
 Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment');
-Route::get('/tools', ReplacementTools::class)->name('demo.tools');
+Route::get('/tools', fn () => redirect()->route('demo.harbor', ['example' => 'replacement']))->name('demo.tools');
 Route::get('/preview', WorkspacePreview::class)->name('workspaces.preview');
 
 Route::get('/invoices/{invoice}/export.csv', [SupplierInvoiceExportController::class, 'csv'])
@@ -51,7 +49,7 @@ Route::get('/invoices', SupplierInvoicePage::class)->name('documents.invoices');
 Route::get('/knowledge', KnowledgeIndex::class)->name('knowledge.index');
 Route::get('/knowledge/{slug}', KnowledgeShow::class)->name('knowledge.show');
 
-Route::get('/tickets/create', TicketCreate::class)->name('tickets.create');
+Route::get('/tickets/create', fn () => redirect()->route('demo.harbor', ['view' => 'ticket', ...request()->only(['sample', 'subject'])]))->name('tickets.create');
 Route::get('/t/{publicToken}', TicketStatus::class)
     ->where('publicToken', '[a-f0-9]{32}')
     ->name('tickets.status');

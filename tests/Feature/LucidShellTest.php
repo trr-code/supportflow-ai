@@ -17,89 +17,70 @@ use App\Models\User;
 use App\Services\ChatService;
 use App\Services\DemoSessionService;
 use App\Support\DemoGuide;
+use Livewire\Livewire;
 
-test('lucid demo routes render the workspace modes and keep the older routes', function () {
+test('Agent Desk saves an edited draft privately without sending it', function () {
+    $this->actingAs(User::factory()->create());
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
+    $reply = SuggestedReply::query()->create(['ticket_id' => $ticket->id, 'body' => 'Original suggested reply.', 'grounded' => true, 'status' => SuggestedReplyStatus::Pending, 'cited_chunk_ids' => []]);
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])
+        ->assertSee('Save edits')
+        ->set('draftBody', 'An edited reply saved for later review.')
+        ->call('saveDraft')
+        ->assertSee('Draft saved. The customer cannot see it until you approve and send.');
+    expect($reply->fresh()->body)->toBe('An edited reply saved for later review.')
+        ->and($reply->fresh()->status)->toBe(SuggestedReplyStatus::Pending)
+        ->and($ticket->fresh()->status)->toBe(TicketStatus::AwaitingReview)
+        ->and($ticket->messages()->count())->toBe(0);
+    $this->get(route('tickets.status', $ticket->public_token))->assertDontSee('An edited reply saved for later review.');
+});
+
+test('lucid demo routes render the shared workspace and keep the older routes', function () {
     $this->get(route('demo.harbor'))
-        ->assertOk()
-        ->assertSee('Your AI workspace')
-        ->assertSee('Choose a demo on the left. Try it in the middle. Follow the steps on the right.')
-        ->assertSee('Choose a demo above. Try it below. Follow the steps under the workspace.')
+        ->assertSee('Harbor support')
+        ->assertSee('Step-by-step instructions')
+        ->assertSee('Customer chat')
+        ->assertSee('Create a support ticket')
         ->assertSee('Skip to content')
         ->assertSee('id="main-content"', false)
-        ->assertSee('flex-wrap items-center gap-x-3 gap-y-2', false)
-        ->assertSee('flex-wrap gap-1', false)
-        ->assertDontSee('overflow-x-auto rounded-[11px] border border-harbor-sand-deep bg-white/90 p-2 xl:block', false)
-        ->assertSee('Instructions')
-        ->assertSee('Sources & actions')
-        ->assertSee('Demo')
-        ->assertSee('M18 19c0 2-2 3-5 3', false)
-        ->assertSee('M8 12h8M8 16h8', false)
-        ->assertSee('after:bg-[#d5c5fc]', false)
-        ->assertSee(route('demo.harbor'), false)
-        ->assertDontSee(route('home').'#demos', false)
         ->assertSee('aria-label="Send"', false)
         ->assertSee('Dictate with microphone')
-        ->assertDontSee('Harbor fiction')
-        ->assertDontSee('Escalate to a ticket')
-        ->assertDontSee('Ask, upload, review, and approve')
-        ->assertDontSee("\$dispatch('lucid-guide')", false)
-        ->assertSee('This panel opens the demos. It does not answer questions with a model.')
-        ->assertDontSee('I extracted the fields');
+        ->assertSee('How can we help?')
+        ->assertDontSee('Your AI workspace')
+        ->assertDontSee('<footer', false);
 
     $this->get(route('demo.documents'))
-        ->assertOk()
-        ->assertSee('Your files')
-        ->assertSee('The Harbor & Co demo stays separate.')
-        ->assertDontSee('Get more help')
-        ->assertDontSee('Try safety examples')
-        ->assertDontSee('lucid-workspace-columns-harbor', false)
-        ->assertDontSee('Hover a citation to preview its source, or click to inspect it.');
+        ->assertSee('Document chat')
+        ->assertSee('Choose files')
+        ->assertSee('OpenAI processes your documents and questions to prepare answers.')
+        ->assertDontSee('Get more help');
+
     $invoices = $this->get(route('demo.invoices'))
-        ->assertOk()
-        ->assertSee('Upload a PDF')
+        ->assertSee('Try a sample or upload your own invoice')
         ->assertSee('download CSV or JSON')
         ->assertDontSee('Get more help');
 
     expect($invoices->getContent())->toMatch('/<title>\s*Invoice review - Lucid\s*<\/title>/');
     expect(preg_match_all('/<h1\b/i', $invoices->getContent()))->toBe(1);
-    $this->get(route('demo.replacement'))
-        ->assertOk()
-        ->assertSee('Fictional orders')
-        ->assertSee('Nothing has been checked yet.')
-        ->assertDontSee('Get more help');
 
-    $this->get(route('workspaces.preview'))
-        ->assertOk()
-        ->assertSee('Built for modern business workflows.')
-        ->assertSee('How it works')
-        ->assertSee('>Privacy<', false)
-        ->assertSee('>Contact<', false)
-        ->assertSee(route('demo.environment').'#privacy', false)
-        ->assertSee(route('demo.environment').'#contact', false)
-        ->assertDontSee('Harbor &amp; Co/SupportFlow');
-    $standaloneInvoices = $this->get(route('documents.invoices'))
-        ->assertOk()
-        ->assertSee('Built for modern business workflows.')
-        ->assertSee(route('demo.environment').'#privacy', false)
-        ->assertSee(route('demo.environment').'#contact', false)
-        ->assertDontSee('Harbor &amp; Co/SupportFlow');
-
-    expect($standaloneInvoices->getContent())->toMatch('/<title>\s*Invoice review - Lucid\s*<\/title>/');
-    expect(preg_match_all('/<h1\b/i', $standaloneInvoices->getContent()))->toBe(1);
-    $this->get(route('demo.tools'))->assertOk();
+    $this->get(route('demo.replacement'))->assertRedirect(route('demo.harbor', ['example' => 'replacement']));
+    foreach (['workspaces.preview', 'documents.invoices'] as $route) {
+        $this->get(route($route))->assertSee('Built for modern business workflows.')->assertSee(route('demo.environment').'#privacy', false)->assertDontSee(route('demo.environment').'#contact', false);
+    }
+    $this->get(route('demo.tools'))->assertRedirect(route('demo.harbor', ['example' => 'replacement']));
 });
-
 test('each demo side panel lists its own sources', function () {
     Livewire::test(DemoWorkspace::class)
         ->set('mode', 'documents')
         ->call('showSideTab', 'sources')
-        ->assertSee('No documents yet.')
+        ->assertSee('Add your documents')
+        ->assertSee('Choose files')->assertDontSee('Try a sample document')
         ->assertDontSee('Get more help');
 
     Livewire::test(DemoWorkspace::class)
         ->set('mode', 'invoices')
         ->call('showSideTab', 'sources')
-        ->assertSee('No invoice yet.')
+        ->assertSee('Choose an invoice')
         ->assertDontSee('Cited catalog sources show up here after an answer.');
 });
 
@@ -126,17 +107,17 @@ test('the guide copy is navigation and the harbor thread keeps private files out
         ->assertSet('mode', 'harbor')
         ->assertSet('sideTab', 'instructions')
         ->assertSee('Ask a question')
-        ->assertSee('Try the full workflow')
-        ->assertSee('Try safety examples')
-        ->assertSee('lucid-workspace-columns-harbor', false)
-        ->assertSee('Choose a suggested question, or type your own.')
-        ->assertSee('Hover a citation to preview its source, or click to inspect it.')
-        ->assertSee("Hi, I'm Lucid, the AI support assistant for Harbor & Co., a fictional outdoor retailer.")
+        ->assertSee('Create a support ticket')
+        ->assertDontSee('Try a human handoff')
+        ->assertSee('data-showroom-workspace', false)
+        ->assertSee('Choose an example above the chat box or type your own question.')
+        ->assertSee('Browse store policies')->assertDontSee('Click a numbered reference in an answer')
+        ->assertSee('How can we help?')
         ->call('showSideTab', 'sources')
         ->assertSet('sideTab', 'sources')
         ->assertSee('Cited catalog sources show up here after an answer.')
         ->assertSee('Browse policies')
-        ->assertSee('Get more help')
+        ->assertDontSee('Get more help')
         ->call('showSideTab', 'not-a-tab')
         ->assertSet('sideTab', 'sources');
 });
@@ -182,8 +163,8 @@ test('harbor question bubbles fill the composer and a citation opens its passage
     $question = DemoGuide::prompt('return_window')['question'];
 
     Livewire::test(Widget::class, ['inline' => true])
-        ->assertSee("Hi, I'm Lucid, the AI support assistant for Harbor & Co., a fictional outdoor retailer.")
-        ->assertSee($question)
+        ->assertSee('How can we help?')
+        ->assertSee('Ask about returns')
         ->assertDontSee('Use a return question')
         ->call('fillQuestion', 'return_window')
         ->assertSet('question', $question)
@@ -279,12 +260,9 @@ test('an older harbor citation opens that answer and keeps other sources expande
 
 test('harbor instructions open the ticket form and safety examples without leaving the workspace', function () {
     $workspace = Livewire::test(DemoWorkspace::class)
-        ->call('toggleGuide', 'workflow')
+        ->call('showHumanReview')
         ->assertSee('Use a prepared ticket')
-        ->assertSee('Write my own ticket')
-        ->assertSee('Tickets → Live demo')
-        ->assertSee('inline-flex max-w-full', false)
-        ->assertSee('lucid-compact-action', false)
+        ->assertSee('Write a ticket')
         ->call('openPreparedTicket')
         ->assertSet('center', 'ticket')
         ->assertSet('prepareTicket', true)
@@ -296,11 +274,11 @@ test('harbor instructions open the ticket form and safety examples without leavi
 
     $workspace
         ->assertSee('New ticket')
-        ->assertSee('Back to chat')
+        ->assertSee('Customer chat')
         ->assertDontSee('Submit a support ticket')
         ->assertDontSee('Use a sample return')
         ->assertSee('wire:key="lucid-harbor-chat"', false)
-        ->assertSee('Your ticket number stays here')
+        ->assertSee('Create a support ticket')
         ->call('openOwnTicket')
         ->assertSet('prepareTicket', false)
         ->assertSet('startBlank', true)
@@ -309,9 +287,6 @@ test('harbor instructions open the ticket form and safety examples without leavi
         ->call('returnToChat')
         ->assertSet('center', 'chat')
         ->call('toggleGuide', 'safety')
-        ->assertSee('Open Agent scenarios')
-        ->assertSee('A clear refusal. It does not reveal hidden instructions.')
-        ->assertSee('name="next" value="scenarios"', false)
         ->call('trySafetyExample', 'prompt_injection')
         ->assertSet('center', 'chat')
         ->assertDispatched('demo-fill-chat', key: 'prompt_injection')
@@ -342,7 +317,7 @@ test('an inline harbor chat opens the workspace ticket form', function () {
 
     expect(session('supportflow.ticket.subject'))->toBe('Follow-up from Harbor chat');
 
-    $form = Livewire::test(TicketCreate::class, ['embedded' => true]);
+    $form = Livewire::test(TicketCreate::class);
 
     expect($form->get('subject'))->toBe('Follow-up from Harbor chat')
         ->and($form->get('description'))->toContain('Can I return an unused Harbor Trail Pack?');
@@ -409,10 +384,10 @@ test('a workspace ticket returns to the customer reply in the center', function 
     $this->get(route('demo.harbor'))
         ->assertOk()
         ->assertSee($ticket->reference)
-        ->assertSee('Your ticket number is '.$ticket->reference)
+        ->assertDontSee('View ticket as a support agent')
         ->assertSee($ticket->subject)
-        ->assertSee('Back to chat')
-        ->assertSee('See the customer reply');
+        ->assertSee('Customer chat')
+        ->assertSee('See the reply as the customer');
 
     Livewire::test(TicketCreate::class)
         ->assertSet('customer_name', '');
@@ -431,17 +406,17 @@ test('escalating a harbor chat copies the transcript onto the ticket draft', fun
     ]);
 
     $widget->call('escalate')
-        ->assertRedirect(route('tickets.create'));
+        ->assertRedirect(route('demo.harbor', ['view' => 'ticket']));
 
     expect(session('supportflow.ticket.subject'))->toBe('Follow-up from Harbor chat');
 
-    $this->get(route('tickets.create'))
+    $this->get(route('demo.harbor', ['view' => 'ticket']))
         ->assertOk()
         ->assertSee('Follow-up from Harbor chat')
         ->assertSee('Can I return an unused Harbor Trail Pack?');
 });
 
-test('add to composer fills the human reply and does not send it', function () {
+test('inline reply modes preserve independent drafts without sending', function () {
     $user = User::factory()->create();
     $ticket = Ticket::factory()->create();
     $body = "Hi Jamie,\n\nUnused items can be returned within 30 days.\n\nBest,\nAlex Rivera\nHarbor & Co Support";
@@ -458,26 +433,47 @@ test('add to composer fills the human reply and does not send it', function () {
 
     Livewire::test(TicketShow::class, ['ticket' => $ticket])
         ->assertSee('Review reply')
-        ->assertSee('Write a manual reply')
+        ->assertSee('Write your own reply')
         ->assertDontSee('Expand editor')
         ->assertSee('Reply history')
         ->assertDontSee('Source review')
         ->assertSet('manualReply', false)
-        ->call('openManualReply')
+        ->set('manualReply', true)
         ->assertSet('manualReply', true)
-        ->assertSee('Add to composer')
-        ->assertSee('Simulate send')
+        ->assertDontSee('Use suggested reply')
+        ->assertSee('Send reply')
         ->set('customReply', 'Keep this unsent reply.')
+        ->set('draftBody', 'An edited AI draft stays separate.')
         ->set('manualReply', false)
         ->assertSet('manualReply', false)
         ->assertSet('customReply', 'Keep this unsent reply.')
-        ->call('openManualReply')
-        ->call('addToComposer')
-        ->assertSet('customReply', $body)
+        ->assertSet('draftBody', 'An edited AI draft stays separate.')
+        ->assertSee('Save edits saves your changes without sending')
+        ->set('manualReply', true)
+        ->assertSet('customReply', 'Keep this unsent reply.')
+        ->set('draftBody', $body)
+        ->assertSet('customReply', 'Keep this unsent reply.')
         ->assertDontSee('Reply sent to the customer status page');
 
     expect($ticket->refresh()->status)->not->toBe(TicketStatus::WaitingOnCustomer);
 });
+
+test('policy passage dialogs distinguish passage headings from their parent policy', function (string $heading) {
+    $this->actingAs(User::factory()->create());
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
+    $article = KnowledgeArticle::query()->create(['title' => 'Return window', 'slug' => 'passage-origin-policy', 'body' => 'Unused returns within thirty days.', 'category' => 'returns', 'is_published' => true]);
+    $chunk = $article->chunks()->create(['heading' => $heading, 'body' => 'A cited policy passage.', 'token_count' => 5]);
+    SuggestedReply::query()->create(['ticket_id' => $ticket->id, 'body' => 'A draft with a policy citation.', 'grounded' => true, 'status' => SuggestedReplyStatus::Pending, 'cited_chunk_ids' => [$chunk->id]]);
+    $html = $this->get(route('agent.tickets.show', $ticket))->assertOk()->getContent();
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $xpath = new DOMXPath($document);
+    $dialogs = $xpath->query('//dialog[.//h2[normalize-space(.)="'.$heading.'"]]');
+    expect($dialogs->length)->toBe(1);
+    $origin = $xpath->query('.//p[starts-with(normalize-space(.), "From:")]', $dialogs->item(0));
+    expect($origin->length)->toBe(1)
+        ->and(trim($origin->item(0)->textContent))->toBe('From: Return window');
+})->with(['Return window', 'Box not required']);
 
 test('the ticket source badge requires a grounded pending draft with resolvable citations', function (bool $grounded, bool $cited, bool $resolvable, bool $pending, bool $expected) {
     $this->actingAs(User::factory()->create());

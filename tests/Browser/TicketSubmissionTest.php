@@ -30,13 +30,13 @@ test('a customer ticket stays hidden until an agent sends the reply', function (
 
     $draft = 'not required';
 
-    visit(route('tickets.create'))
+    visit(route('demo.harbor', ['view' => 'ticket']))
         ->fill('input[wire\:model\.blur\.live="customer_name"]', 'Jamie Rivera')
         ->fill('input[wire\:model\.blur\.live="customer_email"]', 'jamie@example.test')
         ->fill('input[wire\:model\.blur\.live="subject"]', 'Return without the box')
         ->fill('textarea[wire\:model\.blur\.live="description"]', 'Can I return an unused Harbor Trail Pack without the original box?')
         ->click('Submit ticket')
-        ->assertSee('AI prepared a reply. A support agent still has to review and send it.')
+        ->assertSee('Your request is waiting for a person to check and send the reply.')
         ->assertDontSee($draft);
 
     $ticket = Ticket::query()->sole();

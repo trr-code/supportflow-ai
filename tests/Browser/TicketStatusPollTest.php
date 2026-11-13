@@ -7,6 +7,26 @@ use App\Models\Ticket;
 use App\Models\TicketMessage;
 use Pest\Browser\Playwright\Playwright;
 
+test('ticket link copying has local feedback and a usable failure fallback', function (bool $embedded, int $width) {
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
+    if ($embedded) {
+        $this->withSession(['supportflow.harbor.center' => 'status', 'supportflow.harbor.status_token' => $ticket->public_token]);
+    }
+    $page = visit($embedded ? route('demo.harbor') : route('tickets.status', $ticket->public_token), ['viewport' => ['width' => $width, 'height' => 900]]);
+    $page->script("Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedTicketLink = text; } } })");
+    $page->click('Copy ticket link')->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');
+    expect($page->script('window.copiedTicketLink'))->toBe(route('tickets.status', $ticket->public_token));
+    expect($page->script("document.querySelector('[data-ticket-copy-feedback] span').classList.contains('bg-emerald-50')"))->toBeTrue();
+    $page->wait(6)->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');
+    $page->wait(3)->assertDontSee('Link copied.');
+    $page->click('Copy ticket link')->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');
+    $page->script("void (navigator.clipboard.writeText = async () => { throw new Error('Clipboard blocked'); })");
+    $page->click('Copy ticket link')->assertSee('Could not copy the link. Select it below and copy it manually.');
+    $page->assertVisible('[data-ticket-copy] input');
+    expect($page->script("document.querySelector('[data-ticket-copy] input').value"))->toBe(route('tickets.status', $ticket->public_token));
+    $page->assertNoJavaScriptErrors();
+})->with([[false, 1440], [false, 390], [true, 1440], [true, 390]]);
+
 test('customer status polling follows controlled updates until a reply is sent', function () {
     $ticket = Ticket::factory()->create([
         'subject' => 'Where is the trail pack',

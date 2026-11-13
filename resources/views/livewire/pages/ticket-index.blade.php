@@ -1,15 +1,5 @@
 @php
-    $statusTone = [
-        'submitted' => 'bg-blue-100 text-blue-950',
-        'triaging' => 'bg-blue-50 text-blue-950',
-        'awaiting_review' => 'bg-amber-100 text-amber-950',
-        'escalated' => 'bg-orange-100 text-orange-950',
-        'waiting_on_customer' => 'bg-zinc-100 text-zinc-800',
-        'ai_failed' => 'bg-red-100 text-red-950',
-        'resolved' => 'bg-emerald-100 text-emerald-950',
-    ];
-
-    $queueButton = 'lucid-compact-action !h-10 !justify-center !rounded-lg !border-[#cbb8f1] !bg-white !px-4 !text-sm !font-medium !text-[#1b1730] hover:!bg-[#eee7ff] focus-visible:!outline focus-visible:!outline-2 focus-visible:!outline-offset-2 focus-visible:!outline-[#d5c5fc] xl:!h-9';
+    $queueButton = 'lucid-compact-action !justify-center !rounded-lg !border-[#cbb8f1] !bg-white !text-sm !font-medium !text-[#1b1730] hover:!bg-[#eee7ff] focus-visible:!outline focus-visible:!outline-2 focus-visible:!outline-offset-2 focus-visible:!outline-[#d5c5fc]';
 
     $lastPage = $tickets->lastPage();
     $currentPage = $tickets->currentPage();
@@ -19,26 +9,17 @@
     $preview = $scenarios[$previewKey];
 @endphp
 
-<div class="lucid-workspace" wire:poll.5s.visible>
-    <section class="shrink-0 overflow-hidden rounded-[13px] border border-[#2b303a] bg-lucid-charcoal px-6 py-4 text-white sm:px-10" aria-labelledby="ticket-queue-title">
-        <h1 id="ticket-queue-title" class="text-[1.8rem] font-semibold tracking-[-1px] sm:text-[2.4rem]">Ticket queue</h1>
-        <p class="mt-1.5 text-base text-[#dce1ec] sm:text-[21px]">Review requests, check AI drafts, and respond to customers.</p>
+<x-lucid.workspace-page :instruction-title="$showScenarios ? 'Try a support scenario' : 'Choose a ticket to review'">
+<div class="lucid-workspace showroom-queue" wire:poll.5s.visible>
+    <section class="showroom-queue-heading shrink-0" aria-labelledby="ticket-queue-title">
+        <x-lucid.page-header title="Ticket queue" description="Review requests, check AI drafts, and respond to customers." heading-id="ticket-queue-title" />
     </section>
 
     <div class="lucid-workspace-columns lucid-workspace-columns-dashboard">
-        <nav class="lucid-workspace-nav flex gap-1 overflow-x-auto rounded-[11px] border border-harbor-sand-deep bg-white/90 p-2 xl:block xl:overflow-visible xl:px-2.5 xl:py-4" aria-label="Agent desk">
-            <a href="{{ route('dashboard') }}" wire:navigate wire:key="desk-nav-dashboard" class="flex shrink-0 items-center gap-3 rounded-[9px] px-3.5 py-2 text-sm text-harbor-ink hover:bg-[#f4f0fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc] xl:mb-1 xl:w-full">
-                <svg class="size-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
-                Dashboard
-            </a>
-            <a href="{{ route('agent.tickets.index') }}" wire:navigate wire:key="desk-nav-tickets" class="flex shrink-0 items-center gap-3 rounded-[9px] bg-[#eee7ff] px-3.5 py-2 text-sm font-semibold text-harbor-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc] xl:mb-1 xl:w-full" aria-current="page">
-                <svg class="size-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4V6Zm0 1 8 6 8-6"/></svg>
-                Tickets
-            </a>
-        </nav>
+
 
         <div
-            class="lucid-workspace-main flex min-h-0 min-w-0 flex-col gap-2 rounded-[11px] border border-harbor-sand-deep bg-white p-4 shadow-[0_2px_3px_#16132c08] sm:p-5"
+            class="lucid-workspace-main showroom-queue-list flex min-h-0 min-w-0 flex-col gap-3 border-t border-[#e4deed] pt-4"
             data-per-page="{{ $tickets->perPage() }}"
             x-data
             x-init="
@@ -93,22 +74,19 @@
                 requestAnimationFrame(fit)
             "
         >
-            @if ($notice)
-                <div class="shrink-0 rounded-[11px] border border-harbor-sand-deep bg-white px-4 py-3 text-sm text-harbor-ink shadow-[0_2px_3px_#16132c08]" role="status">{{ $notice }}</div>
-            @endif
 
             @if ($showScenarios)
                 <section id="agent-scenarios" class="flex min-h-0 flex-1 flex-col" aria-labelledby="scenario-chooser-title">
                     <div class="flex shrink-0 items-start justify-between gap-3">
-                        <h2 id="scenario-chooser-title" class="text-2xl font-semibold tracking-tight text-harbor-ink">Try a scenario</h2>
+                        <h2 id="scenario-chooser-title" class="lucid-content-heading text-harbor-ink">Try a scenario</h2>
                         <button type="button" wire:click="closeScenarios" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-[#64617d] hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
                             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
                             Back to tickets
                         </button>
                     </div>
                     <p class="mt-1 shrink-0 text-sm text-zinc-600">Choose an example, preview it, then open a demo ticket.</p>
-                    <div class="mt-3 flex min-h-0 flex-1 flex-col rounded-[11px] border border-zinc-100 xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
-                        <div class="flex min-h-0 flex-col border-b border-zinc-100 px-3 py-3 xl:border-e xl:border-b-0 xl:py-4">
+                    <div class="showroom-scenario-preview mt-4 flex min-h-0 flex-1 flex-col border-t border-[#e4deed] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
+                        <div class="flex min-h-0 flex-col border-b border-[#e4deed] py-4 xl:border-e xl:border-b-0 xl:pe-4">
                             <h3 class="px-3 text-sm font-semibold text-harbor-ink">Scenarios</h3>
                             <ul class="mt-1 flex min-h-0 flex-1 flex-col px-2" role="listbox" aria-label="Scenarios">
                                 @foreach ($scenarios as $key => $scenario)
@@ -129,42 +107,43 @@
                             </ul>
                         </div>
                         <div class="flex min-h-0 flex-1 flex-col px-5 py-4 sm:px-6">
-                            <h3 class="text-2xl font-semibold tracking-tight text-harbor-ink">{{ $preview['label'] }}</h3>
-                            <div class="mt-6 flex max-w-prose flex-1 flex-col justify-center gap-8 py-2">
+                            <h3 class="lucid-content-heading text-harbor-ink">{{ $preview['label'] }}</h3>
+                            <div class="mt-6 flex max-w-prose flex-1 flex-col gap-8 py-2">
                                 <div class="flex items-start gap-3">
-                                    <svg class="mt-0.5 size-5 shrink-0 text-[#64617d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8M8 16h8"/></svg>
+                                    <x-lucid.icon name="document" class="showroom-scenario-icon mt-0.5 !size-5 shrink-0" />
                                     <div>
                                         <h4 class="text-base font-semibold text-harbor-ink">Customer situation</h4>
                                         <p class="mt-1 text-sm leading-relaxed text-zinc-600">{{ $preview['situation'] }}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-start gap-3">
-                                    <svg class="mt-0.5 size-5 shrink-0 text-[#64617d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
+                                    <x-lucid.icon name="sparkles" class="showroom-scenario-icon mt-0.5 !size-5 shrink-0" />
                                     <div>
                                         <h4 class="text-base font-semibold text-harbor-ink">What Lucid should do</h4>
                                         <p class="mt-1 text-sm leading-relaxed text-zinc-600">{{ $preview['ai'] }}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-start gap-3">
-                                    <svg class="mt-0.5 size-5 shrink-0 text-[#64617d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="m7 12 3 3 7-7"/></svg>
+                                    <x-lucid.icon name="check-circle" class="showroom-scenario-icon mt-0.5 !size-5 shrink-0" />
                                     <div>
                                         <h4 class="text-base font-semibold text-harbor-ink">Expected result</h4>
                                         <p class="mt-1 text-sm leading-relaxed text-zinc-600">{{ $preview['expect'] }}</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-5 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-4 xl:mt-auto">
+
+                        </div>
+                    </div>
+                            <div class="showroom-panel-footer showroom-scenario-footer mt-auto grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-[#e4deed] pt-4">
                                 <p class="flex items-center gap-2 text-sm text-zinc-600">
                                     <svg class="size-5 shrink-0 text-[#64617d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v5M12 16h.01"/></svg>
                                     <span>Creates a new demo ticket. Existing examples stay unchanged.</span>
                                 </p>
-                                <button type="button" wire:click="launch('{{ $previewKey }}')" class="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#e6dcff] px-4 py-2 text-sm font-medium text-[#241f38] hover:bg-[#d5c5fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
+                                <button type="button" wire:click="launch('{{ $previewKey }}')" class="lucid-compact-action inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#e6dcff] font-medium text-[#241f38] hover:bg-[#d5c5fc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
                                     Load scenario
                                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                                 </button>
                             </div>
-                        </div>
-                    </div>
                 </section>
             @else
             <div class="flex shrink-0 gap-2 overflow-x-auto" role="tablist" aria-label="Queue filters">
@@ -200,11 +179,12 @@
                         {{ $showScenarios ? 'Hide scenarios' : 'Try a scenario' }}
                     </flux:button>
                     <flux:modal.trigger name="confirm-demo-reset">
-                        <flux:button variant="ghost" class="!h-auto !rounded-[9px] !bg-transparent !px-3 !py-2 !text-sm !font-medium !text-harbor-ink hover:!bg-[#f4f0fc] focus-visible:!outline focus-visible:!outline-2 focus-visible:!outline-offset-2 focus-visible:!outline-[#d5c5fc]">Reset demo data</flux:button>
+                        <flux:button id="clear-inactive-demo-data" variant="ghost" class="!rounded-[9px] !bg-transparent !text-sm !font-medium !text-harbor-ink hover:!bg-[#f4f0fc] focus-visible:!outline focus-visible:!outline-2 focus-visible:!outline-offset-2 focus-visible:!outline-[#d5c5fc]">Clear inactive demo data</flux:button>
                     </flux:modal.trigger>
                 </div>
             </div>
 
+            <x-lucid.action-feedback :message="$notice" :tone="$noticeTone" :revision="$noticeRevision" :dismiss-after="0" :dismissible="$noticeTone === 'success'" dismiss-label="Dismiss cleanup result" dismiss-focus="clear-inactive-demo-data" class="shrink-0" data-reset-feedback />
             <div class="space-y-3 md:hidden">
                 @forelse ($tickets as $ticket)
                     <a
@@ -218,7 +198,7 @@
                                 <p class="text-xs font-medium text-harbor-pine">{{ $ticket->reference }}</p>
                                 <p class="mt-1 font-medium text-harbor-ink">{{ $ticket->subject }}</p>
                             </div>
-                            <span class="inline-flex shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $statusTone[$ticket->status->value] ?? 'bg-harbor-sand-deep text-harbor-ink' }}">{{ $ticket->status->label() }}</span>
+                            <x-status-badge :status="$ticket->status" class="shrink-0 whitespace-nowrap" />
                         </div>
                         <p class="mt-3 text-xs text-zinc-500">
                             {{ $ticket->priority?->label() ?? '—' }}
@@ -237,7 +217,7 @@
                 @endforelse
             </div>
 
-            <div class="hidden shrink-0 overflow-hidden rounded-[11px] border border-zinc-100 md:block">
+            <div class="hidden shrink-0 overflow-hidden border-t border-[#e4deed] md:block">
                 <table class="w-full table-fixed text-left text-sm">
                     <thead class="bg-zinc-50 text-sm text-harbor-ink">
                         <tr>
@@ -258,7 +238,7 @@
                                     </a>
                                 </td>
                                 <td class="px-4 py-2">
-                                    <span class="inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $statusTone[$ticket->status->value] ?? 'bg-harbor-sand-deep text-harbor-ink' }}">{{ $ticket->status->label() }}</span>
+                                    <x-status-badge :status="$ticket->status" class="whitespace-nowrap" />
                                 </td>
                                 <td class="truncate px-4 py-2 text-harbor-ink">{{ $ticket->priority?->label() ?? '—' }}</td>
                                 <td class="truncate px-4 py-2 text-harbor-ink">
@@ -280,7 +260,7 @@
                 </table>
             </div>
 
-            <div class="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3">
+            <div class="showroom-panel-footer showroom-queue-footer mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#e4deed] pt-4">
                 <p class="text-sm text-zinc-600">
                     @if ($tickets->total() === 0)
                         Showing 0 tickets
@@ -325,19 +305,41 @@
     <flux:modal name="confirm-demo-reset" class="max-w-lg">
         <div class="space-y-4">
             <div>
-                <flux:heading size="lg">Reset stale demo data?</flux:heading>
-                <flux:subheading class="mt-2">
-                    This removes idle visitor tickets and chats older than {{ config('supportflow.demo.stale_minutes') }} minutes.
-                    Active visitor work and seeded showcase tickets stay. This cannot be undone and does not wipe the knowledge base or the demo agent.
-                </flux:subheading>
+                <flux:heading size="lg" level="2" class="lucid-content-heading">Clear inactive demo data?</flux:heading>
+                <p class="mt-3 text-sm text-zinc-600">Remove visitor tickets and chats from demo visits that have been inactive for more than {{ config('supportflow.demo.stale_minutes') }} minutes.</p>
+                <ul class="mt-3 list-disc space-y-2 ps-5 text-sm text-zinc-600">
+                    <li>Active visitor work and prepared example tickets stay.</li>
+                    <li>Support policies and Lucid's setup stay.</li>
+                </ul>
+                <p class="mt-3 text-sm font-medium text-harbor-ink">Deleted tickets and chats cannot be recovered.</p>
             </div>
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled">Cancel</flux:button>
                 </flux:modal.close>
-                <flux:button variant="danger" wire:click="pruneStale">Reset stale data</flux:button>
+                <flux:button variant="danger" class="showroom-destructive-action" wire:click="pruneStale">Clear inactive data</flux:button>
             </div>
         </div>
     </flux:modal>
     </div>
 </div>
+<x-slot:instructions>
+    @if ($showScenarios)
+        <p>Follow these steps to choose an example and see how Lucid handles the request. The steps below update as you move between views.</p>
+        <ol class="showroom-support-steps showroom-ticket-steps">
+            <li><span>1</span><div><h3>Choose a scenario</h3><p>Select a name in Scenarios. The highlighted example appears beside the list. Choosing a name only previews it.</p></div></li>
+            <li><span>2</span><div><h3>Read the example</h3><p>Customer situation explains the request. What Lucid should do describes how AI should handle it. Expected result tells you what to look for in the ticket.</p></div></li>
+            <li><span>3</span><div><h3>Load the scenario</h3><p>Load scenario creates a new demo ticket and opens it. AI may need a moment to process the request. Existing examples stay unchanged, and no reply is sent automatically.</p></div></li>
+            <li><span>4</span><div><h3>Return to the queue</h3><p>Back to tickets closes this preview without creating a ticket. Your queue filter and page are kept.</p></div></li>
+        </ol>
+    @else
+                <p>Follow these steps to find a customer request and open it for review. The steps below update as you move between views.</p>
+                <ol class="showroom-support-steps showroom-ticket-steps">
+                    <li><span>1</span><div><h3>Filter the requests</h3><p>Use the filters above the list. All shows every ticket. Live demo shows requests visitors submitted here. The other filters show replies awaiting review, urgent requests, escalations, or failed AI attempts.</p></div></li>
+                    <li><span>2</span><div><h3>Read the ticket list</h3><p>Reference is the ticket number. Subject describes the request. Status shows its stage, Priority shows urgency, and Source tells you whether it came from a visitor, a scenario, or a prepared example.</p></div></li>
+                    <li><span>3</span><div><h3>Open a request</h3><p>Select a ticket number or its subject to review that request. Use the page numbers or Next below the list to see more tickets. New requests appear automatically while this queue is open.</p></div></li>
+                    <li><span>4</span><div><h3>Try an example or clear inactive demo data</h3><p>Try a scenario opens example requests you can preview and load. Clear inactive demo data asks for confirmation before removing visitor tickets and chats from inactive demo visits. Active work and prepared examples stay.</p></div></li>
+                </ol>
+    @endif
+</x-slot:instructions>
+</x-lucid.workspace-page>

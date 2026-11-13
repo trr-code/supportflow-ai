@@ -7,7 +7,7 @@
         <x-skip-link />
         <x-demo-chrome />
 
-        <main id="main-content" class="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
+        <main id="main-content" class="lucid-public-content mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
             {{ $slot }}
         </main>
 

@@ -277,8 +277,9 @@ test('choosing a file shows its name and upload indexes it', function () {
         ->and($document->original_name)->toBe('returns.txt')
         ->and($document->article->body)->toContain('Unused items can be returned within 30 days.');
 
-    $preview = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
-    $refreshAt = strpos($preview, 'await this.$wire.$refresh()');
+    $preview = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'))
+        .file_get_contents(resource_path('views/livewire/pages/workspace-preview-chat.blade.php'));
+    $refreshAt = strpos($preview, 'await this.$wire.finishTurn()');
     $clearAt = strpos($preview, 'this.liveSources = []', (int) $refreshAt);
 
     expect($preview)
@@ -307,8 +308,8 @@ test('choosing a file shows its name and upload indexes it', function () {
 
 test('the landing page links to the document preview and the demo environment does not repeat it', function () {
     Livewire::test(Welcome::class)
-        ->assertSee('Your documents')
-        ->assertSee('Upload files. Get answers with sources.')
+        ->assertSee('Document chat')
+        ->assertSee('Ask questions about your files and check the passages behind the answers.')
         ->assertSee(route('demo.documents'));
 
     $this->get(route('demo.documents'))

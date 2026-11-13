@@ -7,7 +7,7 @@
         <x-skip-link />
         <x-demo-chrome />
 
-        <main id="main-content" class="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
+        <main id="main-content" class="lucid-public-content mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
             {{ $slot }}
         </main>
 
@@ -16,7 +16,7 @@
                 <p>© {{ now()->year }} Lucid</p>
                 <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1" aria-label="Footer">
                     <a href="{{ route('home') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Lucid</a>
-                    <a href="{{ route('tickets.create') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Submit a ticket</a>
+                    <a href="{{ route('demo.harbor', ['view' => 'ticket']) }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Submit a ticket</a>
                     <a href="{{ route('knowledge.index') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>
                     <a href="{{ route('demo.environment') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Demo environment</a>
                 </nav>

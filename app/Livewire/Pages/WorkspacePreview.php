@@ -23,6 +23,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -30,6 +31,9 @@ use Livewire\WithFileUploads;
 class WorkspacePreview extends Component
 {
     use WithFileUploads;
+
+    #[Locked]
+    public bool $embedded = false;
 
     public string $question = '';
 
@@ -49,6 +53,14 @@ class WorkspacePreview extends Component
 
     public ?string $pendingQuestion = null;
 
+    public string $settingsNotice = '';
+
+    public int $settingsNoticeRevision = 0;
+
+    public string $fileNotice = '';
+
+    public int $fileNoticeRevision = 0;
+
     public function mount(WorkspaceAccess $access): void
     {
         $this->fillFromWorkspace($access);
@@ -59,6 +71,7 @@ class WorkspacePreview extends Component
         $access->start();
         $this->returnInput = '';
         $this->fillFromWorkspace($access);
+        $this->dispatch('document-workspace-changed');
     }
 
     public function openWithCode(WorkspaceAccess $access): void
@@ -77,6 +90,7 @@ class WorkspacePreview extends Component
 
         $this->returnInput = '';
         $this->fillFromWorkspace($access);
+        $this->dispatch('document-workspace-changed');
     }
 
     public function dismissReturnCode(WorkspaceAccess $access): void
@@ -86,6 +100,7 @@ class WorkspacePreview extends Component
 
     public function saveControls(WorkspaceAccess $access): void
     {
+        $this->settingsNotice = '';
         $workspace = $access->current(request());
 
         if ($workspace === null) {
@@ -125,6 +140,13 @@ class WorkspacePreview extends Component
         }
 
         $this->fillFromWorkspace($access);
+        if ($this->embedded) {
+            $this->settingsNotice = 'Settings saved.';
+            $this->settingsNoticeRevision++;
+
+            return;
+        }
+
         $this->js('$flux.toast('.Js::from([
             'text' => 'Settings saved.',
             'variant' => 'success',
@@ -155,7 +177,12 @@ class WorkspacePreview extends Component
 
     public function storeDocuments(WorkspaceAccess $access, WorkspaceDocumentStore $store): void
     {
+        $this->fileNotice = '';
         $workspace = $access->current(request());
+
+        if ($workspace === null && $this->embedded && $this->uploads !== []) {
+            $workspace = $access->start();
+        }
 
         if ($workspace === null) {
             return;
@@ -164,6 +191,7 @@ class WorkspacePreview extends Component
         try {
             $store->storeMany($workspace, array_values($this->uploads));
             $this->reset('uploads');
+            $this->dispatch('document-workspace-changed');
         } catch (WorkspaceUploadException $exception) {
             $this->addError('uploads', $exception->getMessage());
         }
@@ -171,6 +199,7 @@ class WorkspacePreview extends Component
 
     public function removeDocument(string $documentId, WorkspaceAccess $access, WorkspaceDocumentStore $store): void
     {
+        $this->fileNotice = '';
         $workspace = $access->current(request());
         $document = WorkspaceDocument::query()->find($documentId);
 
@@ -188,6 +217,14 @@ class WorkspacePreview extends Component
             return;
         }
 
+        $this->dispatch('document-workspace-changed');
+        if ($this->embedded) {
+            $this->fileNotice = 'Deleted '.$name.'.';
+            $this->fileNoticeRevision++;
+
+            return;
+        }
+
         $this->js('$flux.toast('.Js::from([
             'text' => 'Deleted '.$name.'.',
             'variant' => 'success',
@@ -199,6 +236,7 @@ class WorkspacePreview extends Component
     {
         $access->leave(request());
         $this->resetWorkspaceState();
+        $this->dispatch('document-workspace-changed');
     }
 
     public function deleteWorkspace(WorkspaceAccess $access, WorkspacePurgeService $purge): void
@@ -211,6 +249,8 @@ class WorkspacePreview extends Component
 
         $access->leave(request());
         $this->resetWorkspaceState();
+        $this->dispatch('modal-close', name: 'delete-document-workspace');
+        $this->dispatch('document-workspace-changed');
     }
 
     public function send(): void
@@ -228,6 +268,7 @@ class WorkspacePreview extends Component
     {
         $this->streaming = false;
         $this->pendingQuestion = null;
+        $this->dispatch('document-workspace-changed');
     }
 
     public function requestStop(WorkspaceAccess $access, WorkspaceChatService $chat): void
@@ -249,6 +290,7 @@ class WorkspacePreview extends Component
 
         $chat->startNewConversation($workspace);
         $this->finishTurn();
+        $this->dispatch('document-chat-reset');
         $this->dispatch('modal-close', name: 'confirm-preview-new-chat');
     }
 
@@ -339,5 +381,7 @@ class WorkspacePreview extends Component
         $this->question = '';
         $this->pendingQuestion = null;
         $this->streaming = false;
+        $this->settingsNotice = '';
+        $this->fileNotice = '';
     }
 }

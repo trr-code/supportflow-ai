@@ -19,7 +19,7 @@ class DemoSessionService
             ? DemoSession::query()->find($id)
             : null;
 
-        if (! $session) {
+        if ($session === null || $session->isStale()) {
             $session = DemoSession::query()->create([
                 'id' => (string) Str::uuid(),
                 'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,

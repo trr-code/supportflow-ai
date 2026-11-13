@@ -63,7 +63,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --queue=ai,default --sleep=3 --timeout=120 --tries=3\" \"npm run dev\" --names='server,queue,vite'"
+            "npx concurrently -c \"#c4b5fd,#fdba74\" \"php artisan queue:listen --queue=ai,default --sleep=3 --timeout=120 --tries=3\" \"npm run dev\" --names='queue,vite'"
         ],
         "lint": [
             "@php vendor/bin/pint --parallel"
@@ -85,11 +85,12 @@
             "@php vendor/bin/phpstan analyse --memory-limit=1G"
         ],
         "test": [
+            "Composer\\Config::disableProcessTimeout",
             "@php artisan config:clear --ansi",
             "@lint:check",
             "@rector:check",
             "@types:check",
-            "@php artisan test --exclude-group=stress --exclude-group=evals"
+            "@php -d memory_limit=512M vendor/bin/pest --exclude-group=stress --exclude-group=evals"
         ],
         "test:evals": [
             "Composer\\Config::disableProcessTimeout",

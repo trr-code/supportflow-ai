@@ -13,7 +13,7 @@ trait HeartbeatsDemoSession
     {
         $session = $this->existingDemoSession();
 
-        if ($session === null) {
+        if ($session === null || $session->isStale()) {
             $session = $sessions->heartbeat(request());
         } else {
             $session->forceFill(['last_activity_at' => now()])->save();

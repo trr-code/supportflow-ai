@@ -403,7 +403,7 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
 });
 
 test('preview re-pins on a downward scroll and reveals the answer on a timer', function () {
-    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview.blade.php'));
+    $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview-chat.blade.php'));
 
     expect($view)
         ->toContain('scrollingDown')

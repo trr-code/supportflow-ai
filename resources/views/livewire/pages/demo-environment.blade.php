@@ -1,50 +1,23 @@
-<div class="space-y-8">
-    <x-demo-banner />
+<div class="max-w-3xl space-y-8">
+    <section id="privacy" class="scroll-mt-8 space-y-4" aria-labelledby="privacy-heading">
+        <h1 id="privacy-heading" class="text-2xl font-semibold tracking-tight text-harbor-ink">Privacy</h1>
+        <p>Use fictional details and non-sensitive files in Lucid. Keep customer ticket links private. Anyone with the link can read the public ticket updates.</p>
 
-    <section class="space-y-4">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-harbor-pine">Demo environment</p>
-        <h1 class="max-w-3xl text-2xl font-semibold tracking-tight text-harbor-ink sm:text-3xl">
-            What this is not
-        </h1>
-        <p class="max-w-2xl text-base leading-relaxed text-zinc-600">
-            This is a live portfolio demo of a customer-support copilot. Use it to try the assistant and the human review flow—not as a production help desk.
-        </p>
-    </section>
-
-    <section class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-        <ul class="list-disc space-y-1.5 ps-5 text-sm text-zinc-700">
-            <li>A full help desk</li>
-            <li>A spoken two-way AI assistant</li>
-            <li>Real orders or email</li>
-        </ul>
-        <p class="mt-4 text-sm leading-relaxed text-zinc-700">
-            You can dictate a question in chat or on the ticket form. That is speech-to-text dictation—not a spoken conversation.
-        </p>
-    </section>
-
-    <section id="privacy" class="scroll-mt-8 space-y-4">
-        <h2 class="text-xl font-semibold tracking-tight text-harbor-ink">Privacy</h2>
-        <div class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-            <p class="text-sm leading-relaxed text-zinc-700">
-                Harbor &amp; Co is fictional. Do not enter real personal, order, or payment information.
-            </p>
-            <p class="mt-3 text-sm leading-relaxed text-zinc-700">
-                Questions, tickets, uploaded files, and invoice PDFs are sent to OpenAI so the demo can answer, extract fields, or suggest a reply. This organization does not share that content for model training. OpenAI may still keep abuse-monitoring logs for up to 30 days.
-            </p>
-            <p class="mt-3 text-sm leading-relaxed text-zinc-700">
-                Private workspaces and invoice reviews expire after seven days, then they are cleaned up automatically. Deleting a workspace removes the files here immediately. It does not erase those OpenAI logs.
-            </p>
+        <div class="space-y-5 border-t border-harbor-sand-deep pt-5">
+            <div class="space-y-2">
+                <h2 class="font-semibold text-harbor-ink">What OpenAI processes</h2>
+                <ul class="list-disc space-y-1 ps-5">
+                    <li><strong>Customer support.</strong> Chat questions and ticket details help generate answers and draft replies.</li>
+                    <li><strong>Document chat.</strong> Text from your files is processed so Lucid can search them. Your questions and relevant passages help generate answers with sources.</li>
+                    <li><strong>Invoice review.</strong> Lucid extracts text from the PDF and sends that text to OpenAI to identify fields for you to check.</li>
+                    <li><strong>Dictation.</strong> When you use the microphone, OpenAI transcribes your audio into text.</li>
+                </ul>
+                <p>Lucid sends data to OpenAI to run the demo. Lucid has not opted in to sharing your data with OpenAI for model training. OpenAI typically keeps abuse-monitoring logs for up to 30 days. See <a href="https://developers.openai.com/api/docs/guides/your-data" class="policy-link">OpenAI API data controls</a> for details and exceptions.</p>
+            </div>
+            <div class="space-y-2">
+                <h2 class="font-semibold text-harbor-ink">How long Lucid keeps your files</h2>
+                <p>Document workspaces and invoice reviews expire after seven days and are cleaned up automatically. You can also delete a document workspace sooner. Lucid cleanup and OpenAI retention operate separately.</p>
+            </div>
         </div>
     </section>
-
-    <section id="contact" class="scroll-mt-8 space-y-4">
-        <h2 class="text-xl font-semibold tracking-tight text-harbor-ink">Contact</h2>
-        <div class="rounded-2xl border border-harbor-sand-deep bg-white p-5 sm:p-6">
-            <p class="text-sm leading-relaxed text-zinc-700">
-                This Lucid showroom is a portfolio demo, not a help desk. For questions about the demo, open an issue on
-                <a href="https://github.com/trr-code/supportflow-ai" class="underline-offset-2 hover:text-harbor-ink hover:underline">GitHub</a>.
-            </p>
-        </div>
-    </section>
-
 </div>

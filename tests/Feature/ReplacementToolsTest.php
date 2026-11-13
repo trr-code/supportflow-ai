@@ -8,7 +8,7 @@ use App\Enums\AiRunFeature;
 use App\Enums\AiRunStatus;
 use App\Enums\ReplacementProposalStatus;
 use App\Jobs\RunReplacementAgent;
-use App\Livewire\Pages\ReplacementTools;
+use App\Livewire\Pages\DemoWorkspace;
 use App\Models\AiRun;
 use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
@@ -24,6 +24,7 @@ use App\Services\ReplacementCaseService;
 use App\Support\ChatInjectionGate;
 use App\Support\HarborReplacementCatalog;
 use Database\Seeders\KnowledgeSeeder;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -182,10 +183,9 @@ test('confirming HB-10482 saves one request and shows its reference', function (
 
     Livewire::withCookies([
         DemoSessionService::COOKIE => $session->id,
-    ])->test(ReplacementTools::class)
-        ->assertSee('Your replacement request is saved.')
-        ->assertSee($saved->reference)
-        ->assertSee('Driftwood Duffel');
+    ])->test(DemoWorkspace::class)
+        ->assertSee('Replacement request saved')
+        ->assertSee($saved->reference);
 });
 
 test('confirming a proposal saves a request without resuming OpenAI tool output', function () {
@@ -239,9 +239,9 @@ test('cancel saves nothing', function () {
 
     Livewire::withCookies([
         DemoSessionService::COOKIE => $session->id,
-    ])->test(ReplacementTools::class)
+    ])->test(DemoWorkspace::class)
         ->assertSee('Nothing was saved.')
-        ->assertDontSee('Your replacement request is saved.');
+        ->assertDontSee('Replacement request saved');
 });
 
 test('a second click a replayed confirmation and two commits save one request', function () {
@@ -253,9 +253,9 @@ test('a second click a replayed confirmation and two commits save one request', 
 
     Livewire::withCookies([
         DemoSessionService::COOKIE => $session->id,
-    ])->test(ReplacementTools::class)
-        ->call('confirm')
-        ->call('confirm');
+    ])->test(DemoWorkspace::class)
+        ->call('confirmReplacement')
+        ->call('confirmReplacement');
 
     Bus::assertDispatchedTimes(RunReplacementAgent::class, 1);
     Bus::assertDispatched(RunReplacementAgent::class, fn (RunReplacementAgent $job): bool => $job->mode === 'approve' && $job->toolCallId === $proposal->tool_call_id);
@@ -461,41 +461,11 @@ test('prune and reset leave tickets knowledge and workspaces in place', function
         ->and($activeCase->fresh()->stock()->count())->toBe(2);
 });
 
-test('replacement questions stop at the per-minute limit before another lookup', function () {
-    config(['supportflow.replacement.per_minute' => 1]);
-    ReplacementAgent::fake(['Which order should I look up?'])->preventStrayPrompts();
-
-    $session = replacementDemoSession();
-
-    Livewire::withCookies([
-        DemoSessionService::COOKIE => $session->id,
-    ])->test(ReplacementTools::class)
-        ->set('draft', 'My bag arrived damaged.')
-        ->call('ask')
-        ->set('draft', 'Please look up HB-10482.')
-        ->call('ask')
-        ->assertSee('Please wait a moment and try again.');
-
-    $case = ReplacementCase::query()->where('demo_session_id', $session->id)->first();
-
-    expect($case)->not->toBeNull()
-        ->and($case->visitor_messages)->toBe(1)
-        ->and($case->messages()->where('role', 'user')->count())->toBe(1)
-        ->and(ReplacementRequest::query()->count())->toBe(0);
+test('the Harbor replacement flow uses the chat rate limiter', function () {
+    expect(collect(app(Router::class)->getRoutes()->getByName('chat.stream')->gatherMiddleware()))->toContain('throttle:chat');
 });
 
-test('the tools page names the sample order and the confirmation buttons', function () {
+test('the old tools address opens the Harbor replacement example', function () {
     $this->get(route('demo.tools'))
-        ->assertOk()
-        ->assertSee('Replace a bag that arrived damaged')
-        ->assertSee('Jamie Chen, order HB-10482')
-        ->assertSee('My bag arrived damaged')
-        ->assertSee('This order is too late')
-        ->assertSee('This order is out of stock')
-        ->assertSee('Reset clears this demo and starts fresh.')
-        ->assertSee('No real customers, orders, or payments.')
-        ->assertDontSee('tool calls')
-        ->assertDontSee('SDK')
-        ->assertDontSee('agent orchestration')
-        ->assertDontSee('database writes');
+        ->assertRedirect(route('demo.harbor', ['example' => 'replacement']));
 });

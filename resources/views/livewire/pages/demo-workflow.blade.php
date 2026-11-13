@@ -18,10 +18,10 @@
     </ol>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <flux:button variant="primary" :href="route('tickets.create', ['sample' => 1])" wire:navigate class="justify-center">
+        <flux:button variant="primary" :href="route('demo.harbor', ['view' => 'ticket', 'sample' => 1])" wire:navigate class="justify-center">
             Use prepared ticket
         </flux:button>
-        <flux:button variant="outline" :href="route('tickets.create')" wire:navigate class="justify-center">
+        <flux:button variant="outline" :href="route('demo.harbor', ['view' => 'ticket'])" wire:navigate class="justify-center">
             Write my own ticket
         </flux:button>
     </div>

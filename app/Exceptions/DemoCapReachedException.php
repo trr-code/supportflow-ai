@@ -11,11 +11,11 @@ class DemoCapReachedException extends RuntimeException
         $limit = (int) config('supportflow.demo.max_tickets_per_session');
         $minutes = (int) config('supportflow.demo.stale_minutes');
 
-        return new self("This browser can submit {$limit} tickets. Prepared examples count, and tickets already submitted in this browser count. They are removed after this browser has been idle for {$minutes} minutes. Keep using a ticket already submitted, or open a private window to submit another now.");
+        return new self("This demo visit has reached its {$limit}-ticket limit. You can still review existing tickets. A new visit starts after {$minutes} minutes of inactivity.");
     }
 
     public static function global(): self
     {
-        return new self('The shared demo is full. Other visitors’ tickets are cleaned up on a schedule. Opening a private window does not reset that shared limit.');
+        return new self('The demo is at capacity. You can still review an existing ticket or try submitting again later.');
     }
 }

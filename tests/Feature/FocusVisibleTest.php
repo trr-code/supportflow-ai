@@ -23,18 +23,11 @@ test('shared styles give dark-green controls a dual-tone keyboard focus ring', f
         ->not->toContain('tabindex');
 });
 
-test('the customer ticket page renders the confirmed dark-green controls without a positive tabindex', function () {
-    $page = $this->get(route('tickets.create'))
-        ->assertOk()
-        ->assertSee('Agent desk', false)
-        ->assertSee('Submit ticket', false)
-        ->assertSee('Ask Harbor &amp; Co', false)
-        ->getContent();
+test('the Harbor ticket form renders its current controls without positive tabindex', function () {
+    $page = $this->get(route('demo.harbor', ['view' => 'ticket']))
+        ->assertOk()->assertSee('Agent desk')->assertSee('Submit ticket')->getContent();
 
-    expect($page)
-        ->toContain('bg-harbor-pine text-white')
-        ->toContain('bg-[var(--color-accent)]')
-        ->not->toMatch('/\btabindex="[1-9]\d*"/');
+    expect($page)->toContain('id="harbor-ticket-description"')->not->toMatch('/\btabindex="[1-9]\d*"/');
 });
 
 test('the closed chat launcher stays a dark-green control without a pine focus outline', function () {
@@ -49,12 +42,12 @@ test('the closed chat launcher stays a dark-green control without a pine focus o
 
 test('the landing page and ticket form do not use a positive tabindex', function () {
     $home = $this->get(route('home'))->assertOk()->getContent();
-    $create = $this->get(route('tickets.create'))->assertOk()->getContent();
+    $create = $this->get(route('demo.harbor', ['view' => 'ticket']))->assertOk()->getContent();
 
     expect($home)
-        ->toContain('Try the workspace')
+        ->toContain('Explore demos')
         ->not->toMatch('/\btabindex="[1-9]\d*"/')
         ->and($create)
-        ->toContain('Use a sample return')
+        ->toContain('Submit ticket')
         ->not->toMatch('/\btabindex="[1-9]\d*"/');
 });

@@ -11,6 +11,49 @@ use Illuminate\Support\Facades\Queue;
 use Pest\Browser\Playwright\Client;
 use Pest\Browser\Playwright\Page;
 
+test('scenario guidance follows preview and keeps shared spacing across screen sizes', function (int $width, int $height) {
+    $this->actingAs(User::factory()->create());
+    fakeSupportAi();
+    Http::preventStrayRequests();
+    $page = visit(route('agent.tickets.index', ['scenarios' => 1]), ['viewport' => ['width' => $width, 'height' => $height], 'isMobile' => false, 'hasTouch' => false]);
+    $page->assertSee('Try a support scenario')->assertDontSee('Filter the requests');
+    expect($page->script(<<<'JS'
+        (() => {
+            const button = document.querySelector('.showroom-scenario-footer button');
+            const style = getComputedStyle(button);
+            return { height: button.getBoundingClientRect().height, font: style.fontSize, start: style.paddingInlineStart, end: style.paddingInlineEnd };
+        })()
+    JS))->toBe(['height' => 40, 'font' => '14px', 'start' => '12px', 'end' => '12px']);
+    expect($page->script("document.querySelectorAll('#demo-guide').length"))->toBe(1);
+    expect($page->script(<<<'JS'
+        (() => {
+            const scroll = document.querySelector('.showroom-guide-scroll');
+            const edge = scroll.getBoundingClientRect().left + scroll.clientLeft + scroll.clientWidth;
+            const ends = [...scroll.querySelectorAll('p, h3')].flatMap(el => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                return [...range.getClientRects()].map(rect => rect.right);
+            });
+            return edge - Math.max(...ends);
+        })()
+    JS))->toBeGreaterThanOrEqual(16);
+    expect($page->script("[...document.querySelectorAll('.showroom-scenario-icon')].every(el => getComputedStyle(el).color === 'rgb(119, 53, 220)' && getComputedStyle(el).width === '20px')"))->toBeTrue();
+    expect($page->script("document.querySelector('.showroom-scenario-icon').getBoundingClientRect().top - document.querySelector('.showroom-scenario-preview h3.lucid-content-heading').getBoundingClientRect().bottom"))->toBeLessThan(100);
+    expect($page->script("[...document.querySelectorAll('#scenario-chooser-title, .showroom-scenario-preview h3.lucid-content-heading')].every(el => getComputedStyle(el).fontSize === '20px' && getComputedStyle(el).fontWeight === '600')"))->toBeTrue();
+    expect($page->script('document.documentElement.scrollWidth <= innerWidth'))->toBeTrue();
+    if ($width >= 1100) {
+        expect($page->script("document.querySelector('#demo-guide').getBoundingClientRect().width"))->toEqual(320);
+    }
+    pointerClick($page, 'Billing dispute');
+    $page->assertSee('both were charged for the same order')->assertSee('Read the example');
+    expect(Ticket::query()->count())->toBe(0);
+    $page->screenshot(filename: 'scenario-shared-'.$width);
+    $page->click('[aria-label="Hide instructions"]');
+    pointerClick($page, 'Back to tickets');
+    expect($page->script("getComputedStyle(document.querySelector('#demo-guide')).display"))->toBe('none');
+    $page->click('Show instructions')->assertSee('Filter the requests')->assertDontSee('Try a support scenario')->assertNoJavaScriptErrors();
+})->with([[1440, 900], [1280, 870], [1024, 768], [768, 1024], [390, 844], [320, 844]]);
+
 test('scenario selection previews a ticket, returns to the same queue, and load opens it', function () {
     $this->actingAs(User::factory()->create());
     fakeSupportAi();

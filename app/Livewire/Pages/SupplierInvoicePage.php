@@ -14,6 +14,7 @@ use App\Support\InvoiceMoney;
 use App\Support\SupplierInvoiceCheck;
 use Closure;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -71,6 +72,26 @@ class SupplierInvoicePage extends Component
             return;
         }
 
+        $this->intake($access, $document);
+    }
+
+    public function useSample(SupplierInvoiceAccess $access): void
+    {
+        $current = $access->latest(request());
+
+        if ($current !== null && $current->status !== SupplierInvoiceStatus::Failed) {
+            $this->fillFrom($current);
+
+            return;
+        }
+
+        $this->intake($access, new UploadedFile(resource_path('Northwind-sample-invoice.pdf'), 'Northwind-sample-invoice.pdf', 'application/pdf', test: true));
+    }
+
+    private function intake(SupplierInvoiceAccess $access, UploadedFile $document): void
+    {
+        $this->resetValidation('document');
+
         try {
             $invoice = app(UploadAdmission::class)->store(function () use ($access, $document): SupplierInvoice {
                 $browserKey = 'invoice-upload:'.hash('sha256', $access->token(request()));
@@ -112,9 +133,10 @@ class SupplierInvoicePage extends Component
 
         $this->fillFrom($invoice->fresh(['lines']) ?? $invoice);
         $this->reset('document');
+        $this->notifyGuide();
     }
 
-    private function storeDocument(SupplierInvoiceAccess $access, TemporaryUploadedFile $document): SupplierInvoice
+    private function storeDocument(SupplierInvoiceAccess $access, UploadedFile $document): SupplierInvoice
     {
 
         $generation = (string) Str::uuid();
@@ -160,6 +182,18 @@ class SupplierInvoicePage extends Component
         return $invoice;
     }
 
+    public function backToInvoiceChoices(SupplierInvoiceAccess $access): void
+    {
+        if ($this->invoiceId === null) {
+            return;
+        }
+
+        $access->leave(request(), $this->invoiceId);
+        $this->reset('invoiceId', 'document', 'supplierName', 'invoiceNumber', 'issuedOn', 'currency', 'tax', 'statedTotal', 'lines');
+        $this->resetValidation();
+        $this->notifyGuide();
+    }
+
     public function refreshInvoice(SupplierInvoiceAccess $access): void
     {
         if ($this->invoiceId === null) {
@@ -170,12 +204,14 @@ class SupplierInvoicePage extends Component
 
         if ($invoice === null) {
             $this->invoiceId = null;
+            $this->notifyGuide();
 
             return;
         }
 
         if ($invoice->status !== SupplierInvoiceStatus::Processing) {
             $this->fillFrom($invoice);
+            $this->notifyGuide();
         }
     }
 
@@ -205,7 +241,7 @@ class SupplierInvoicePage extends Component
             'invoice' => $invoice,
             'checks' => $messages,
             'calculatedTotal' => $calculatedTotal,
-            'disclosure' => 'The PDF and its text are sent to OpenAI so this page can propose fields. This organization does not share that content for model training. Confirming an invoice stores your corrections here. It does not pay the invoice.',
+            'disclosure' => 'Text extracted from the PDF is sent to OpenAI so this page can propose fields. This organization does not share that content for model training. Confirming an invoice stores your corrections here. It does not pay the invoice.',
         ])->layout('components.layouts.workspace', [
             'title' => 'Invoice review',
         ]);
@@ -288,6 +324,17 @@ class SupplierInvoicePage extends Component
 
         if ($fresh instanceof SupplierInvoice) {
             $this->fillFrom($fresh);
+
+            if ($fresh->status === SupplierInvoiceStatus::Confirmed) {
+                $this->notifyGuide();
+            }
+        }
+    }
+
+    private function notifyGuide(): void
+    {
+        if ($this->embedded) {
+            $this->dispatch('invoice-stage-changed');
         }
     }
 

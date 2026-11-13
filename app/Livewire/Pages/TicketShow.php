@@ -24,6 +24,7 @@ use App\Support\SuggestedReplyPanelState;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
@@ -49,6 +50,17 @@ class TicketShow extends Component
 
     public string $tools = 'sources';
 
+    public bool $showToolInstructions = false;
+
+    #[Locked]
+    public int $activityLimit = 8;
+
+    #[Locked]
+    public int $replyHistoryLimit = 6;
+
+    #[Locked]
+    public int $notesLimit = 4;
+
     public bool $manualReply = false;
 
     public string $draftBody = '';
@@ -56,6 +68,18 @@ class TicketShow extends Component
     public ?int $draftReplyId = null;
 
     public ?string $flash = null;
+
+    public ?string $detailsFeedback = null;
+
+    public ?string $noteFeedback = null;
+
+    public int $detailsFeedbackRevision = 0;
+
+    public int $noteFeedbackRevision = 0;
+
+    public int $flashRevision = 0;
+
+    public string $flashTone = 'info';
 
     #[Validate('nullable')]
     public ?string $category = null;
@@ -85,7 +109,8 @@ class TicketShow extends Component
         ], (string) auth()->user()?->name);
 
         $this->ticket->refresh();
-        $this->flash = 'Classification updated. AI proposal is unchanged so you can compare.';
+        $this->detailsFeedback = 'Details saved. No reply was sent.';
+        $this->detailsFeedbackRevision++;
     }
 
     public function saveDraft(SuggestedReplyService $replies): void
@@ -99,6 +124,8 @@ class TicketShow extends Component
         $this->authorize('update', $reply);
         $replies->updateBody($reply, $this->draftBody, (string) auth()->user()?->name);
         $this->flash = 'Draft saved. The customer cannot see it until you approve and send.';
+        $this->flashTone = 'success';
+        $this->flashRevision++;
     }
 
     public function approveAndSend(SuggestedReplyService $replies): void
@@ -117,8 +144,11 @@ class TicketShow extends Component
         }
 
         $replies->approveAndSend($reply, (string) auth()->user()?->name);
+        $this->dispatch('ticket-reply-sent');
         $this->ticket->refresh();
         $this->flash = 'Reply sent to the customer status page (simulated—no email).';
+        $this->flashTone = 'success';
+        $this->flashRevision++;
         $this->syncDraft();
     }
 
@@ -134,6 +164,8 @@ class TicketShow extends Component
         $replies->reject($reply, (string) auth()->user()?->name);
         $this->ticket->refresh();
         $this->flash = 'Suggestion rejected. Ticket escalated for a human reply.';
+        $this->flashTone = 'success';
+        $this->flashRevision++;
         $this->syncDraft();
     }
 
@@ -149,6 +181,7 @@ class TicketShow extends Component
             $wait = now()->addSeconds(max(1, RateLimiter::availableIn($key)))
                 ->diffForHumans(syntax: CarbonInterface::DIFF_ABSOLUTE);
             $this->flash = "Regeneration limit reached. Try again in {$wait}.";
+            $this->flashTone = 'warning';
 
             return;
         }
@@ -162,6 +195,7 @@ class TicketShow extends Component
         );
         GenerateSuggestedReply::dispatch($this->ticket->id, true, $from);
         $this->flash = 'Regenerating a grounded draft…';
+        $this->flashTone = 'info';
     }
 
     public function retryAi(AiUsageRecorder $recorder): void
@@ -174,6 +208,7 @@ class TicketShow extends Component
         );
         ProcessTicketIntake::dispatch($this->ticket->id, true);
         $this->flash = 'Retrying AI intake…';
+        $this->flashTone = 'info';
     }
 
     public function shouldPoll(): bool
@@ -193,6 +228,7 @@ class TicketShow extends Component
         }
 
         $this->workspace = $workspace;
+        $this->showToolInstructions = false;
     }
 
     public function showTools(string $tools): void
@@ -202,14 +238,51 @@ class TicketShow extends Component
         }
 
         $this->tools = $tools;
+        $this->showToolInstructions = $tools !== 'sources';
     }
 
-    public function openManualReply(): void
+    public function showEarlierActivity(): void
     {
-        $this->authorize('update', $this->ticket);
-        $this->workspace = 'review';
-        $this->manualReply = true;
-        $this->focusManualReplyComposer();
+        $this->authorize('view', $this->ticket);
+        $firstNewIndex = $this->activityLimit;
+        $this->activityLimit += 8;
+        $this->js("requestAnimationFrame(() => document.querySelectorAll('[data-activity-event]')[{$firstNewIndex}]?.focus({ preventScroll: true }))");
+    }
+
+    public function showRecentActivity(): void
+    {
+        $this->authorize('view', $this->ticket);
+        $this->activityLimit = 8;
+        $this->js("requestAnimationFrame(() => { const entry = document.querySelector('[data-activity-event]'); entry?.focus({ preventScroll: true }); entry?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); })");
+    }
+
+    public function showEarlierReplies(): void
+    {
+        $this->authorize('view', $this->ticket);
+        $this->replyHistoryLimit += 6;
+        $this->js("requestAnimationFrame(() => { const message = document.querySelector('[data-reply-message]'); message?.focus({ preventScroll: true }); message?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); })");
+    }
+
+    public function showRecentReplies(): void
+    {
+        $this->authorize('view', $this->ticket);
+        $this->replyHistoryLimit = 6;
+        $this->js("requestAnimationFrame(() => { const message = document.querySelector('[data-reply-message]'); message?.focus({ preventScroll: true }); message?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); })");
+    }
+
+    public function showEarlierNotes(): void
+    {
+        $this->authorize('view', $this->ticket);
+        $firstNewIndex = $this->notesLimit;
+        $this->notesLimit += 4;
+        $this->js("requestAnimationFrame(() => { const note = document.querySelectorAll('[data-internal-note]')[".$firstNewIndex."]; note?.focus({ preventScroll: true }); note?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); })");
+    }
+
+    public function showRecentNotes(): void
+    {
+        $this->authorize('view', $this->ticket);
+        $this->notesLimit = 4;
+        $this->js("requestAnimationFrame(() => { const note = document.querySelector('[data-internal-note]'); note?.focus({ preventScroll: true }); note?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); })");
     }
 
     public function addNote(TicketService $tickets): void
@@ -219,23 +292,8 @@ class TicketShow extends Component
         $this->validate(['note' => 'required|string|max:2000']);
         $tickets->addInternalNote($this->ticket, $this->note, (string) auth()->user()?->name);
         $this->note = '';
-        $this->flash = 'Internal note saved. Customers never see notes.';
-    }
-
-    public function addToComposer(): void
-    {
-        $this->authorize('update', $this->ticket);
-
-        $draft = trim($this->draftBody);
-
-        if ($draft === '') {
-            return;
-        }
-
-        $this->workspace = 'review';
-        $this->manualReply = true;
-        $this->customReply = $draft;
-        $this->focusManualReplyComposer();
+        $this->noteFeedback = 'Internal note saved. Customers never see notes.';
+        $this->noteFeedbackRevision++;
     }
 
     public function sendCustom(SuggestedReplyService $replies): void
@@ -245,11 +303,14 @@ class TicketShow extends Component
         $this->manualReply = true;
         $this->validate(['customReply' => 'required|string|min:8|max:4000']);
         $replies->sendCustom($this->ticket, $this->customReply, (string) auth()->user()?->name);
+        $this->dispatch('ticket-reply-sent');
         $this->customReply = '';
         $this->manualReply = false;
         $this->workspace = 'conversation';
         $this->ticket->refresh();
         $this->flash = 'Human reply sent to the customer status page (simulated).';
+        $this->flashTone = 'success';
+        $this->flashRevision++;
     }
 
     public function changeStatus(string $status, TicketService $tickets): void
@@ -261,16 +322,21 @@ class TicketShow extends Component
 
     public function render(): View
     {
+        $this->authorize('view', $this->ticket);
         $this->ticket->refresh();
         $this->promotePendingDraftToAwaitingReview();
         $this->clearProcessingFlashWhenSettled();
         $this->applyUnchangedRegenerateNotice();
         $this->syncDraft();
 
-        $events = $this->ticket->events()->with('aiRun')->latest()->get();
-        $notes = $this->ticket->messages()->where('visibility', 'internal')->latest()->get();
+        $events = $this->ticket->events()->select(['id', 'ticket_id', 'type', 'actor', 'created_at'])
+            ->latest()->orderByDesc('id')->limit($this->activityLimit + 1)->get();
+        $hasEarlierActivity = $events->count() > $this->activityLimit;
+        $events = $events->take($this->activityLimit);
+        $notes = $this->ticket->messages()->where('visibility', 'internal')->latest()->orderByDesc('id')->limit($this->notesLimit + 1)->get();
+        $hasEarlierNotes = $notes->count() > $this->notesLimit;
+        $notes = $notes->take($this->notesLimit);
         $public = $this->ticket->messages()->where('visibility', 'public')->whereNotNull('approved_at')->orderBy('id')->get();
-        $runs = $this->ticket->aiRuns()->latest()->get();
         $reply = $this->ticket->suggestedReplies()->latest('id')->first();
         $pending = $this->pendingReply();
         $citedReply = $this->citedReply();
@@ -279,9 +345,12 @@ class TicketShow extends Component
 
         return view('livewire.pages.ticket-show', [
             'events' => $events,
+            'hasEarlierActivity' => $hasEarlierActivity,
             'notes' => $notes,
+            'hasEarlierNotes' => $hasEarlierNotes,
             'publicMessages' => $public,
-            'runs' => $runs,
+            'visiblePublicMessages' => $public->take(-$this->replyHistoryLimit)->values(),
+            'hasEarlierReplies' => $public->count() > $this->replyHistoryLimit,
             'suggestedReply' => $reply,
             'pendingReply' => $pending,
             'citedReply' => $citedReply,
@@ -373,6 +442,7 @@ class TicketShow extends Component
         }
 
         $this->flash = self::UNCHANGED_REGENERATE_FLASH;
+        $this->flashTone = 'info';
     }
 
     protected function syncDraft(): void
@@ -392,29 +462,5 @@ class TicketShow extends Component
             $this->draftBody = $pending->body;
             $this->draftReplyId = $pending->id;
         }
-    }
-
-    private function focusManualReplyComposer(): void
-    {
-        $this->js(<<<'JS'
-            const focusManualReply = () => {
-                const reply = document.getElementById('ticket-reply');
-                if (! (reply instanceof HTMLTextAreaElement) || reply.closest('dialog')?.open !== true) {
-                    return false;
-                }
-                reply.focus();
-                return document.activeElement === reply;
-            };
-            if (! focusManualReply()) {
-                let frames = 0;
-                const tick = () => {
-                    if (focusManualReply() || ++frames > 30) {
-                        return;
-                    }
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-            }
-        JS);
     }
 }

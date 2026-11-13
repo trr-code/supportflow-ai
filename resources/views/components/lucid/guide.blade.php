@@ -41,13 +41,13 @@
                     </span>
                 </a>
                 <a href="{{ route('demo.invoices') }}" wire:navigate class="flex items-center gap-4 rounded-[11px] border border-harbor-sand-deep px-4 py-4 hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
-                    <svg class="size-7 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8"/></svg>
+                    <x-lucid.icon name="invoice-dollar" class="size-7 shrink-0" />
                     <span>
                         <span class="block text-sm font-medium text-harbor-ink">Invoice review</span>
                         <span class="mt-1 block text-sm text-zinc-600">Upload a PDF with selectable text. Check the amounts, then confirm. It does not pay the invoice.</span>
                     </span>
                 </a>
-                <a href="{{ route('demo.replacement') }}" wire:navigate class="flex items-center gap-4 rounded-[11px] border border-harbor-sand-deep px-4 py-4 hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
+                <a href="{{ route('demo.harbor', ['example' => 'replacement']) }}" wire:navigate class="flex items-center gap-4 rounded-[11px] border border-harbor-sand-deep px-4 py-4 hover:bg-[#eee7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d5c5fc]">
                     <svg class="size-7 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m12 2 10 5v10l-10 5-10-5V7l10-5Z"/></svg>
                     <span>
                         <span class="block text-sm font-medium text-harbor-ink">Replacements</span>

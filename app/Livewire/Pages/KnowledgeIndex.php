@@ -4,13 +4,26 @@ namespace App\Livewire\Pages;
 
 use App\Enums\TicketCategory;
 use App\Models\KnowledgeArticle;
+use App\Support\PolicyNavigation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class KnowledgeIndex extends Component
 {
     public string $category = 'all';
+
+    /** @var array{from?: string, ticket?: int, message?: int, citation?: int} */
+    #[Locked]
+    public array $origin = [];
+
+    public function mount(): void
+    {
+        $this->origin = PolicyNavigation::fromQuery();
+        $topic = request()->query('topic');
+        $this->filterCategory(is_string($topic) ? $topic : 'all');
+    }
 
     public function filterCategory(string $category): void
     {
@@ -19,25 +32,18 @@ class KnowledgeIndex extends Component
             : 'all';
     }
 
-    public function askAssistant(): void
-    {
-        $this->dispatch('demo-open-chat');
-    }
-
     public function render(): View
     {
-        $articles = KnowledgeArticle::query()
+        $query = KnowledgeArticle::query()
             ->whereNull('workspace_id')
             ->where('is_published', true)
-            ->where('is_seeded', true)
-            ->orderBy('title')
-            ->get();
+            ->where('is_seeded', true);
 
         if ($this->category !== 'all') {
-            $articles = $articles->filter(
-                fn (KnowledgeArticle $article): bool => $article->category->value === $this->category,
-            );
+            $query->where('category', $this->category);
         }
+
+        $articles = $query->orderBy('title')->get();
 
         /** @var Collection<string, Collection<int, KnowledgeArticle>> $grouped */
         $grouped = $articles->groupBy(fn (KnowledgeArticle $article): string => $article->category->value);
@@ -45,6 +51,13 @@ class KnowledgeIndex extends Component
         return view('livewire.pages.knowledge-index', [
             'grouped' => $grouped,
             'categories' => TicketCategory::cases(),
-        ])->layout('components.layouts.public', ['title' => 'Policies']);
+            'returnUrl' => PolicyNavigation::returnUrl($this->origin),
+            'returnLabel' => PolicyNavigation::returnLabel($this->origin),
+        ])->layout('components.layouts.lucid', [
+            'title' => 'Policies',
+            'description' => 'Browse the published fictional Harbor store policies used in Lucid customer support.',
+            'canonical' => route('knowledge.index'),
+            'policyAgentContext' => ($this->origin['from'] ?? null) === 'ticket',
+        ]);
     }
 }

@@ -57,7 +57,6 @@ return [
     ],
 
     'replacement' => [
-        'per_minute' => 20,
         'message_cap' => 12,
         'proposal_minutes' => 15,
     ],

@@ -6,7 +6,6 @@
     <nav class="flex flex-wrap items-center gap-x-5 gap-y-1 sm:ms-auto" aria-label="Footer">
         <a href="{{ route('demo.workflow') }}" wire:navigate class="underline-offset-2 hover:text-[#d5c5fc] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d5c5fc]">How it works</a>
         <a href="{{ route('demo.environment') }}#privacy" class="underline-offset-2 hover:text-[#d5c5fc] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d5c5fc]">Privacy</a>
-        <a href="{{ route('demo.environment') }}#contact" class="underline-offset-2 hover:text-[#d5c5fc] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d5c5fc]">Contact</a>
         <p class="text-[10px]">© {{ now()->year }} Lucid</p>
     </nav>
 </footer>

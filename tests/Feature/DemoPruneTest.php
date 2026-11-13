@@ -112,10 +112,10 @@ test('a successful queue reset closes the confirmation modal and keeps the resul
     $component = Livewire::test(TicketIndex::class)
         ->call('pruneStale')
         ->assertDispatched('modal-close', name: 'confirm-demo-reset')
-        ->assertSee('Removed 1 stale visitor tickets and 1 idle sessions. Seeded showcase tickets were kept.');
+        ->assertSee('Cleared 1 inactive visitor ticket and 1 inactive demo visit. Active work and prepared examples were kept.');
 
     expect($component->get('notice'))
-        ->toBe('Removed 1 stale visitor tickets and 1 idle sessions. Seeded showcase tickets were kept.')
+        ->toBe('Cleared 1 inactive visitor ticket and 1 inactive demo visit. Active work and prepared examples were kept.')
         ->and(Ticket::query()->find($staleTicket->id))->toBeNull()
         ->and(Ticket::query()->find($seeded->id))->not->toBeNull();
 });
@@ -139,11 +139,11 @@ test('cancel closes the reset dialog without pruning', function () {
 
     expect($view)
         ->toMatch('/<flux:modal\.close>\s*<flux:button variant="filled">Cancel<\/flux:button>\s*<\/flux:modal\.close>/')
-        ->toContain('<flux:button variant="danger" wire:click="pruneStale">Reset stale data</flux:button>');
+        ->toContain('<flux:button variant="danger" class="showroom-destructive-action" wire:click="pruneStale">Clear inactive data</flux:button>');
 
     Livewire::test(TicketIndex::class)
         ->assertSee('Cancel')
-        ->assertDontSee('Removed ')
+        ->assertDontSee('Cleared ')
         ->assertNotDispatched('modal-close');
 
     expect(Ticket::query()->find($staleTicket->id))->not->toBeNull();
@@ -177,7 +177,7 @@ test('the fourth queue reset within 60 seconds is blocked and still closes the d
 
     for ($i = 0; $i < 3; $i++) {
         $component->call('pruneStale')
-            ->assertSee('Removed 0 stale visitor tickets and 0 idle sessions. Seeded showcase tickets were kept.');
+            ->assertSee('Cleared 0 inactive visitor tickets and 0 inactive demo visits. Active work and prepared examples were kept.');
     }
 
     $stale = DemoSession::query()->create([
@@ -200,15 +200,15 @@ test('the fourth queue reset within 60 seconds is blocked and still closes the d
     $html = $component->call('pruneStale')
         ->assertDispatched('modal-close', name: 'confirm-demo-reset')
         ->assertDontSee('Please wait before running another reset.')
-        ->assertDontSee('Removed 0 stale visitor tickets and 0 idle sessions. Seeded showcase tickets were kept.')
+        ->assertDontSee('Cleared 0 inactive visitor tickets and 0 inactive demo visits. Active work and prepared examples were kept.')
         ->html();
 
     $unit = $seconds === 1 ? 'second' : 'seconds';
-    $message = "Reset limit reached. Try again in {$seconds} {$unit}.";
+    $message = "Please wait {$seconds} {$unit} before clearing inactive demo data again.";
 
     expect($component->get('notice'))->toBe($message)
         ->and($html)->toContain($message)
-        ->and($html)->toMatch('/Reset limit reached\. Try again in \d+ seconds?\./')
+        ->and($html)->toMatch('/Please wait \d+ seconds? before clearing inactive demo data again\./')
         ->and($seconds)->not->toBe(60)
         ->and(Ticket::query()->find($staleTicket->id))->not->toBeNull()
         ->and(Ticket::query()->find($seeded->id))->not->toBeNull()
@@ -272,11 +272,11 @@ test('queue statuses use pastel backgrounds with the live labels', function () {
     $html = Livewire::test(TicketIndex::class)->html();
 
     expect($html)
-        ->toContain('bg-blue-100 text-blue-950')
-        ->toContain('bg-amber-100 text-amber-950')
-        ->toContain('bg-orange-100 text-orange-950')
+        ->toContain('bg-blue-50 text-blue-950')
+        ->toContain('bg-amber-50 text-amber-950')
+        ->toContain('bg-orange-50 text-orange-950')
         ->toContain('bg-zinc-100 text-zinc-800')
-        ->toContain('bg-red-100 text-red-950')
+        ->toContain('bg-red-50 text-red-950')
         ->toContain('Submitted')
         ->toContain('Awaiting review')
         ->toContain('Escalated')
