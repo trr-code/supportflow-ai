@@ -204,7 +204,10 @@ test('policy browsing returns to the ticket with unsent edits intact', function 
     if ($width < 768) {
         $page->click('.showroom-mobile-toggle');
     }
-    $page->click('[wire\\:click="filterCategory(\'returns\')"]')->click('.showroom-policy-grid .policy-link')->assertSee('A sturdy carton is fine.');
+    $page->click('[wire\\:click="filterCategory(\'returns\')"]')
+        ->assertVisible('[aria-label="Filter by category"] [aria-pressed="true"]:has-text("Returns")')
+        ->click('.showroom-policy-grid .policy-link[href*="topic=returns"]')
+        ->assertSee('A sturdy carton is fine.');
     $page->assertDontSee('Ask the assistant');
     if ($width < 768) {
         $page->click('.showroom-mobile-toggle');
