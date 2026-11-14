@@ -19,7 +19,6 @@
 .lucid-landing .lucid-assistant-launcher { color: #eee7ff; border: 1px solid #b98aff; }
 .lucid-showroom:not(.lucid-landing) .lucid-assistant { --assistant-bottom: calc(84px + env(safe-area-inset-bottom)); }
 .lucid-assistant-launcher { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; background: #090a0e; color: #b98aff; box-shadow: 0 2px 8px #0005; cursor: pointer; }
-.lucid-assistant-launcher:focus { outline: 2px solid var(--lucid-accent); outline-offset: 4px; }
 .lucid-assistant-glyph { grid-area: 1 / 1; display: grid; place-items: center; transition: opacity var(--assistant-icon-motion) ease, transform var(--assistant-icon-motion) ease, visibility 0s var(--assistant-icon-motion); }
 .lucid-assistant-chevron { visibility: hidden; opacity: 0; transform: translateY(100%); }
 .lucid-assistant-launcher[aria-expanded="true"] .lucid-assistant-glyph:first-child { visibility: hidden; opacity: 0; transform: translateY(-100%); }

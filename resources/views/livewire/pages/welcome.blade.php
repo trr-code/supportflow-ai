@@ -10,9 +10,7 @@
         <h2 id="demos-heading">See where AI can save your team time</h2>
         <p class="showroom-section-description">
             Instructions update as you go. Find them on the right on desktop or below the workspace on a phone.
-            @if (app()->environment('local', 'testing'))
-                Preview Ask Lucid using the chat bubble.
-            @endif
+            Preview Ask Lucid using the chat bubble.
         </p>
         <div class="showroom-demo-cards">
             <a href="{{ route('demo.harbor') }}" wire:navigate class="showroom-demo-card">

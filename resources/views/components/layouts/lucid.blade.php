@@ -44,7 +44,7 @@
         <x-lucid.guide />
         @endif
 
-        @if (($showroom || $supportScreen) && app()->environment('local', 'testing'))
+        @if ($showroom || $supportScreen)
             <x-lucid.ask-lucid />
         @endif
 

@@ -2,7 +2,7 @@
 
 ## Package 3 local UI handoff and Package 4 starting point
 
-Completed the local UI review with desktop and phone-width browser coverage, including 320px and 390px. Inspected rendered homepage, Harbor, Agent dashboard and invoice screenshots. Fixed the narrow Harbor welcome alignment and kept the Agent view badge visible on narrow screens. Corrected Privacy to describe invoice extraction accurately: Lucid extracts the PDF text locally and sends that text to OpenAI. The Ask Lucid preview launcher can overlay content at narrow widths and is currently shown only in local and testing environments.
+Completed the local UI review with desktop and phone-width browser coverage, including 320px and 390px. Inspected rendered homepage, Harbor, Agent dashboard and invoice screenshots. Fixed the narrow Harbor welcome alignment and kept the Agent view badge visible on narrow screens. Corrected Privacy to describe invoice extraction accurately: Lucid extracts the PDF text locally and sends that text to OpenAI. The Ask Lucid preview is available in the public showroom. Closing it returns focus to the launcher, with a visible focus ring for keyboard navigation. The preview composer is disabled.
 
 Verification: the full Composer gate passed before the final CSS and privacy-copy adjustments (892 passed, two skipped, 8,390 assertions). The closeout heading, metadata and entry-page checks passed 72 tests. A separate responsive workflow pass passed 66 tests, and 60 responsive browser checks passed after the final adjustments. The asset build and diff checks passed. Boost recorded eight reviewed rules and regenerated the rule index.
 

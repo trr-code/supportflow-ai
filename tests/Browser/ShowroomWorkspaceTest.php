@@ -33,6 +33,7 @@ test('the Ask Lucid preview opens and closes without covering its launcher', fun
     $page->screenshot(filename: 'ask-lucid-'.$width);
     $page->click('[aria-label="Close Ask Lucid"]')->assertDontSee('Chat is coming soon.');
     expect($page->script("document.activeElement.classList.contains('lucid-assistant-launcher')"))->toBeTrue();
+    expect($page->script('getComputedStyle(document.activeElement).outlineStyle'))->toBe('none');
 })->with([['home', 1440], ['demo.harbor', 390]]);
 
 test('agent instructions stay in position while navigating between dashboard and tickets', function (int $width, int $height) {
