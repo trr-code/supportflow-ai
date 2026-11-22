@@ -47,8 +47,9 @@ class DictationSessionService
                             'input' => [
                                 'transcription' => [
                                     'model' => (string) config('supportflow.dictation.model'),
-                                    'prompt' => 'Customer support for Harbor Outfitters outdoor retail. Speakers may mention returns, prepaid labels, warranties, and order numbers.',
-                                    'keywords' => ['Harbor Outfitters', 'prepaid label', 'return box', 'warranty'],
+                                    'delay' => 'minimal',
+                                    'prompt' => 'A visitor is dictating questions and draft messages in Lucid, a business software demo. Topics include Ask Lucid app help, Harbor Outfitters customer support, Document chat, Browse policies, Agent desk, Invoice review, payment terms, returns, prepaid labels and warranties.',
+                                    'keywords' => ['Lucid', 'Ask Lucid', 'Document chat', 'Invoice review', 'Harbor Outfitters', 'prepaid label', 'warranty'],
                                     'languages' => ['en'],
                                 ],
                             ],

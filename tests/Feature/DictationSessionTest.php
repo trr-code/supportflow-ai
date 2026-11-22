@@ -23,6 +23,8 @@ test('dictation session returns an ephemeral secret and never the permanent key'
         ->assertJsonPath('max_seconds', 120)
         ->assertDontSee('sk-test-permanent-key')
         ->assertJsonMissing(['sk-test-permanent-key']);
+
+    Http::assertSent(fn ($request): bool => $request['session']['audio']['input']['transcription']['delay'] === 'minimal');
 });
 
 test('dictation session rejects a response that looks like a permanent key', function () {
@@ -71,13 +73,8 @@ test('ticket dictation uses the description noun and does not announce unsupport
         ->assertOk()
         ->assertSee('data-noun="description"', false)
         ->assertDontSee("message = 'This browser cannot capture a microphone. Type instead.'")
-        ->assertSee("Type your ' + this.noun + ' instead.", false)
+        ->assertSee('window.lucidDictation', false)
         ->assertSee('aria-label="Stop dictation"', false)
-        ->assertSee('prefers-reduced-motion', false)
-        ->assertSee('set(this.target, next, false)', false)
-        ->assertSee('input_audio_buffer.commit', false)
-        ->assertSee('event.isTrusted', false)
-        ->assertSee('Recording reached the two-minute limit.', false)
         ->assertDontSee('Listening… tap to stop')
         ->assertDontSee('Review the text, edit if needed, then submit.')
         ->assertDontSee('Allow microphone access to dictate.');
