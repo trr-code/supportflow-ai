@@ -6,36 +6,44 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
 endobj
 4 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 358 >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Length 1076 >>
 stream
-BT /F1 14 Tf 50 760 Td 24 TL (FICTIONAL SAMPLE INVOICE) Tj
-T* (Northwind Supply) Tj
-T* (Invoice number: INV-1001) Tj
-T* (Invoice date: 2026-03-01) Tj
-T* (Currency: USD) Tj
-T* (Wool socks - Quantity: 2 - Unit price: 15.00 - Line total: 30.00) Tj
-T* (Subtotal: 30.00) Tj
-T* (Tax: 2.00) Tj
-T* (Total due: 32.00) Tj
-T* (Demo only. No payment is requested.) Tj ET
+0.24 0.17 0.4 RG 1 w 50 580 m 562 580 l S 50 452 m 562 452 l S
+BT /F1 28 Tf 50 744 Td (INVOICE) Tj ET
+BT /F1 16 Tf 50 709 Td (NORTHWIND SUPPLY) Tj ET
+BT /F2 12 Tf 50 668 Td (Bill to: Cedar Row Studio) Tj ET
+BT /F2 12 Tf 50 642 Td (Invoice: INV-1002 | Date: 2026-03-01 | Currency: USD) Tj ET
+BT /F2 12 Tf 50 593 Td (Description                              Qty      Unit price       Line total) Tj ET
+BT /F2 12 Tf 50 557 Td (Recycled copy paper                       6           9.95            62.80) Tj ET
+BT /F2 12 Tf 50 530 Td (Archive storage boxes                     5          17.90            89.50) Tj ET
+BT /F2 12 Tf 50 503 Td (Binder clips, assorted                    3           8.20            24.60) Tj ET
+BT /F2 12 Tf 50 476 Td (Desktop file trays                        4           9.20            34.80) Tj ET
+BT /F2 12 Tf 368 415 Td (Subtotal:       210.60) Tj ET
+BT /F2 12 Tf 368 390 Td (Tax:             16.85) Tj ET
+BT /F2 12 Tf 368 359 Td (Total due:      237.45) Tj ET
+BT /F1 10 Tf 50 95 Td (Fictional training invoice. No payment is requested.) Tj ET
 endstream
 endobj
 xref
-0 6
+0 7
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
 0000000115 00000 n 
-0000000241 00000 n 
-0000000311 00000 n 
+0000000251 00000 n 
+0000000326 00000 n 
+0000000394 00000 n 
 trailer
-<< /Size 6 /Root 1 0 R >>
+<< /Size 7 /Root 1 0 R >>
 startxref
-720
+1521
 %%EOF

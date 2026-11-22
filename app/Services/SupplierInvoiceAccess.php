@@ -36,13 +36,18 @@ class SupplierInvoiceAccess
 
     public function find(Request $request, string $invoiceId): ?SupplierInvoice
     {
+        return $this->findOpen($request, $invoiceId)?->load('lines');
+    }
+
+    public function findOpen(Request $request, string $invoiceId): ?SupplierInvoice
+    {
         $invoice = $this->owned($request, $invoiceId);
 
         if ($invoice === null || ! $invoice->isOpen()) {
             return null;
         }
 
-        return $invoice->load('lines');
+        return $invoice;
     }
 
     public function leave(Request $request, string $invoiceId): void

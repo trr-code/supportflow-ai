@@ -21,6 +21,31 @@ use Illuminate\Support\Facades\RateLimiter;
 use Pest\Browser\Playwright\Client;
 use Pest\Browser\Playwright\Page;
 
+test('ticket timestamps show the browser time zone across a date boundary', function (string $timezone, string $day, string $clock, string $stored, string $surface) {
+    $this->actingAs(User::factory()->create());
+    $ticket = Ticket::factory()->create(['created_at' => $stored]);
+    $message = $ticket->messages()->create(['visibility' => MessageVisibility::Public, 'author_type' => MessageAuthorType::Customer, 'body' => 'Local clock check.', 'approved_at' => now()]);
+    $message->forceFill(['created_at' => $stored])->save();
+    $page = visit($surface === 'agent' ? route('agent.tickets.show', $ticket) : route('tickets.status', $ticket->public_token))->withTimezone($timezone);
+    if ($surface === 'agent') {
+        $page->click('#workspace-conversation');
+    }
+    $page->assertSee('Local clock check.');
+    expect(waitUntilScriptIsTrue($page, "document.querySelector('time')?.textContent.includes(".json_encode($clock).')'))->toBeTrue();
+    expect($page->script("document.querySelector('time').textContent"))->toContain($day, $clock);
+    $page->script('(async () => { await Livewire.first().$refresh(); return true })()');
+    $page->assertSee('Local clock check.');
+    expect(waitUntilScriptIsTrue($page, "document.querySelector('time')?.textContent.includes(".json_encode($clock).')'))->toBeTrue();
+    $page->assertNoJavaScriptErrors();
+})->with([
+    ['America/Chicago', 'Nov 20, 2026', '7:54 PM', '2026-11-21 01:54:00'],
+    ['America/Anchorage', 'Nov 20, 2026', '4:54 PM', '2026-11-21 01:54:00'],
+    ['Asia/Tokyo', 'Nov 21, 2026', '10:54 AM', '2026-11-21 01:54:00'],
+    ['Asia/Kolkata', 'Nov 21, 2026', '7:24 AM', '2026-11-21 01:54:00'],
+    ['America/Chicago', 'Jul 20, 2026', '8:54 PM', '2026-07-21 01:54:00'],
+    ['America/Anchorage', 'Jul 20, 2026', '5:54 PM', '2026-07-21 01:54:00'],
+])->with(['customer', 'agent']);
+
 test('reply history expands and collapses inline', function (int $width) {
     $this->actingAs(User::factory()->create());
     $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
@@ -57,7 +82,7 @@ test('ticket save feedback stays by its action without a first-save jump', funct
         $page->script("document.querySelector('.showroom-ticket-tools form button').scrollIntoView({ block: 'center', behavior: 'instant' })");
         $measure = "(() => { const button = document.querySelector('.showroom-ticket-tools form button'); const panel = document.querySelector('.showroom-page-body'); return [button.getBoundingClientRect().top, panel.scrollTop, window.scrollY]; })()";
         $before = $page->script($measure);
-        $page->click('Save details')->assertSee('Details saved. No reply was sent.');
+        $page->click('.showroom-ticket-tools form button[type="submit"]')->assertSee('Details saved. No reply was sent.');
         expect(waitUntilScriptIsTrue($page, "!document.querySelector('.showroom-ticket-tools form button').disabled"))->toBeTrue();
         $after = $page->script($measure);
         foreach ($before as $index => $value) {
@@ -67,7 +92,7 @@ test('ticket save feedback stays by its action without a first-save jump', funct
         expect($page->script("(() => { const button = document.querySelector('.showroom-ticket-tools form button').getBoundingClientRect(); const feedback = document.querySelector('[data-details-feedback]').getBoundingClientRect(); return Math.abs(button.top - feedback.top) < 50 && feedback.bottom > 0 && feedback.top < innerHeight; })()"))->toBeTrue();
     }
     $page->click('#workspace-review')->fill('#ticket-draft', 'My updated private draft.')->click('Save edits')->assertSee('Draft saved.');
-    expect($page->script("(() => { const feedback = document.querySelector('[data-reply-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && pill.classList.contains('ring-emerald-200') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
+    expect($page->script("(() => { const feedback = document.querySelector('[data-reply-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
     $page->script("document.querySelector('[data-reply-feedback]').scrollIntoView({ block: 'center', behavior: 'instant' })");
     $page->screenshot(filename: 'reply-save-pill-'.$width);
     expect($page->script("document.querySelector('[data-reply-feedback]').previousElementSibling.hasAttribute('data-manual-reply')"))->toBeTrue();
@@ -81,8 +106,8 @@ test('routine save confirmation expires without a jump and returns on an identic
     $this->actingAs(User::factory()->create());
     $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview, 'priority' => TicketPriority::Low]);
     $page = visit(route('agent.tickets.show', $ticket), ['viewport' => ['width' => $width, 'height' => 900]]);
-    $page->click('#tools-details')->click('Save details')->assertSee('Details saved. No reply was sent.');
-    expect($page->script("(() => { const pill = document.querySelector('[data-details-feedback] span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && pill.classList.contains('ring-emerald-200') && parseFloat(getComputedStyle(pill).borderRadius) > 100; })()"))->toBeTrue();
+    $page->click('#tools-details')->click('.showroom-ticket-tools form button[type="submit"]')->assertSee('Details saved. No reply was sent.');
+    expect($page->script("(() => { const pill = document.querySelector('[data-details-feedback] span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && parseFloat(getComputedStyle(pill).borderRadius) > 100; })()"))->toBeTrue();
     $page->screenshot(filename: 'details-save-pill-'.$width);
     $measure = "(() => { const button = document.querySelector('.showroom-ticket-tools form button'); return [button.getBoundingClientRect().top, document.querySelector('.showroom-page-body').scrollTop, window.scrollY]; })()";
     $before = $page->script($measure);
@@ -93,7 +118,7 @@ test('routine save confirmation expires without a jump and returns on an identic
     $page->wait(9)->assertDontSee('Details saved. No reply was sent.');
     expect($page->script($measure))->toBe($before);
     $page->click('#tools-activity')->click('#tools-details')->assertDontSee('Details saved. No reply was sent.');
-    $page->click('Save details')->assertSee('Details saved. No reply was sent.')->assertNoJavaScriptErrors();
+    $page->click('.showroom-ticket-tools form button[type="submit"]')->assertSee('Details saved. No reply was sent.')->assertNoJavaScriptErrors();
     expect($ticket->fresh()->priority)->toBe(TicketPriority::Low);
 })->with([1440, 390]);
 
@@ -260,7 +285,7 @@ test('ticket priority remains visible with a distinct urgency treatment', functi
     $page->assertVisible('[data-ticket-priority="'.$priority.'"]');
     expect($page->script("document.querySelector('[data-ticket-priority]').textContent.trim()"))->toBe(ucfirst($priority));
     expect($page->script("getComputedStyle(document.querySelector('[data-ticket-priority]')).backgroundColor"))->toBe($background);
-})->with([['low', 'rgb(238, 240, 246)'], ['medium', 'rgb(255, 251, 235)'], ['high', 'rgb(255, 247, 237)'], ['urgent', 'rgb(254, 242, 242)']]);
+})->with([['low', 'rgb(244, 244, 245)'], ['medium', 'rgb(255, 251, 235)'], ['high', 'rgb(255, 247, 237)'], ['urgent', 'rgb(254, 242, 242)']]);
 
 test('the opened ticket shares the instructional layout and keeps reply, note, and approval controls', function () {
     $this->actingAs(User::factory()->create());
@@ -626,7 +651,7 @@ test('internal notes use the shared unclipped growing composer', function (int $
     $page->click('#workspace-notes')->assertSee('Enter starts a new line.');
     expect($page->script("(() => { const f=document.querySelector('#ticket-note'), r=f.getBoundingClientRect(), tools=document.querySelector('[data-note-editor] .lucid-reply-editor-tools').getBoundingClientRect(); return r.height >= 80 && tools.top >= r.bottom - 1 && getComputedStyle(f).fontSize === '16px' && getComputedStyle(f).resize === 'none'; })()"))->toBeTrue();
     $page->click('#ticket-note');
-    expect($page->script("(() => { const editor=document.querySelector('[data-note-editor]'); const r=editor.getBoundingClientRect(); const inset=parseFloat(getComputedStyle(editor).outlineWidth)+parseFloat(getComputedStyle(editor).outlineOffset); for(let parent=editor.parentElement;parent;parent=parent.parentElement){const style=getComputedStyle(parent); if(['hidden','clip','auto','scroll'].includes(style.overflowX)){const bounds=parent.getBoundingClientRect();if(r.left-inset < bounds.left-1 || r.right+inset > bounds.right+1)return false;}} return inset >= 4; })()"))->toBeTrue();
+    expect($page->script("(() => { const editor=document.querySelector('[data-note-editor]'); const r=editor.getBoundingClientRect(); const inset=parseFloat(getComputedStyle(editor).outlineWidth)+parseFloat(getComputedStyle(editor).outlineOffset); for(let parent=editor.parentElement;parent;parent=parent.parentElement){const style=getComputedStyle(parent); if(['hidden','clip','auto','scroll'].includes(style.overflowX)){const bounds=parent.getBoundingClientRect();if(r.left-inset < bounds.left-1 || r.right+inset > bounds.right+1)return false;}} return inset === 2 && getComputedStyle(editor).outlineOffset === '0px'; })()"))->toBeTrue();
     $page->fill('#ticket-note', 'Private team note.')->keys('#ticket-note', 'Enter');
     expect($ticket->messages()->count())->toBe(0);
     $page->click('[aria-label="Add note"]')->assertSee('Internal note saved.');

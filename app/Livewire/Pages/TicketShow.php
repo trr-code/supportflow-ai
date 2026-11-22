@@ -24,6 +24,7 @@ use App\Support\SuggestedReplyPanelState;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -45,6 +46,8 @@ class TicketShow extends Component
     public string $note = '';
 
     public string $customReply = '';
+
+    public string $nextReplyStatus = 'awaiting_staff';
 
     public string $workspace = 'review';
 
@@ -130,6 +133,7 @@ class TicketShow extends Component
 
     public function approveAndSend(SuggestedReplyService $replies): void
     {
+        $this->validate(['nextReplyStatus' => ['required', Rule::in(['awaiting_staff', 'waiting_on_customer', 'resolved'])]]);
         $reply = $this->pendingReply();
 
         if (! $reply) {
@@ -143,7 +147,7 @@ class TicketShow extends Component
             $reply->refresh();
         }
 
-        $replies->approveAndSend($reply, (string) auth()->user()?->name);
+        $replies->approveAndSend($reply, (string) auth()->user()?->name, TicketStatus::from($this->nextReplyStatus));
         $this->dispatch('ticket-reply-sent');
         $this->ticket->refresh();
         $this->flash = 'Reply sent to the customer status page (simulated—no email).';
@@ -301,8 +305,8 @@ class TicketShow extends Component
         $this->authorize('update', $this->ticket);
         $this->workspace = 'review';
         $this->manualReply = true;
-        $this->validate(['customReply' => 'required|string|min:8|max:4000']);
-        $replies->sendCustom($this->ticket, $this->customReply, (string) auth()->user()?->name);
+        $this->validate(['customReply' => 'required|string|min:8|max:4000', 'nextReplyStatus' => ['required', Rule::in(['awaiting_staff', 'waiting_on_customer', 'resolved'])]]);
+        $replies->sendCustom($this->ticket, $this->customReply, (string) auth()->user()?->name, TicketStatus::from($this->nextReplyStatus));
         $this->dispatch('ticket-reply-sent');
         $this->customReply = '';
         $this->manualReply = false;

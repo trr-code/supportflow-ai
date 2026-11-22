@@ -6,15 +6,15 @@ final class SupplierInvoiceCheck
 {
     /**
      * @param  list<array<string, mixed>>  $lines
-     * @return list<string>
+     * @return list<array{message: string, target?: string, label?: string}>
      */
-    public function inspect(array $lines, mixed $taxCents, mixed $statedTotalCents): array
+    public function inspect(array $lines, mixed $taxCents, mixed $statedTotalCents, string $currency): array
     {
         $messages = [];
         $computed = 0;
 
         if ($lines === []) {
-            $messages[] = 'Add at least one line.';
+            $messages[] = ['message' => 'Add at least one line.'];
         }
 
         foreach ($lines as $index => $line) {
@@ -24,7 +24,7 @@ final class SupplierInvoiceCheck
             $number = $index + 1;
 
             if ($quantity === null || $unitPrice === null || $stated === null) {
-                $messages[] = "Line {$number} needs a quantity, unit price, and line total.";
+                $messages[] = ['message' => "Line {$number} needs a quantity, unit price, and line total."];
 
                 continue;
             }
@@ -33,7 +33,13 @@ final class SupplierInvoiceCheck
             $computed += $expected;
 
             if ($expected !== $stated) {
-                $messages[] = "Line {$number} does not match quantity times the unit price.";
+                $entered = InvoiceMoney::format($stated, $currency);
+                $calculated = InvoiceMoney::format($expected, $currency);
+                $messages[] = [
+                    'label' => "Go to Line {$number}",
+                    'target' => "invoice-line-total-{$number}",
+                    'message' => "Check Line {$number} under Line items. Line total is {$entered}. Quantity × unit price gives {$calculated}.",
+                ];
             }
         }
 
@@ -41,13 +47,19 @@ final class SupplierInvoiceCheck
         $statedTotal = $this->cents($statedTotalCents);
 
         if ($tax === null || $statedTotal === null) {
-            $messages[] = 'Tax and the invoice total must be zero or a positive amount.';
+            $messages[] = ['message' => 'Tax and the invoice total must be zero or a positive amount.'];
 
             return $messages;
         }
 
         if (($computed + $tax) !== $statedTotal) {
-            $messages[] = 'The line totals plus tax do not match the invoice total.';
+            $entered = InvoiceMoney::format($statedTotal, $currency);
+            $calculated = InvoiceMoney::format($computed + $tax, $currency);
+            $messages[] = [
+                'label' => 'Go to Invoice total',
+                'target' => 'invoice-total',
+                'message' => "Check Invoice total above Line items. Invoice total is {$entered}. Recalculating the lines and adding tax gives {$calculated}.",
+            ];
         }
 
         return $messages;

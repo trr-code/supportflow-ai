@@ -3,6 +3,7 @@
 namespace App\Livewire\Pages;
 
 use App\Enums\MessageAuthorType;
+use App\Enums\TicketStatus as TicketStatusValue;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
 use App\Models\Ticket;
 use Illuminate\Contracts\View\View;
@@ -29,6 +30,10 @@ class TicketStatus extends Component
 
     public function shouldPoll(): bool
     {
+        if ($this->ticket->status === TicketStatusValue::AwaitingStaff) {
+            return true;
+        }
+
         return ! $this->ticket->messages()
             ->where('visibility', 'public')
             ->where('author_type', MessageAuthorType::Agent)

@@ -24,6 +24,33 @@ beforeEach(function () {
     Storage::fake('local');
 });
 
+test('only the owning browser can open the original of an active invoice in review', function () {
+    $token = str_repeat('p', 64);
+    $invoice = SupplierInvoice::factory()->create([
+        'token_hash' => hash('sha256', $token),
+        'status' => SupplierInvoiceStatus::NeedsReview,
+    ]);
+    $path = 'supplier-invoices/'.$invoice->id.'.pdf';
+    $invoice->update(['storage_path' => $path]);
+    $pdf = (string) file_get_contents(resource_path('Northwind-sample-invoice.pdf'));
+    $url = route('documents.invoices.original', $invoice);
+
+    $this->withCookie(SupplierInvoiceAccess::COOKIE, $token)->get($url)->assertNotFound();
+    Storage::disk('local')->put($path, $pdf);
+    $this->withCookie(SupplierInvoiceAccess::COOKIE, str_repeat('q', 64))->get($url)->assertNotFound();
+    $this->withCookie(SupplierInvoiceAccess::COOKIE, $token)->get($url)
+        ->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertHeader('Content-Disposition', 'inline')
+        ->assertHeader('Cache-Control', 'no-store, private');
+    $this->withHeader('Range', 'bytes=0-7')->get($url)
+        ->assertStatus(206)->assertHeader('Content-Range', 'bytes 0-7/'.strlen($pdf));
+    $this->flushHeaders();
+
+    $invoice->update(['status' => SupplierInvoiceStatus::Confirmed]);
+    $this->get($url)->assertOk();
+    $invoice->update(['expires_at' => now()->subSecond()]);
+    $this->get($url)->assertNotFound();
+});
+
 test('mismatched model totals stay invalid until corrected and the export matches the review', function () {
     $token = str_repeat('a', 64);
 
@@ -54,15 +81,15 @@ test('mismatched model totals stay invalid until corrected and the export matche
         ->assertSet('tax', '$2.00')
         ->assertSet('statedTotal', '$99.99')
         ->assertSee('Calculated total: $32.00. The invoice total you enter is the one that is saved.')
-        ->assertSee('Line 1 does not match quantity times the unit price.')
-        ->assertSee('The line totals plus tax do not match the invoice total.')
+        ->assertSee('Check Line 1 under Line items. Line total is $15.00. Quantity × unit price gives $30.00.')
+        ->assertSee('Check Invoice total above Line items. Invoice total is $99.99. Recalculating the lines and adding tax gives $32.00.')
         ->assertSee('AI extraction confidence: 10%.')
         ->assertSee('Review the fields before confirming; this score does not guarantee accuracy.')
         ->assertDontSee('text-layer')
         ->assertDontSee('private document chat')
         ->call('confirm')
         ->assertNotDispatched('toast-show')
-        ->assertSee('Line 1 does not match quantity times the unit price.');
+        ->assertSee('Check Line 1 under Line items. Line total is $15.00. Quantity × unit price gives $30.00.');
 
     $invoice = SupplierInvoice::query()->first();
 
@@ -81,7 +108,7 @@ test('mismatched model totals stay invalid until corrected and the export matche
         ->set('statedTotal', '32.00')
         ->call('save')
         ->assertNotDispatched('toast-show')
-        ->assertDontSee('Line 1 does not match quantity times the unit price.')
+        ->assertDontSee('Check Line 1 under Line items. Line total is $15.00. Quantity × unit price gives $30.00.')
         ->call('confirm')
         ->assertNotDispatched('toast-show')
         ->assertSee('Confirmed invoice')
@@ -239,7 +266,7 @@ test('the first upload stays visible before the browser sends the cookie back', 
         ->set('document', invoicePdf())
         ->call('store')
         ->assertNotDispatched('toast-show')
-        ->assertSee('Line 1 does not match quantity times the unit price.');
+        ->assertSee('Check Line 1 under Line items. Line total is $15.00. Quantity × unit price gives $30.00.');
 });
 
 test('currency text converts to cents without rounding', function (mixed $input, ?int $cents) {

@@ -204,7 +204,7 @@ class SuggestedReplyService
         ]);
     }
 
-    public function approveAndSend(SuggestedReply $reply, string $actor): void
+    public function approveAndSend(SuggestedReply $reply, string $actor, ?TicketStatus $nextStatus = null): void
     {
         $ticket = $reply->ticket;
         $reply->forceFill(['status' => SuggestedReplyStatus::Approved])->save();
@@ -217,7 +217,7 @@ class SuggestedReplyService
             'approved_at' => now(),
         ]);
 
-        $ticket->forceFill(['status' => TicketStatus::WaitingOnCustomer])->save();
+        $ticket->forceFill(['status' => $nextStatus ?? $this->sentStatus($ticket)])->save();
 
         $this->timeline->record($ticket, TicketEventType::SuggestionApproved, $actor, [
             'suggested_reply_id' => $reply->id,
@@ -242,7 +242,7 @@ class SuggestedReplyService
         ]);
     }
 
-    public function sendCustom(Ticket $ticket, string $body, string $actor): void
+    public function sendCustom(Ticket $ticket, string $body, string $actor, ?TicketStatus $nextStatus = null): void
     {
         $ticket->messages()->create([
             'visibility' => MessageVisibility::Public,
@@ -252,11 +252,18 @@ class SuggestedReplyService
             'approved_at' => now(),
         ]);
 
-        $ticket->forceFill(['status' => TicketStatus::WaitingOnCustomer])->save();
+        $ticket->forceFill(['status' => $nextStatus ?? $this->sentStatus($ticket)])->save();
         $this->timeline->record($ticket, TicketEventType::ReplySent, $actor, [
             'simulated' => true,
             'custom' => true,
         ]);
+    }
+
+    private function sentStatus(Ticket $ticket): TicketStatus
+    {
+        return str_starts_with($ticket->subject, 'Return review for order ')
+            ? TicketStatus::AwaitingStaff
+            : TicketStatus::WaitingOnCustomer;
     }
 
     /**
@@ -289,7 +296,9 @@ class SuggestedReplyService
             return [$response, false, $body, [], (string) ($data['refusal_reason'] ?? '')];
         }
 
-        $body = SupportingPassages::includeAskedFacets($body, $query, $matches);
+        // An order number identifies the request. It does not ask for tracking or lookup.
+        $askedFacets = preg_replace('/\border\s*HB-\d+\b/i', 'order', $query) ?? $query;
+        $body = SupportingPassages::includeAskedFacets($body, $askedFacets, $matches);
         $cited = CitedChunkIds::usedInBody($body, $matches, $cited);
 
         return [$response, $grounded, $body, $cited, (string) ($data['refusal_reason'] ?? '')];

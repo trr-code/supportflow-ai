@@ -85,10 +85,10 @@ class SupplierInvoicePage extends Component
             return;
         }
 
-        $this->intake($access, new UploadedFile(resource_path('Northwind-sample-invoice.pdf'), 'Northwind-sample-invoice.pdf', 'application/pdf', test: true));
+        $this->intake($access, new UploadedFile(resource_path('Northwind-sample-invoice.pdf'), 'Northwind-sample-invoice.pdf', 'application/pdf', test: true), sample: true);
     }
 
-    private function intake(SupplierInvoiceAccess $access, UploadedFile $document): void
+    private function intake(SupplierInvoiceAccess $access, UploadedFile $document, bool $sample = false): void
     {
         $this->resetValidation('document');
 
@@ -117,6 +117,10 @@ class SupplierInvoicePage extends Component
             $this->addError('document', 'This invoice could not be stored. Please try again.');
 
             return;
+        }
+
+        if ($sample) {
+            session()->put('invoice.sample_id', $invoice->id);
         }
 
         if ($invoice->status === SupplierInvoiceStatus::Processing) {
@@ -232,7 +236,7 @@ class SupplierInvoicePage extends Component
         $calculatedTotal = null;
 
         if ($invoice !== null && $invoice->status === SupplierInvoiceStatus::NeedsReview) {
-            $messages = $checks->inspect($this->linesInCents(), InvoiceMoney::toCents($this->tax), InvoiceMoney::toCents($this->statedTotal));
+            $messages = $checks->inspect($this->linesInCents(), InvoiceMoney::toCents($this->tax), InvoiceMoney::toCents($this->statedTotal), $this->currency);
             $calculatedCents = $this->calculatedTotalCents();
             $calculatedTotal = $calculatedCents === null ? null : InvoiceMoney::format($calculatedCents, $this->currency);
         }
@@ -310,6 +314,7 @@ class SupplierInvoicePage extends Component
                 ])->all()),
                 $locked->tax_cents,
                 $locked->stated_total_cents,
+                $locked->currency,
             );
 
             if ($confirm && $messages === []) {

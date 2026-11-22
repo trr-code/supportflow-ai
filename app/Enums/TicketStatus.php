@@ -8,6 +8,7 @@ enum TicketStatus: string
     case Triaging = 'triaging';
     case AwaitingReview = 'awaiting_review';
     case WaitingOnCustomer = 'waiting_on_customer';
+    case AwaitingStaff = 'awaiting_staff';
     case Escalated = 'escalated';
     case Resolved = 'resolved';
     case AiFailed = 'ai_failed';
@@ -19,6 +20,7 @@ enum TicketStatus: string
             self::Triaging => 'AI reviewing',
             self::AwaitingReview => 'Awaiting review',
             self::WaitingOnCustomer => 'Waiting on customer',
+            self::AwaitingStaff => 'Awaiting staff review',
             self::Escalated => 'Escalated',
             self::Resolved => 'Resolved',
             self::AiFailed => 'AI unavailable',
