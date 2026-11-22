@@ -14,3 +14,6 @@ done payloads include id, html, and sources from CitedSources::streamLabels. sto
 
 ## Single-purpose HTTP controllers
 Use invokable controllers for single-purpose endpoints. Keep related export formats together in one controller and delegate shared workflow logic to services.
+
+## Validation follows the request boundary
+Default to the existing Request validation in HTTP controller actions before calling workflow services. Use a Form Request when validation/authorization complexity or reuse warrants it; do not rewrite working validation solely to standardize its location.

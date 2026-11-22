@@ -13,3 +13,6 @@ The owner explicitly wants all verification that materially helps correctness an
 
 ## Verification follows the single project schedule
 Follow .ai/guidelines/testing-verification.md: focused tests/rendered checks for low-risk review previews, full Composer validation after view/batch approval or earlier for risky/broad changes, and relevant AI/performance/release gates. The agent owns execution. A focused pass is not a full-suite pass. Preserve valid unchanged evidence, track deferred batch validation and report actual skips/blockers.
+
+## Installed browser tooling overrides stale generic skill assumptions
+This repository installs pestphp/pest-plugin-browser and Playwright and already has tests/Browser. Generic testing skill wording that says this project does not install browser tooling is stale; use the verified installed versions and project browser rules. Controlled browser events and fictional-audio real-provider tests are distinct from owner physical-microphone acceptance. Do not remove existing coverage or change dependencies to resolve this documentation mismatch.

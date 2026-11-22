@@ -16,6 +16,18 @@ Authority for product claims:
 - Unused returns: 30 days, tags attached; original box not required; prepaid UPS label after the return is approved in the order portal.
 - Thread colors for Driftwood Duffel embroidery are not documented.
 
+## Microphone walkthrough — current owner decisions 2026-11-21
+
+Explicitly started dictation continues across internal browsing and external-app focus, retaining speech in its originating draft until Stop, explicit Send or a documented limit/failure. Consult the latest readiness checkpoint first; preserve the existing workspace and do not repeat accepted checks just because they appear in an older checklist.
+
+- [x] Terry confirmed the spoken navigation narrative remained in Document chat after policies, Agent desk tab, Invoice review and Customer support browsing. This is the exercised path, not every browser/device.
+- [x] Terry confirmed Stop/resume kept the earlier draft and appended one additional sentence exactly once.
+- [ ] Separately test switching focus to another application and returning; do not equate focus loss with internal navigation. Record browser/device limitations and actual behavior.
+- [x] Terry confirmed Send submitted once, recording stayed off and the cleared composer stayed empty while he continued talking (2026-11-22). Preserve this pass; do not repeat without a relevant change.
+- [ ] Review the quieter dotted waveform and absence of routine status popups with the physical microphone; actionable errors remain visible. Stop still finalizes without sending.
+
+No special cross-page recording banner has been approved. Seek official OpenAI guidance first; if it does not settle a behavior, explain that and obtain Terry's decision rather than treating an invented UI pattern as a standard.
+
 ## Customer chat (desktop)
 
 - [ ] Open chat from home. Prepared-question buttons fill the composer and do not send or reset the thread.
@@ -35,8 +47,8 @@ Authority for product claims:
 ## Tickets and approval visibility
 
 - [ ] Submit the unused Trail Pack return ticket (prepared form or scenario). Status page shows AI reviewing, then a human-must-approve message. No draft body.
-- [ ] Open Agent Dashboard → ticket. Pending draft is visible to the agent only, with “The customer cannot see this until you approve and send.”
-- [ ] Approve and send. Public status page then shows the reply (`Hi {First},` / `Best,` / `Alex Rivera` / `Harbor & Co Support`).
+- [ ] Open Agent desk → Tickets → the matching ticket. Pending draft is visible to the agent only, with “The customer cannot see this until you approve and send.”
+- [ ] Approve and send. Public status page then shows the approved reply, using the current Harbor Outfitters identity and appropriate greeting/signature.
 - [ ] Shipping/returns scenario: 28L too small, wants 36L and prepaid label. Draft covers exchange **and** prepaid return-label policy. Status stays Awaiting review until a human sends it.
 - [ ] Insufficient-knowledge scenario: embroidery + thread colors. Escalated to human. No customer draft.
 - [ ] Angry billing scenario: High priority (unless Urgent), escalated, no AI draft.
@@ -46,13 +58,15 @@ Authority for product claims:
 
 ## Dictation
 
-Automated coverage drives controlled transcription events on the ticket description field: a partial transcript appears, a typed edit is kept, a later phrase still appends, and stopping leaves that text in place and ignores a later event. It does not open a microphone.
+Controlled browser coverage checks first-recording waveforms, Stop/finalization, live resumed text, retained edits, conversation isolation, navigation persistence and ignored late events. The separate opt-in fictional-audio probe exercises the real provider connection and resumed live transcription; physical-device acceptance remains a manual check.
 
 - [ ] Chat microphone: real permission prompt, spoken transcript lands in the composer, nothing is spoken back.
 - [ ] Ticket description microphone: same real microphone. Do not enter real personal data.
 - [ ] If the browser has no mic, the typed fallback message appears.
 
 ## Mobile and iPad
+
+Terry explicitly defers the complete physical-device review to the end of Package 4, after the desktop repair/design pass and availability on the independently authorized live deployment. Do not insert phone checks into the current desktop walkthrough. Automated viewport evidence does not close these physical-device items.
 
 Use a phone viewport (~390px) and an iPad viewport (~768–1024px), plus a real device if available.
 

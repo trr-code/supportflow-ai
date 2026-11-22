@@ -16,3 +16,6 @@ Work directly on main as requested. Forge push-to-deploy is disabled. The deploy
 
 ## CI uses an explicit runner image and warning failures
 CI is pinned to ubuntu-24.04 during the ubuntu-latest 26.04 migration; move images in a reviewed change with actual browser/PHP/PostgreSQL CI evidence. The owner approved actions/setup-node@v7; automatic package-manager caching is off. phpunit.xml fails on warnings, and CI displays warning/deprecation details. Keep the tested-SHA deploy gate and normal stress/evals exclusions.
+
+## CI checks the configured Blade formatter separately from Pint
+Keep Pint for ordinary PHP and run npm run format:blade:check after npm ci. Blade formatting uses the project Prettier configuration and Tailwind stylesheet; do not enable a competing Pint Blade pass.

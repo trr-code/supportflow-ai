@@ -8,6 +8,8 @@ paths:
   - app/Services/RetrievalService.php
   - app/Services/SupplierInvoiceExport.php
   - 'app/Services/**'
+  - 'app/Services/AskLucid*.php'
+  - app/Services/HarborChatHandoff.php
 ---
 
 # Services
@@ -59,3 +61,30 @@ Keep reusable workflow decisions in named services called by controllers, Livewi
 
 ## Session-owned workflow records
 Reuse the owning service to initialize chat conversations and replacement cases so each workflow keeps its existing ownership scope.
+
+## Document overviews use scoped readable passages
+Broad requests such as “What’s this about?” and “Summarize this document” must use bounded overview passages, not depend on topical similarity. Preserve KnowledgeCorpus isolation and citations; clarify an ambiguous singular request with multiple uploads, and disclose sampled coverage. Blank/image-only files are not missing-answer cases: explain their reading status without claiming OCR or knowing an empty PDF is definitely blank.
+
+## Ask Lucid explains verified product behavior without private workflow access
+Ask Lucid is the Lucid product guide, separate from Harbor policies and private Document chat. Maintain its curated product knowledge against actual controls/config; do not feed internal docs, uploaded passages, ticket content, secrets or user-supplied system/history roles. Browser-session history is bounded and expires; Stop/New chat invalidate in-flight generations so late streams cannot restore cleared history. Navigation links are app-supplied landmarks, not evidence citations. Preserve the accepted launcher geometry and shared role bubbles.
+
+## Restore interrupted Ask Lucid with reachable Stop
+A browser abort or refresh can leave the SSE lock active. History restoration must expose active-answer state and the panel must offer Stop after restoration or a 409. Do not auto-cancel another tab on read. Stop preserves completed history and invalidates late writes.
+
+## Ask Lucid Stop preserves the visible turn
+Ask Lucid shares paced text reveal with the other chats. Stop retains the question and revealed server-generated prefix marked Stopped, with neutral feedback. Never accept assistant content from the browser; validate the generation and bound the character count. Reset still invalidates late writes and clears only Ask Lucid.
+
+## Confirm collected return requests in chat
+Higher-priced return requests retain collected details for explicit Send support request confirmation directly in chat, then link to the customer status. Use session-owned ticket services and idempotent return-review creation. Never treat typed order details as verified order lookup or refund approval, and never expose private staff drafts or notes.
+
+## Reply status names the next actor
+Sending a reply does not necessarily mean waiting on the customer. Agent reply UI explicitly chooses Awaiting staff review, Waiting on customer or Resolved. Unspecified service return-review replies default to staff review. Staff-pending public status keeps polling after an acknowledgement so the eventual reply appears. Keep existing authorization, approved-public-message boundaries and event history.
+
+## Document Stop retains server-owned visible text
+Document streaming emits its user-turn ID before deltas and snapshots server-generated text. Stop accepts only an owned current turn plus a bounded revealed-character count, never browser-authored answer text; it persists the visible prefix with is_stopped and no citations, invalidates the stream generation and releases its lock. Serialize final persistence with Stop; stale generations must not recreate deleted turns or modify a newer conversation.
+
+## Overview follow-ups retain their bounded overview context
+For contextual detail requests following a document overview, retrieve the previous overview request intact rather than concatenating a second sentence that defeats summary recognition; keep the existing bounded passage set. Ignore stopped attempts when resolving the previous meaningful subject and citations, but never walk past a completed uncited gap. An underspecified first turn asks for a brief subject clarification. Maintain corpus isolation and allowed citation IDs.
+
+## Eloquent workflow services are the default
+Keep workflow queries and persistence in the existing named services using Eloquent directly. Do not introduce a repository abstraction solely for consistency; a different structure requires a concrete documented need. This is a project default, not a Laravel prohibition on repositories.

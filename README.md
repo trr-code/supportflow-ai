@@ -1,6 +1,6 @@
 # SupportFlow AI
 
-Harbor & Co/SupportFlow is a Laravel 13 portfolio demo of a support copilot: OpenAI triage, PostgreSQL/pgvector retrieval, and human-approved replies.
+Harbor Outfitters/SupportFlow is a Laravel 13 portfolio demo of a support copilot: OpenAI triage, PostgreSQL/pgvector retrieval, and human-approved replies.
 
 Nothing reaches the customer until a human support agent sends it.
 
@@ -17,9 +17,9 @@ Nothing reaches the customer until a human support agent sends it.
 2. Enable `vector` in your database (`CREATE EXTENSION vector`). See [docs/pgvector.md](docs/pgvector.md).
 3. Run `composer setup` (or `composer install`, `php artisan key:generate`, `php artisan migrate`, `npm install`, `npm run build`).
 4. Seed once: `php artisan db:seed`.
-5. Run `composer run dev`. That starts the site, Vite, and a queue listener for `ai,default`.
+5. Run `composer run dev` for Vite and a queue listener for `ai,default`. Laravel Herd already serves the site.
 
-Open the home page, ask the knowledge assistant, or submit a demo ticket. Use **Open Agent Dashboard** for the review workspace—there is no public login form.
+Open the home page, ask the knowledge assistant, or submit a demo ticket. Use **Agent desk** in the sidebar for the review workspace—there is no public login form.
 
 Do not enter real personal, order, or payment information.
 
@@ -29,7 +29,9 @@ Do not enter real personal, order, or payment information.
 composer test
 ```
 
-CI runs Pint, Rector (`--dry-run`), Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests and paid Pest Evals are **not** in that quality gate. Apply Rector locally with `composer rector` after a dry-run; never apply it in CI.
+CI runs Pint, the configured Blade formatter, Rector (`--dry-run`), Larastan, and Pest on PHP 8.5 with `pgvector/pgvector:pg17`. HTTP Stressless tests and paid Pest Evals are **not** in that quality gate. Apply Rector locally with `composer rector` after a dry-run; never apply it in CI.
+
+Use `composer lint` to format ordinary PHP with Pint and Blade templates with Prettier, or `npm run format:blade` for templates alone. `composer lint:check` checks both. Install the locked Node development dependencies with `npm ci` first. Configure any editor Blade format-on-save integration to use this project's Prettier configuration; do not run a second Blade formatter or enable Pint's separate Blade rule. The Blade/PHP plugins handle embedded PHP and the Tailwind plugin reads `resources/css/app.css`; email templates are excluded. Standalone JavaScript/CSS files are outside this template-only command.
 
 Local paid Evals (live OpenAI, seeded Harbor catalog):
 

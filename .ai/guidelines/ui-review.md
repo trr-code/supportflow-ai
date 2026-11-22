@@ -18,7 +18,7 @@ Use this procedure before changing a Lucid screen and before calling it ready fo
 - Check keyboard operation, visible focus, focus return, unclipped outlines, overflow and reading position. Hidden editors must remain inert and must not steal focus. Check natural reflow separately from focus/scroll jumps; preserve stable Livewire keys and visible-box polling.
 - Verify local feedback on the first and repeated save, privacy boundaries, independent drafts and source restoration when touched. Navigation must not save/send; private drafts/notes must not appear in public status. Use controlled fictional fixtures where actions are needed; do not send replies, delete workspaces or upload owner files just to inspect a layout.
 
-Use the skill for task-specific sequences and the indexed rules for exact role values. Do not duplicate those design values in this procedure. Read the current checkpoint for unresolved design choices. The known microphone defect and deferred custom-toast work stay open until separately resolved and verified.
+Use the skill for task-specific sequences and the indexed rules for exact role values. Do not duplicate those design values in this procedure. Read the current checkpoint for unresolved design choices. Use the latest readiness checkpoint to distinguish verified microphone behavior from pending refinements; deferred custom-toast work remains separate.
 
 ## Before handing back
 

@@ -2,6 +2,7 @@
 paths:
   - app/Ai/Agents/SuggestedReplyAgent.php
   - app/Ai/Agents/SupportChatStreamAgent.php
+  - app/Ai/Agents/WorkspaceChatAgent.php
 ---
 
 # Agents
@@ -17,3 +18,6 @@ Use Conversational + messages() from chat_messages for the anonymous DemoSession
 
 ## Order tools join Harbor chat only for an order turn
 Policy questions stay on passages and CITES, with no order tools. A question that names a fictional order or asks for a replacement attaches LookupOrder, CheckDamagePolicy, CheckStock, and CreateReplacementRequest for that demo session. Order facts come only from those tools. A proposal still waits for confirm or cancel. Text with no citation and no tool result stays the documented refusal. Private workspace chunks stay out of this prompt.
+
+## Summary material conditions and length distinction
+A summary of a refundable payment must retain documented prerequisites such as inspection, naming the correct payment. That is a material condition even in Concise; adjacent unrequested equipment holds remain a separate scope choice. For substantial three-topic Thorough answers explain timing, conditions and consequences in useful sentences rather than reproducing Concise with minor extra words.
