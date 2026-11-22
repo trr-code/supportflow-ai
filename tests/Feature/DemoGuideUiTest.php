@@ -20,7 +20,7 @@ use Livewire\Livewire;
 
 test('the prepared question path opens chat without filling or sending', function () {
     Livewire::test(Welcome::class)
-        ->assertSee('Instructions update as you go.')
+        ->assertSee('they update as you go.')
         ->assertSee('Less busywork.')
         ->assertDontSee('Use a return question');
 });
@@ -117,15 +117,16 @@ test('the scenario chooser previews one example and load creates a single ticket
 
     $component = Livewire::test(TicketIndex::class)
         ->assertSee('Try a scenario')
-        ->assertDontSee('Choose an example, preview it, then open a demo ticket.')
+        ->assertDontSee('Choose an example, preview it, then open a ticket.')
         ->set('showScenarios', true)
-        ->assertSee('Choose an example, preview it, then open a demo ticket.')
+        ->assertSee('Choose an example, preview it, then open a ticket.')
         ->assertSee('Customer situation')
         ->assertSee('What Lucid should do')
         ->assertSee('Expected result')
         ->assertSee('Back to tickets')
         ->assertSee('Load scenario')
-        ->assertSee('Creates a new demo ticket. Existing examples stay unchanged.')
+        ->assertSeeText('Load scenario creates a new ticket and opens it.')
+        ->assertSee('Existing examples stay unchanged, and no reply is sent automatically.')
         ->assertDontSee('Policy-grounded reply')
         ->assertDontSee('One-click scenarios')
         ->assertDontSee('fixture')
@@ -210,7 +211,7 @@ test('the scenarios query opens the visible catalog on the ticket queue', functi
         ->test(TicketIndex::class)
         ->assertSet('showScenarios', true)
         ->assertSee('id="agent-scenarios"', false)
-        ->assertSee('Choose an example, preview it, then open a demo ticket.')
+        ->assertSee('Choose an example, preview it, then open a ticket.')
         ->assertSee('Unused pack return')
         ->assertSee('Urgent shipping')
         ->assertSee('Angry customer')
@@ -252,7 +253,7 @@ test('the agent dashboard opens each attention queue and leaves the harbor desk 
     Livewire::test(Dashboard::class)
         ->assertOk()
         ->assertSee('Agent dashboard')
-        ->assertSee('Harbor & Co support at a glance.')
+        ->assertSee('Harbor Outfitters support at a glance.')
         ->assertSee('Needs attention')
         ->assertSee('Open tickets')
         ->assertSee('By status')

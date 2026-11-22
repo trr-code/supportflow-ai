@@ -1,14 +1,65 @@
 <?php
 
 use App\Enums\SuggestedReplyStatus;
+use App\Enums\TicketStatus;
 use App\Livewire\Pages\TicketShow;
+use App\Models\KnowledgeArticle;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\WorkspaceAccess;
 use App\Support\SuggestedReplyCopy;
 use Database\Seeders\KnowledgeSeeder;
 use Database\Seeders\TicketSeeder;
 use Database\Seeders\UserSeeder;
 use Livewire\Livewire;
+
+test('the retailer rename changes only the shared seeded catalog', function () {
+    $catalog = KnowledgeArticle::create(['title' => 'Catalog', 'slug' => 'rename-catalog', 'category' => 'returns', 'body' => 'Harbor & Co catalog.', 'is_seeded' => true]);
+    $custom = KnowledgeArticle::create(['title' => 'Owner document', 'slug' => 'rename-custom', 'category' => 'returns', 'body' => 'Harbor & Co in an owner document.', 'is_seeded' => false]);
+    $private = $custom->replicate();
+    $private->fill(['slug' => 'rename-private', 'workspace_id' => app(WorkspaceAccess::class)->start()->id, 'is_seeded' => true])->save();
+    $migration = require database_path('migrations/2026_11_20_214925_standardize_seeded_harbor_brand.php');
+    $migration->up();
+    expect($catalog->fresh()->body)->toBe('Harbor Outfitters catalog.')
+        ->and($custom->fresh()->body)->toBe('Harbor & Co in an owner document.')
+        ->and($private->fresh()->body)->toBe('Harbor & Co in an owner document.');
+});
+
+test('placeholder customer names receive a natural greeting and the consistent retailer signature', function () {
+    expect(SuggestedReplyCopy::format('Your request is with our team.', 'Demo customer'))
+        ->toStartWith('Hi there,')->toEndWith('Harbor Outfitters Support')->not->toContain('Hi Demo');
+});
+
+test('an agent chooses the actual next actor when sending a reply', function (string $status) {
+    $this->actingAs(User::factory()->create());
+    $ticket = Ticket::factory()->create();
+    $reply = $ticket->suggestedReplies()->create(['body' => 'Our team will review your request.', 'grounded' => true, 'status' => SuggestedReplyStatus::Pending, 'cited_chunk_ids' => []]);
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])->set('nextReplyStatus', $status)->call('approveAndSend')->assertHasNoErrors();
+    expect($ticket->fresh()->status->value)->toBe($status);
+    $this->get(route('tickets.status', $ticket->public_token))->assertSee(TicketStatus::from($status)->label())->assertSee('Our team will review your request.');
+})->with(['awaiting_staff', 'waiting_on_customer', 'resolved']);
+
+test('a staff-review acknowledgement keeps the public status updating until staff finish', function () {
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingStaff]);
+    $ticket->messages()->create([
+        'visibility' => 'public', 'author_type' => 'agent',
+        'body' => 'Our team is reviewing your request.', 'approved_at' => now(),
+    ]);
+    $component = Livewire::test(App\Livewire\Pages\TicketStatus::class, ['publicToken' => $ticket->public_token]);
+    expect($component->instance()->shouldPoll())->toBeTrue();
+    $ticket->update(['status' => TicketStatus::Resolved]);
+    $component->call('$refresh');
+    expect($component->instance()->shouldPoll())->toBeFalse();
+});
+
+test('an invalid next-actor selection cannot send a draft', function () {
+    $this->actingAs(User::factory()->create());
+    $ticket = Ticket::factory()->create();
+    $reply = $ticket->suggestedReplies()->create(['body' => 'Our team will review your request.', 'grounded' => true, 'status' => SuggestedReplyStatus::Pending, 'cited_chunk_ids' => []]);
+    Livewire::test(TicketShow::class, ['ticket' => $ticket])->set('nextReplyStatus', 'triaging')->call('approveAndSend')->assertHasErrors('nextReplyStatus');
+    expect($reply->fresh()->status)->toBe(SuggestedReplyStatus::Pending)
+        ->and($ticket->messages()->where('author_type', 'agent')->count())->toBe(0);
+});
 
 test('suggested reply copy puts one greeting and the professional closing on their own lines', function () {
     $closing = SuggestedReplyCopy::closing('Alex Rivera');
@@ -57,7 +108,7 @@ test('seeded SF-10482 cites live return-window chunks and uses greeting layout',
         ->and($reply->citedChunks())->toHaveSameSize($reply->cited_chunk_ids)
         ->and($reply->citedChunks()->pluck('article.slug')->unique()->all())->toBe(['return-window'])
         ->and($reply->body)->toContain('Hi Jamie,')
-        ->and($reply->body)->toContain("Best,\nAlex Rivera\nHarbor & Co Support")
+        ->and($reply->body)->toContain("Best,\nAlex Rivera\nHarbor Outfitters Support")
         ->and($reply->body)->not->toContain('—Alex at Harbor & Co')
         ->and($reply->body)->toContain('not required')
         ->and($reply->body)->not->toContain('Hi Jamie—')
@@ -79,7 +130,7 @@ test('seeded SF-10482 cites live return-window chunks and uses greeting layout',
         ->assertSee('These points help explain the category, priority, and sentiment.')
         ->assertDontSee('They are separate from the policy match score above.')
         ->assertSee('(match score 0.81). This measures how closely the support policies match the request.')
-        ->assertSee('Lucid uses this match to decide whether there is enough supporting information to suggest a reply.')
+        ->assertSeeNormalizedText('Lucid uses this match to decide whether there is enough supporting information to suggest a reply.')
         ->assertDontSee('This gates suggested drafts')
         ->assertDontSee('retrieval score')
         ->assertDontSee('%) —')
@@ -96,7 +147,7 @@ test('seeded titles and landing copy use closed em dashes', function () {
         ->and(file_get_contents(database_path('seeders/TicketSeeder.php')))
         ->not->toContain(' —')
         ->and(file_get_contents(resource_path('views/components/demo-banner.blade.php')))
-        ->toContain('Live portfolio demo · Harbor &amp; Co')
+        ->toContain('Live portfolio demo · Harbor Outfitters')
         ->and(file_get_contents(resource_path('views/livewire/pages/welcome.blade.php')))
         ->not->toContain(' — ')
         ->not->toContain('PostgreSQL / pgvector')
@@ -104,18 +155,18 @@ test('seeded titles and landing copy use closed em dashes', function () {
         ->not->toContain('knowledge — then')
         ->not->toContain('copilot—not a slide deck')
         ->not->toContain('live models—not canned scripts')
-        ->and(file_get_contents(resource_path('views/livewire/pages/demo-environment.blade.php')))
+        ->and(normalizedVisibleText(file_get_contents(resource_path('views/livewire/pages/demo-environment.blade.php'))))
         ->toContain('OpenAI transcribes your audio into text.')
         ->not->toContain('dictation — not')
-        ->and(file_get_contents(resource_path('views/livewire/pages/demo-safety.blade.php')))
+        ->and(normalizedVisibleText(file_get_contents(resource_path('views/livewire/pages/demo-safety.blade.php'))))
         ->toContain('These optional tests show how the assistant handles unsafe requests, missing information, and situations requiring human review.')
         ->not->toContain('live product—they are not a second script')
         ->not->toContain('live product —')
-        ->and(file_get_contents(resource_path('views/livewire/pages/demo-workflow.blade.php')))
+        ->and(normalizedVisibleText(file_get_contents(resource_path('views/livewire/pages/demo-workflow.blade.php'))))
         ->toContain('Go to Tickets → Live demo and find the same SF- reference.')
         ->not->toContain('Customer→')
-        ->and(file_get_contents(resource_path('views/livewire/pages/ticket-index.blade.php')))
-        ->toContain('Choose an example, preview it, then open a demo ticket.')
+        ->and(normalizedVisibleText(file_get_contents(resource_path('views/livewire/pages/ticket-index.blade.php'))))
+        ->toContain('Choose an example, preview it, then open a ticket.')
         ->toContain('Existing examples stay unchanged.')
         ->not->toContain('Clones a fixture')
         ->and(file_get_contents(app_path('Services/DemoScenarioService.php')))

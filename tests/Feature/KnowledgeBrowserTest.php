@@ -130,7 +130,7 @@ test('policies keep the authorized ticket origin and selected category', functio
     $this->get(route('knowledge.show', ['slug' => $article->slug, 'topic' => 'returns', ...$origin]))
         ->assertOk()->assertSee('Back to ticket')
         ->assertSee('aria-label="Agent desk"', false)
-        ->assertSee('<link rel="canonical" href="'.route('knowledge.show', $article->slug).'">', false)
+        ->assertSee('<link rel="canonical" href="'.route('knowledge.show', $article->slug).'" />', false)
         ->assertSee(route('agent.tickets.show', $ticket))
         ->assertSee(route('knowledge.index', ['topic' => 'returns', ...$origin]));
 });

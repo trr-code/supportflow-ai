@@ -29,7 +29,7 @@ test('reply history guidance matches empty unsent sent and overflow states', fun
     } else {
         $component->assertDontSee('No reply has been sent yet.');
     }
-    $component->assertSee('If this ticket has more than six, Show earlier messages appears above the list.')
+    $component->assertSeeText('If this ticket has more than six, Show earlier messages appears above the list.')
         ->assertViewHas('hasEarlierReplies', $count > 6)
         ->assertViewHas('visiblePublicMessages', fn ($messages): bool => $messages->count() === min(6, $count));
     $component->call('showEarlierReplies')
@@ -69,11 +69,11 @@ test('ticket tool instructions follow the selected task without changing ticket 
     $original = $ticket->fresh()->getAttributes();
     Livewire::test(TicketShow::class, ['ticket' => $ticket])
         ->call('showTools', 'details')->assertSet('showToolInstructions', true)
-        ->assertSeeHtml('>Update ticket details</span>')->assertSee('Save details is not needed for status changes.')
-        ->call('showTools', 'activity')->assertSeeHtml('>Review ticket activity</span>')
+        ->assertSeeNormalizedText('Update ticket details')->assertSee('Save details is not needed for status changes.')
+        ->call('showTools', 'activity')->assertSeeNormalizedText('Review ticket activity')
         ->assertSee('System means Lucid performed the step automatically.')
         ->call('showWorkspace', 'notes')->assertSet('showToolInstructions', false)
-        ->assertSeeHtml('>Keep private team notes</span>')
+        ->assertSeeNormalizedText('Keep private team notes')
         ->call('showTools', 'details')->assertSet('showToolInstructions', true)
         ->call('showTools', 'sources')->assertSet('showToolInstructions', false)
         ->call('showTools', 'invalid')->assertSet('tools', 'sources');
@@ -140,7 +140,7 @@ test('internal ticket has a descriptive title one main heading and search exclus
     $ticket = Ticket::factory()->create(['subject' => 'Return policy question']);
     $this->actingAs(User::factory()->create());
     $response = $this->get(route('agent.tickets.show', $ticket))->assertOk()
-        ->assertSee('<meta name="robots" content="noindex, nofollow">', false)
+        ->assertSee('<meta name="robots" content="noindex, nofollow" />', false)
         ->assertSee($ticket->reference.' - Lucid')
         ->assertSee('id="ticket-subject"', false);
     $response->assertSee('Review the customer request, check the draft, and choose how to reply.');
@@ -149,7 +149,7 @@ test('internal ticket has a descriptive title one main heading and search exclus
         ->assertSee('Fictional demo');
     $response->assertSeeInOrder(['Ticket review</h1>', 'Review the customer request, check the draft, and choose how to reply.', 'id="workspace-review"', 'id="workspace-conversation"', 'id="workspace-notes"', 'id="ticket-subject"', 'Return policy question', 'Customer request'], false);
     expect(preg_match_all('/<h1\b/i', $response->getContent()))->toBe(1);
-    $this->get(route('home'))->assertDontSee('<meta name="robots" content="noindex, nofollow">', false);
+    $this->get(route('home'))->assertDontSee('<meta name="robots" content="noindex, nofollow" />', false);
 });
 
 test('agent pages share the title demo pill and description header', function () {
@@ -159,7 +159,7 @@ test('agent pages share the title demo pill and description header', function ()
         $response = $this->get($url)->assertOk()->assertSee('lucid-page-header', false)->assertSee('Fictional demo');
         expect(preg_match_all('/<h1\b/i', $response->getContent()))->toBe(1);
     }
-    $this->get(route('dashboard'))->assertSee('Harbor & Co support at a glance.')->assertDontSee('Harbor &amp;amp; Co', false);
+    $this->get(route('dashboard'))->assertSee('Harbor Outfitters support at a glance.')->assertDontSee('Harbor &amp;amp; Co', false);
 });
 
 test('remaining support screens share the showroom frame without a second floating chat', function () {
@@ -177,8 +177,8 @@ test('standalone ticket guidance follows its draft and sent states without expos
     $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
     $reply = SuggestedReply::query()->create(['ticket_id' => $ticket->id, 'body' => 'Private proposed response.', 'grounded' => true, 'status' => SuggestedReplyStatus::Pending, 'cited_chunk_ids' => []]);
     $this->get(route('agent.tickets.show', $ticket))->assertSee('Review and edit the reply')->assertSee('Click inside the reply to edit it before sending.')
-        ->assertSee('View reasoning explains those choices')
-        ->assertSee('Use Sources below the reply to check')
+        ->assertSeeText('View reasoning explains those choices')
+        ->assertSeeText('Use Sources below the reply to check')
         ->assertDontSee('wire:poll.5s.visible', false);
     $this->get(route('tickets.status', $ticket->public_token))->assertSee('Watch for the reply')->assertSee('This page updates automatically while AI prepares a draft')->assertDontSee('Private proposed response.');
     $reply->update(['status' => SuggestedReplyStatus::Approved]);
@@ -190,8 +190,8 @@ test('standalone ticket guidance follows its draft and sent states without expos
 test('invoice workspace guides the first upload without presenting unavailable review steps', function () {
     $this->get(route('demo.invoices'))->assertSee('Choose an invoice')->assertDontSee('Review the details')->assertDontSee('Download the results')->assertSee('Extract fields')->assertSee('Files and privacy')
         ->assertDontSee('toggleGuide', false);
-    $this->get(route('demo.documents'))->assertSee('Add your files using Choose files, then Upload files.')
-        ->assertDontSee('Check the sources')->assertDontSee('Choose your next step')
+    $this->get(route('demo.documents'))->assertSeeText('Add your files using Choose files, then Upload files.')
+        ->assertDontSee('Check the sources')->assertDontSee('Start fresh')
         ->assertDontSee('toggleGuide', false);
 });
 

@@ -37,14 +37,14 @@ test('scenario guidance follows preview and keeps shared spacing across screen s
             return edge - Math.max(...ends);
         })()
     JS))->toBeGreaterThanOrEqual(16);
-    expect($page->script("[...document.querySelectorAll('.showroom-scenario-icon')].every(el => getComputedStyle(el).color === 'rgb(119, 53, 220)' && getComputedStyle(el).width === '20px')"))->toBeTrue();
+    expect($page->script("[...document.querySelectorAll('.showroom-scenario-icon')].every(el => getComputedStyle(el).color === 'rgb(17, 17, 17)' && getComputedStyle(el).width === '20px')"))->toBeTrue();
     expect($page->script("document.querySelector('.showroom-scenario-icon').getBoundingClientRect().top - document.querySelector('.showroom-scenario-preview h3.lucid-content-heading').getBoundingClientRect().bottom"))->toBeLessThan(100);
     expect($page->script("[...document.querySelectorAll('#scenario-chooser-title, .showroom-scenario-preview h3.lucid-content-heading')].every(el => getComputedStyle(el).fontSize === '20px' && getComputedStyle(el).fontWeight === '600')"))->toBeTrue();
     expect($page->script('document.documentElement.scrollWidth <= innerWidth'))->toBeTrue();
     if ($width >= 1100) {
         expect($page->script("document.querySelector('#demo-guide').getBoundingClientRect().width"))->toEqual(320);
     }
-    pointerClick($page, 'Billing dispute');
+    pointerClick($page, 'Billing dispute', 'option');
     $page->assertSee('both were charged for the same order')->assertSee('Read the example');
     expect(Ticket::query()->count())->toBe(0);
     $page->screenshot(filename: 'scenario-shared-'.$width);
@@ -90,9 +90,9 @@ test('scenario selection previews a ticket, returns to the same queue, and load 
 
     pointerClick($page, 'Try a scenario');
 
-    $page->assertSee('Choose an example, preview it, then open a demo ticket.');
+    $page->assertSee('Choose an example, preview it, then open a ticket.');
 
-    pointerClick($page, 'Billing dispute');
+    pointerClick($page, 'Billing dispute', 'option');
 
     $page->assertSee('both were charged for the same order');
 
@@ -102,7 +102,7 @@ test('scenario selection previews a ticket, returns to the same queue, and load 
 
     $page->assertSee('Oldest urgent scenario ticket')
         ->assertDontSee('Ordinary submitted request')
-        ->assertDontSee('Choose an example, preview it, then open a demo ticket.');
+        ->assertDontSee('Choose an example, preview it, then open a ticket.');
 
     $loaded = visit(route('agent.tickets.index', ['scenarios' => 1]), [
         'viewport' => ['width' => 1100, 'height' => 900],
@@ -164,9 +164,9 @@ test('a touch tap opens a scenario preview and back returns to the same queue', 
 
     pointerTap($page, 'Try a scenario');
 
-    $page->assertSee('Choose an example, preview it, then open a demo ticket.');
+    $page->assertSee('Choose an example, preview it, then open a ticket.');
 
-    pointerTap($page, 'Billing dispute');
+    pointerTap($page, 'Billing dispute', 'option');
 
     $page->assertSee('both were charged for the same order');
 
@@ -175,7 +175,7 @@ test('a touch tap opens a scenario preview and back returns to the same queue', 
     pointerTap($page, 'Back to tickets');
 
     $page->assertSee('Oldest urgent scenario ticket')
-        ->assertDontSee('Choose an example, preview it, then open a demo ticket.');
+        ->assertDontSee('Choose an example, preview it, then open a ticket.');
 
     $loaded = visit(route('agent.tickets.index', ['scenarios' => 1]), $touch);
 
@@ -195,11 +195,11 @@ test('a touch tap opens a scenario preview and back returns to the same queue', 
  *
  * Playwright's locator click retries after Livewire removes the button, so Back and Load time out even when their handlers already ran.
  */
-function pointerClick(object $page, string $name): void
+function pointerClick(object $page, string $name, string $role = 'button'): void
 {
     /** @var Page $playwright */
     $playwright = $page->page();
-    $button = $playwright->getByText($name, true);
+    $button = $playwright->getByRole($role, ['name' => $name, 'exact' => true]);
     $button->scrollIntoViewIfNeeded();
     $box = $button->boundingBox();
 
@@ -219,11 +219,11 @@ function pointerClick(object $page, string $name): void
  *
  * A touch tap is one element action, so Livewire can remove Back and Load without a retried click timing out.
  */
-function pointerTap(object $page, string $name): void
+function pointerTap(object $page, string $name, string $role = 'button'): void
 {
     /** @var Page $playwright */
     $playwright = $page->page();
-    $button = $playwright->getByText($name, true);
+    $button = $playwright->getByRole($role, ['name' => $name, 'exact' => true]);
     $button->scrollIntoViewIfNeeded();
     $button->tap();
 }

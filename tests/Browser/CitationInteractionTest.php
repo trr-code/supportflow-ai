@@ -51,6 +51,8 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
 
     $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => 900]]);
 
+    $page->screenshot(filename: 'package4-harbor-sources-'.$width);
+
     expect($page->script("['is-user', 'is-assistant'].map(role => { const s = getComputedStyle(document.querySelector('.showroom-message-bubble.' + role)); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius]; })"))->toBe([['16px', '16px', '0px', '16px'], ['16px', '16px', '16px', '0px']]);
 
     $page->assertDontSee($passage)
@@ -83,7 +85,7 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
 
     expect(browserCitationPreviewDisplay($page))->toBe('none');
     expect(browserCitationSidebarOpen($page))->toBeTrue();
-    $page->assertSee($passage)->assertDontSee('Get more help')->assertSee('Open policy reads the full article.');
+    $page->assertSee($passage)->assertDontSee('Get more help')->assertSee('Select Open policy to read the full article.');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-disclaimer')).fontSize"))->toBe('14px');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-source-passage')).fontSize"))->toBe('16px');
 
@@ -92,8 +94,9 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
     JS);
 
     expect($expanded)->toBeTrue();
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-source-number')).color"))->toBe('rgb(119, 53, 220)');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-source-passage.is-inspected')).backgroundColor"))->toBe('rgb(247, 243, 255)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-source-number')).backgroundColor"))->toBe('rgb(8, 8, 8)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-source-number')).color"))->toBe('rgb(255, 255, 255)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-source-passage.is-inspected')).backgroundColor"))->toBe('rgb(244, 244, 245)');
     expect($page->script("[...document.querySelectorAll('.showroom-guide-heading p')].filter(el => el.textContent.trim() === 'Sources & actions').length"))->toBe(1);
     $page->screenshot(filename: 'harbor-source-policy-links-'.$width);
     $page->fill('#chat-question', 'An unsent follow-up question.');

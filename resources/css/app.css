@@ -12,27 +12,26 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-harbor-pine: #6d5bd0;
-    --color-harbor-pine-dark: #5646b8;
-    --color-harbor-ocean: #6d5bd0;
+    --color-harbor-pine: #111;
+    --color-harbor-pine-dark: #111;
+    --color-harbor-ocean: #111;
     --color-harbor-sand: #f4f4f5;
-    --color-harbor-sand-deep: #e5e2ef;
+    --color-harbor-sand-deep: #111;
     --color-harbor-coral: #c45c4a;
-    --color-harbor-ink: #151331;
+    --color-harbor-ink: #111;
     --color-lucid-charcoal: #080808;
-    --color-lucid-lavender: #d5c5fc;
 
-    --color-zinc-50: #f7f8fb;
-    --color-zinc-100: #eef0f6;
-    --color-zinc-200: #e1e4ee;
-    --color-zinc-300: #c9cedd;
-    --color-zinc-400: #8b93a7;
-    --color-zinc-500: #667085;
-    --color-zinc-600: #4b5568;
-    --color-zinc-700: #374151;
-    --color-zinc-800: #1f2430;
-    --color-zinc-900: #16141f;
-    --color-zinc-950: #0e0d14;
+    --color-zinc-50: #fafafa;
+    --color-zinc-100: #f4f4f4;
+    --color-zinc-200: #e4e4e4;
+    --color-zinc-300: #d4d4d4;
+    --color-zinc-400: #a3a3a3;
+    --color-zinc-500: #737373;
+    --color-zinc-600: #525252;
+    --color-zinc-700: #404040;
+    --color-zinc-800: #262626;
+    --color-zinc-900: #171717;
+    --color-zinc-950: #0a0a0a;
 
     --color-accent: var(--color-harbor-pine);
     --color-accent-content: var(--color-harbor-pine);
@@ -70,24 +69,27 @@
     @apply  !mb-0 !leading-tight;
 }
 
+input[data-flux-control]:not([data-invalid]),
+textarea[data-flux-control]:not([data-invalid]),
+select[data-flux-control]:not([data-invalid]) {
+    border-color: #111;
+}
+
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+    border-color: #111;
+    outline: 2px solid #111;
+    outline-offset: 0;
+    box-shadow: none;
 }
 
-/*
- * Filled harbor-pine / accent controls need a dual-tone keyboard ring.
- * A pine outline is indistinguishable from the fill; a single light ring vanishes on sand.
- * Adjacent 2px white + 2px ink meets WCAG 2.4.7 / 2.4.13 on both the control and the page.
- */
+/* Filled controls use the same contiguous focus band as other controls. */
 :is(a, button).bg-harbor-pine:focus-visible,
 [data-flux-button][class~="bg-[var(--color-accent)]"]:focus-visible {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow:
-        0 0 0 2px #fff,
-        0 0 0 4px var(--color-harbor-ink);
+    outline: 2px solid #111;
+    outline-offset: 0;
+    box-shadow: none;
 }
 
 @media (forced-colors: active) {
@@ -239,7 +241,7 @@ select:focus[data-flux-control] {
 .policy-prose a:focus-visible,
 .file-choose:focus-within {
     outline: 2px solid var(--color-harbor-ink);
-    outline-offset: 2px;
+    outline-offset: 0;
 }
 
 .lucid-workspace {
@@ -280,17 +282,17 @@ select:focus[data-flux-control] {
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    background: #e8e8ea;
+    background: #080808;
     vertical-align: middle;
     font-size: 11px;
     font-weight: 600;
     line-height: 1;
-    color: var(--color-harbor-ink);
+    color: #fff;
 }
 
 .harbor-cite:focus-visible {
-    outline: 2px solid #d5c5fc;
-    outline-offset: 2px;
+    outline: 2px solid #111;
+    outline-offset: 0;
 }
 
 .lucid-harbor-chat .chat-dock.lucid-inline,

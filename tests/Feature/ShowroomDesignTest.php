@@ -41,7 +41,7 @@ test('homepage describes three demos and includes replacements inside customer s
         ->assertSee('property="og:description"', false)
         ->assertSee('rel="canonical" href="'.route('home').'"', false)
         ->assertSee('request a replacement')
-        ->assertSee('Instructions update as you go.')
+        ->assertSee('they update as you go.')
         ->assertDontSee('homepage assistant is a design preview')
         ->assertDontSee('Try the workspace');
 
@@ -301,13 +301,15 @@ test('workspace restart clears its walkthrough and chat but preserves submitted 
     ChatMessage::query()->create(['chat_conversation_id' => $conversation->id, 'role' => 'user', 'body' => 'Start this demo over']);
     $case = app(ReplacementCaseService::class)->forSession($session);
     $generation = $case->generation;
-    $ticket = Ticket::factory()->create();
+    $ticket = Ticket::factory()->create(['demo_session_id' => $session->id]);
     session(['supportflow.harbor.center' => 'status', 'supportflow.harbor.status_token' => $ticket->public_token]);
 
     Livewire::withCookies([DemoSessionService::COOKIE => $session->id])->test(DemoWorkspace::class)
         ->call('restartDemo')->assertRedirect(route('demo.harbor'));
 
-    expect(session()->has('supportflow.harbor'))->toBeFalse()
+    expect(session()->has('supportflow.harbor.center'))->toBeFalse()
+        ->and(session()->has('supportflow.harbor.status_token'))->toBeFalse()
+        ->and(session('supportflow.harbor.restart_ticket_id'))->toBe($ticket->id)
         ->and($conversation->messages()->count())->toBe(0)
         ->and($case->fresh()->generation)->toBe($generation + 1)
         ->and(Ticket::query()->whereKey($ticket->id)->exists())->toBeTrue();

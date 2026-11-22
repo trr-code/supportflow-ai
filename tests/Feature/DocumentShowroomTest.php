@@ -24,8 +24,8 @@ test('document showroom offers uploads only without creating a workspace on page
         ->assertSee('Ask questions about your documents')
         ->assertSee('Start by adding a document. The steps below update as you go.')
         ->assertSee('Start by adding a document.')
-        ->assertDontSee('Check the sources')->assertDontSee('Adjust answers or review privacy')
-        ->assertSee('Add your documents')->assertDontSee('Choose your next step')
+        ->assertDontSee('Check the sources')->assertDontSee('Adjust how answers are written')
+        ->assertSee('Add your documents')->assertDontSee('Start fresh')
         ->assertDontSee('Demo guide')->assertDontSee('Your files, your questions');
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
@@ -78,16 +78,16 @@ test('document guidance describes the current file state', function (WorkspaceDo
     $workspace->documents()->sole()->forceFill(['status' => $status])->save();
 
     $response = $this->withCookie(WorkspaceAccess::COOKIE, $token)->get(route('demo.documents'))
-        ->assertDontSee('Check the sources')->assertDontSee('Choose your next step')
+        ->assertDontSee('Check the sources')->assertDontSee('<h3>Start fresh</h3>', false)
         ->assertSee($heading)->assertSee('Answer settings')->assertSee('Privacy &amp; access', false)
         ->assertDontSee('Back to document choices')->assertDontSee('expand Documents')
         ->assertSee('bg-'.$color.'-50', false)
         ->assertSee('wire:key="document-status-'.$workspace->documents()->sole()->id.'"', false);
     $dom = new DOMDocument;
     @$dom->loadHTML($response->getContent());
-    expect((new DOMXPath($dom))->query('//*[@id="demo-guide"]//ol/li')->length)->toBe($status === WorkspaceDocumentStatus::Ready ? 3 : 1);
+    expect((new DOMXPath($dom))->query('//*[@id="demo-guide"]//ol/li')->length)->toBe($status === WorkspaceDocumentStatus::Ready ? 4 : 1);
     if ($status !== WorkspaceDocumentStatus::Ready) {
-        $response->assertDontSee('Adjust answers or review privacy');
+        $response->assertDontSee('Adjust how answers are written');
     }
 })->with([
     [WorkspaceDocumentStatus::Ready, 'Check your documents', 'emerald'],
@@ -132,12 +132,17 @@ test('document source instructions wait for an answer with references', function
     $conversation = $workspace->conversations()->firstOrFail();
     $message = $conversation->messages()->create(['role' => 'assistant', 'body' => 'These documents do not contain an answer to that.', 'cited_chunk_ids' => []]);
     $this->withCookie(WorkspaceAccess::COOKIE, $token)->get(route('demo.documents'))
-        ->assertSee('Add your documents')->assertDontSee('Check the sources')->assertDontSee('Choose your next step')->assertDontSee('Adjust answers or review privacy');
+        ->assertSee('Add your documents')->assertDontSee('Check the sources')->assertDontSee('<h3>Start fresh</h3>', false)->assertDontSee('Adjust how answers are written');
     Livewire::test(WorkspacePreview::class, ['embedded' => true])
         ->set('uploads', [UploadedFile::fake()->createWithContent('policy.txt', 'The home office allowance is $400.')])->call('storeDocuments')->assertHasNoErrors();
     $this->withCookie(WorkspaceAccess::COOKIE, $token)->get(route('demo.documents'))
-        ->assertSee('Your documents are ready.')->assertDontSee('Check the sources')->assertDontSee('Choose your next step');
+        ->assertSee('Review the reply')->assertSee('Ask a follow-up')->assertSee('Start a new conversation')
+        ->assertDontSee('Your documents are ready.')->assertDontSee('Check the sources');
     $message->update(['body' => 'The home office allowance is $400.', 'cited_chunk_ids' => [$workspace->documents()->sole()->article->chunks()->firstOrFail()->id]]);
     $this->withCookie(WorkspaceAccess::COOKIE, $token)->get(route('demo.documents'))
-        ->assertSee('Check the sources')->assertSee('Choose your next step')->assertSee('Read source 1:', false);
+        ->assertSee('Check the sources')->assertSee('Start fresh')->assertSee('Read source 1:', false);
+    Livewire::test(WorkspacePreview::class, ['embedded' => true])->call('newChat')->assertDispatched('document-workspace-changed');
+    $this->withCookie(WorkspaceAccess::COOKIE, $token)->get(route('demo.documents'))
+        ->assertSee('Your documents are ready.')->assertSee('Ask a question')->assertDontSee('Check the sources')
+        ->assertDontSee('Review the reply')->assertDontSee('<h3>Start a new conversation</h3>', false);
 });

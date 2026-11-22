@@ -1,6 +1,8 @@
-@props(['url'])
+@props (['url'])
 
-<div wire:ignore x-data="{
+<div
+    wire:ignore
+    x-data="{
     copying: false,
     copyFailed: false,
     async copyLink() {
@@ -26,14 +28,26 @@
         feedback.dataset.feedbackDuration = tone === 'success' ? '8000' : '0';
         feedback.dataset.feedbackRevision = String(Number(feedback.dataset.feedbackRevision) + 1);
     }
-}" data-ticket-copy>
+}"
+    data-ticket-copy
+>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <button type="button" class="policy-link" x-on:click="copyLink()" x-bind:disabled="copying">Copy ticket link</button>
+        <flux:button type="button" x-on:click="copyLink()" x-bind:disabled="copying" class="lucid-outline-action"
+            >Copy ticket link</flux:button
+        >
         <x-lucid.action-feedback class="flex min-w-0 flex-1 items-center" data-ticket-copy-feedback />
     </div>
     <div x-show="copyFailed" x-cloak class="mt-2">
-        <label class="block text-sm">Ticket link
-            <input x-ref="link" type="text" readonly value="{{ $url }}" class="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm" x-on:click="$el.select()" />
+        <label class="block text-sm"
+            >Ticket link
+            <input
+                x-ref="link"
+                type="text"
+                readonly
+                value="{{ $url }}"
+                class="mt-1 w-full rounded-lg border border-harbor-sand-deep bg-white px-3 py-2 text-sm"
+                x-on:click="$el.select()"
+            />
         </label>
     </div>
 </div>

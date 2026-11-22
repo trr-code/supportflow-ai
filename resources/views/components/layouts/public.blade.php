@@ -1,36 +1,61 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        @include('partials.head')
-    </head>
-    <body class="flex min-h-screen flex-col bg-harbor-sand text-harbor-ink antialiased">
-        <x-skip-link />
-        <x-demo-chrome />
+<head>
+    @include ('partials.head')
+</head>
+<body class="flex min-h-screen flex-col bg-harbor-sand text-harbor-ink antialiased">
+    <x-skip-link />
+    <x-demo-chrome />
 
-        <main id="main-content" class="lucid-public-content mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20">
-            {{ $slot }}
-        </main>
+    <main
+        id="main-content"
+        class="lucid-public-content mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pb-20"
+    >
+        {{ $slot }}
+    </main>
 
-        <footer class="border-t border-harbor-sand-deep bg-white/70">
-            <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-5 gap-y-1 px-4 py-3 text-xs leading-5 text-zinc-500 sm:px-6">
-                <p>© {{ now()->year }} Lucid</p>
-                <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1" aria-label="Footer">
-                    <a href="{{ route('home') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Lucid</a>
-                    <a href="{{ route('demo.harbor', ['view' => 'ticket']) }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Submit a ticket</a>
-                    <a href="{{ route('knowledge.index') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Browse policies</a>
-                    <a href="{{ route('demo.environment') }}" wire:navigate class="underline-offset-2 hover:text-harbor-ink hover:underline">Demo environment</a>
-                </nav>
-            </div>
-        </footer>
+    <footer class="border-t border-harbor-sand-deep bg-white/70">
+        <div
+            class="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-5 gap-y-1 px-4 py-3 text-xs leading-5 text-zinc-500 sm:px-6"
+        >
+            <p>© {{ now()->year }} Lucid</p>
+            <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1" aria-label="Footer">
+                <a
+                    href="{{ route('home') }}"
+                    wire:navigate
+                    class="underline-offset-2 hover:text-harbor-ink hover:underline"
+                    >Lucid</a
+                >
+                <a
+                    href="{{ route('demo.harbor', ['view' => 'ticket']) }}"
+                    wire:navigate
+                    class="underline-offset-2 hover:text-harbor-ink hover:underline"
+                    >Submit a ticket</a
+                >
+                <a
+                    href="{{ route('knowledge.index') }}"
+                    wire:navigate
+                    class="underline-offset-2 hover:text-harbor-ink hover:underline"
+                    >Browse policies</a
+                >
+                <a
+                    href="{{ route('demo.environment') }}"
+                    wire:navigate
+                    class="underline-offset-2 hover:text-harbor-ink hover:underline"
+                    >Demo environment</a
+                >
+            </nav>
+        </div>
+    </footer>
 
-        <livewire:chat.widget />
+    <livewire:chat.widget />
 
-        @persist('toast')
-            <flux:toast.group position="top end">
-                <flux:toast />
-            </flux:toast.group>
-        @endpersist
+    @persist ('toast')
+        <flux:toast.group position="top end">
+            <flux:toast />
+        </flux:toast.group>
+    @endpersist
 
-        @fluxScripts
-    </body>
+    @fluxScripts
+</body>
 </html>

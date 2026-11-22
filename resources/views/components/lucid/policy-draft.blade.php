@@ -1,5 +1,8 @@
-@props(['storageKey', 'version', 'fields'])
-<span hidden aria-hidden="true" x-data="{
+@props (['storageKey', 'version', 'fields'])
+<span
+    hidden
+    aria-hidden="true"
+    x-data="{
     controller: null,
     storageKey: @js($storageKey),
     version: @js($version),
@@ -28,4 +31,5 @@
         }, { signal: this.controller.signal });
     },
     destroy() { this.controller?.abort(); }
-}"></span>
+}"
+></span>

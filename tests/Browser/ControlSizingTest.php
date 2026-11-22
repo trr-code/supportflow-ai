@@ -44,10 +44,28 @@ test('action density stays consistent across screens without shrinking navigatio
         default => route($screen),
     };
     $page = visit($url, ['viewport' => ['width' => $width, 'height' => 900]]);
+    $outlines = $page->script(<<<'JS'
+        ({
+            pills: [...document.querySelectorAll('.rounded-full.ring-1')].map(pill => getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)')),
+            sidebars: [...document.querySelectorAll('.showroom-sidebar')].map(sidebar => getComputedStyle(sidebar).borderTopColor),
+            sidebarEdges: [...document.querySelectorAll('.showroom-sidebar')].map(sidebar => getComputedStyle(sidebar).boxShadow.includes('rgb(255, 255, 255)')),
+            progress: [...document.querySelectorAll('.showroom-status-progress > li')].map(step => ({current: step.matches('[aria-current="step"]'), outlined: getComputedStyle(step).boxShadow.includes('rgb(17, 17, 17)')})),
+        })
+    JS);
+    expect($outlines['pills'])->each->toBeTrue();
+    expect($outlines['sidebars'])->each->toBe('rgb(255, 255, 255)');
+    expect($outlines['sidebarEdges'])->each->toBeTrue();
+    foreach ($outlines['progress'] as $step) {
+        expect($step['outlined'])->toBe($step['current']);
+    }
+    if (in_array($screen, ['status', 'embedded-status'], true)) {
+        expect(array_column($outlines['progress'], 'current'))->toBe([false, true, false]);
+    }
     if (in_array($screen, ['dashboard', 'agent.tickets.index', 'ticket'], true)) {
         $page->assertVisible('.lucid-page-header h1')->assertVisible('.lucid-page-header .showroom-fiction-badge');
         if ($screen === 'ticket') {
             expect($page->script("document.querySelector('#ticket-subject').tagName"))->toBe('H2');
+            expect($page->script("[...document.querySelectorAll('.ticket-reply-actions .lucid-outline-action')].map(button => getComputedStyle(button).borderTopColor)"))->not->toBe([])->each->toBe('rgb(17, 17, 17)');
             expect($page->script(<<<'JS'
                 (() => {
                     const intro = document.querySelector('.lucid-page-header p').getBoundingClientRect();
@@ -112,12 +130,19 @@ test('action density stays consistent across screens without shrinking navigatio
     expect($measurements['overflow'])->toBeFalse();
     $page->assertNoJavaScriptErrors();
     $page->screenshot(filename: 'control-sizing-'.str_replace('.', '-', $screen).'-'.$width);
+    if ($screen === 'demo.harbor') {
+        $page->click('Create a support ticket')->assertSee('Keep both views open');
+        $guidePills = $page->script("[...document.querySelectorAll('.showroom-guide .rounded-full.ring-1')].map(pill => getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)'))");
+        expect($guidePills)->toHaveCount(3)->each->toBeTrue();
+        $page->screenshot(filename: 'pill-instruction-examples-'.$width);
+        $page->click('Customer chat')->assertVisible('#chat-question');
+    }
     if ($screen === 'home') {
         expect($page->script("document.querySelectorAll('.showroom-card-icon svg').length"))->toBe(3);
         expect($page->script("[...document.querySelectorAll('.showroom-card-icon')].every(el => getComputedStyle(el).backgroundImage === 'none' && getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(el).boxShadow === 'none')"))->toBeTrue();
     }
     if ($screen === 'demo.harbor') {
-        expect($page->script("document.querySelector('.showroom-composer').getBoundingClientRect().height"))->toBe(130);
+        expect($page->script("document.querySelector('.showroom-composer').getBoundingClientRect().height"))->toBeGreaterThanOrEqual(80)->toBeLessThanOrEqual(92);
         expect($page->script("document.querySelector('.showroom-send').getBoundingClientRect().height"))->toBe(40);
     }
     if (in_array($screen, ['ticket'], true)) {

@@ -17,6 +17,7 @@ use App\Models\WorkspaceDocument;
 use App\Services\SupplierInvoiceAccess;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceDocumentStore;
+use App\Support\WorkspaceCopy;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -25,13 +26,29 @@ use Livewire\Features\SupportFileUploads\FileUploadController;
 use Mockery\MockInterface;
 use Pest\Browser\Execution;
 
+test('a separate Harbor browser session cannot see another chat or its pending return', function () {
+    Http::preventStrayRequests();
+    $first = visit(route('demo.harbor'));
+    $first->click('I’d like to return my $79 Trail Pack.')
+        ->click('.showroom-send')
+        ->assertSee('I would like to start a return for order HB-51001.')
+        ->assertVisible('.showroom-replacement-confirm');
+
+    $second = visit(route('demo.harbor'));
+    $second->assertSee('How can we help?')
+        ->assertDontSee('I would like to start a return for order HB-51001.')
+        ->assertMissing('.showroom-replacement-confirm');
+
+    $first->assertVisible('.showroom-replacement-confirm');
+});
+
 test('the Ask Lucid preview opens and closes without covering its launcher', function (string $routeName, int $width) {
     $page = visit(route($routeName), ['viewport' => ['width' => $width, 'height' => 800]]);
-    $page->click('.lucid-assistant-launcher')->assertSee('Chat is coming soon.')->assertNoJavaScriptErrors();
+    $page->click('.lucid-assistant-launcher')->assertSee('AI app guide')->assertNoJavaScriptErrors();
     Execution::instance()->waitForExpectation(fn () => expect($page->script('document.activeElement.id'))->toBe('ask-lucid-title'));
     Execution::instance()->waitForExpectation(fn () => expect($page->script("(() => { const panel = document.querySelector('#ask-lucid-panel').getBoundingClientRect(); const launcher = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); return panel.left >= 0 && panel.top >= 0 && panel.right <= innerWidth && panel.bottom < launcher.top; })()"))->toBeTrue());
     $page->screenshot(filename: 'ask-lucid-'.$width);
-    $page->click('[aria-label="Close Ask Lucid"]')->assertDontSee('Chat is coming soon.');
+    $page->click('[aria-label="Close Ask Lucid"]')->assertDontSee('AI app guide');
     expect($page->script("document.activeElement.classList.contains('lucid-assistant-launcher')"))->toBeTrue();
     expect($page->script('getComputedStyle(document.activeElement).outlineStyle'))->toBe('none');
 })->with([['home', 1440], ['demo.harbor', 390]]);
@@ -109,11 +126,11 @@ test('remaining showroom screens reflow in the shared frame', function (string $
     $page->assertNoJavaScriptErrors();
     expect($page->script('document.documentElement.scrollWidth - window.innerWidth'))->toBeLessThanOrEqual(1);
     expect($page->script("document.querySelectorAll('h1').length"))->toBe(1);
-    expect($page->script('getComputedStyle(document.body).backgroundColor'))->toBe('rgb(231, 232, 235)');
+    expect($page->script('getComputedStyle(document.body).backgroundColor'))->toBe('rgb(220, 221, 225)');
     if ($screen === 'dashboard') {
         expect($page->script("document.querySelectorAll('.showroom-dashboard-metric').length"))->toBe(4);
         expect($page->script("getComputedStyle(document.querySelector('.showroom-dashboard-summary')).backgroundColor"))->toBe('rgba(0, 0, 0, 0)');
-        expect($page->script("getComputedStyle(document.querySelector('.showroom-dashboard-metric')).backgroundColor"))->toBe('rgb(250, 248, 255)');
+        expect($page->script("getComputedStyle(document.querySelector('.showroom-dashboard-metric')).backgroundColor"))->toBe('rgb(244, 244, 245)');
         expect($page->script("getComputedStyle(document.querySelector('#agent-dashboard-title')).fontSize"))->toBe('24px');
     }
     expect($page->script("getComputedStyle(document.querySelector('.showroom-sidebar .showroom-nav-item')).fontSize"))->toBe('16px');
@@ -203,9 +220,9 @@ test('dashboard uses consistent spacing and its instructions can be hidden and r
     expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-scroll'), '::-webkit-scrollbar-button').display"))->toBe('none');
     expect($page->script("(() => { const scan = rules => [...rules].some(rule => (rule.selectorText?.includes('.showroom-guide-scroll::-webkit-scrollbar-button:single-button:vertical') && rule.style.display === 'none') || (rule.cssRules && scan(rule.cssRules))); return [...document.styleSheets].some(sheet => scan(sheet.cssRules)); })()"))->toBeTrue();
     $page->hover('#agent-dashboard-title');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-scroll'), '::-webkit-scrollbar-thumb').backgroundColor"))->toBe('rgb(201, 174, 241)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-scroll'), '::-webkit-scrollbar-thumb').backgroundColor"))->toBe('rgb(98, 98, 98)');
     $page->hover('.showroom-guide-scroll');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-scroll'), '::-webkit-scrollbar-thumb').backgroundColor"))->toBe('rgb(119, 53, 220)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-scroll'), '::-webkit-scrollbar-thumb').backgroundColor"))->toBe('rgb(17, 17, 17)');
     $page->assertVisible('[aria-label="Scroll instructions down"]')->assertVisible('[aria-label="Scroll instructions up"]');
     $page->script("document.querySelector('[aria-label=\"Scroll instructions down\"]').click()");
     $page->wait(0.5);
@@ -355,10 +372,19 @@ test('documents keep own file upload and chat in one responsive workspace', func
     $vector = Embeddings::fakeEmbedding((int) config('supportflow.embeddings.dimensions'));
     Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $vector));
     Storage::fake('knowledge');
-    WorkspaceChatAgent::fake(function (): string {
+    $attempt = 0;
+    WorkspaceChatAgent::fake(function () use (&$attempt): string {
+        if (++$attempt === 2) {
+            throw new RuntimeException('Simulated provider failure');
+        }
+
+        if ($attempt === 4) {
+            return WorkspaceCopy::GAP;
+        }
+
         $chunk = KnowledgeChunk::query()->where('heading', 'EQUIPMENT')->whereHas('article', fn ($query) => $query->whereNotNull('workspace_id'))->firstOrFail();
 
-        return 'The one-time home office allowance is $400.'."\nCITES: {$chunk->id}";
+        return 'The one-time home office allowance is $400. Thank you.'."\nCITES: {$chunk->id}";
     })->preventStrayPrompts();
 
     $workspace = app(WorkspaceAccess::class)->start();
@@ -395,11 +421,30 @@ test('documents keep own file upload and chat in one responsive workspace', func
     $document = WorkspaceDocument::query()->sole();
     $document->forceFill(['status' => WorkspaceDocumentStatus::Processing])->save();
     $page->refresh()->assertSee('Reading this document…')->assertDontSee('Files uploaded.')
-        ->assertMissing('#demo-guide h3:has-text("Check the sources")')->assertDontSee('Choose your next step')->assertDontSee('Adjust answers or review privacy');
+        ->assertMissing('#demo-guide h3:has-text("Check the sources")')->assertMissing('#demo-guide h3:has-text("Start a new conversation")')->assertDontSee('Adjust how answers are written');
     expect($page->script("document.querySelectorAll('#demo-guide .showroom-support-steps > li').length"))->toBe(1);
     $page->screenshot(filename: 'document-reading-stage-'.$width);
-    $document->forceFill(['status' => WorkspaceDocumentStatus::Ready])->save();
+    $document->forceFill(['status' => WorkspaceDocumentStatus::Failed, 'failure_reason' => WorkspaceCopy::NO_TEXT])->save();
+    $page->refresh()->assertSee('Could not read document')->assertSee('No readable text found. Upload a text-readable copy.')
+        ->assertDontSee('It is not available for answers.')->assertDontSee('This file may be blank or contain only images.');
+    $page->screenshot(filename: 'document-compact-reading-error-'.$width);
+    $document->forceFill(['status' => WorkspaceDocumentStatus::Ready, 'failure_reason' => null])->save();
     $page->refresh()->assertSee('Ready for answers')->assertSee('What would you like to know?')->assertNoJavaScriptErrors();
+    $page->fill('#document-question', str_repeat("Check the equipment allowance.\n", 14));
+    expect($page->script(<<<'JS'
+        (() => {
+            const input = document.querySelector('#document-question');
+            const owner = input.closest('.showroom-documents');
+            const pageTop = window.scrollY;
+            const panelTop = owner.scrollTop;
+            input.scrollTop = input.scrollHeight;
+            const canScrollDown = input.scrollTop > 0;
+            input.scrollTop = 0;
+            return canScrollDown && input.scrollTop === 0
+                && owner.scrollTop === panelTop && window.scrollY === pageTop;
+        })()
+    JS))->toBeTrue();
+    $page->fill('#document-question', '');
     expect($page->script(<<<'JS'
         (() => {
             const left = selector => document.querySelector(selector).getBoundingClientRect().left;
@@ -435,11 +480,58 @@ test('documents keep own file upload and chat in one responsive workspace', func
     expect($page->script("Math.abs(document.querySelector('[data-document-delete]').getBoundingClientRect().right - document.querySelector('.showroom-document-library').getBoundingClientRect().right)"))->toBeLessThanOrEqual(1);
     $page->assertSee('Choose files');
     $page->screenshot(filename: 'showroom-documents-active-'.$width);
-    $page->click('.showroom-send[aria-label="Send question"]')->assertVisible('[aria-label="Stop"]')
-        ->assertSee('The one-time home office allowance is $400.')->assertNoJavaScriptErrors();
+    $page->click('.showroom-send[aria-label="Send question"]')->assertVisible('[aria-label="Stop"]');
+    $readingPosition = null;
+    if ($width >= 1100) {
+        expect($page->script("getComputedStyle(document.querySelector('[data-preview-transcript]')).overflowY"))->toBe('visible');
+        $readingPosition = $page->script(<<<'JS'
+            (() => {
+                const transcript = document.querySelector('[data-preview-transcript]');
+                const owner = transcript.closest('.showroom-documents');
+                transcript.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -12 }));
+                owner.scrollTop -= 12;
+                return owner.scrollTop;
+            })()
+        JS);
+    }
+    $page->assertSee('The one-time home office allowance is $400.')->assertNoJavaScriptErrors();
+    if ($readingPosition !== null) {
+        expect($page->script("document.querySelector('.showroom-documents').scrollTop"))->toBe($readingPosition);
+        expect($page->script(<<<'JS'
+            (() => {
+                const owner = document.querySelector('.showroom-documents');
+                const sidebar = document.querySelector('.showroom-sidebar');
+                const guide = document.querySelector('#demo-guide');
+                const top = sidebar.getBoundingClientRect().top;
+                window.scrollTo(0, document.documentElement.scrollHeight);
+                owner.scrollTop = owner.scrollHeight;
+                return window.scrollY === 0
+                    && document.documentElement.scrollHeight <= innerHeight + 1
+                    && owner.scrollHeight > owner.clientHeight
+                    && sidebar.getBoundingClientRect().top === top
+                    && guide.getBoundingClientRect().bottom <= innerHeight;
+            })()
+        JS))->toBeTrue();
+    }
     expect($page->script("document.querySelector('[data-preview-transcript] .document-source-trigger').textContent.trim()"))->toBe('1');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-message-bubble.is-user')).backgroundColor"))->toBe('rgb(238, 231, 255)');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-message-bubble.is-assistant')).backgroundColor"))->toBe('rgb(244, 244, 245)');
+    $page->assertDontSee('Thank you.');
+    if ($width >= 1100) {
+        $page->assertSee('read the passage in this sidebar.')->assertDontSee('read its supporting passage in a pop-up.');
+    } else {
+        $page->assertSee('read its supporting passage in a pop-up.')->assertDontSee('read the passage in this sidebar.');
+    }
+    expect($page->script(<<<'JS'
+        (() => {
+            const citation = document.querySelector('.document-source-trigger');
+            const range = document.createRange();
+            range.selectNodeContents(citation.previousSibling);
+            const lastLine = Array.from(range.getClientRects()).at(-1);
+            return citation.getBoundingClientRect().left - lastLine.right;
+        })()
+    JS))->toBeBetween(3, 5);
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-message-bubble.is-user')).backgroundColor"))->toBe('rgb(255, 255, 255)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-message-bubble.is-assistant')).backgroundColor"))->toBe('rgb(8, 8, 8)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-message-bubble.is-assistant')).color"))->toBe('rgb(255, 255, 255)');
     expect($page->script("['is-user', 'is-assistant'].map(role => { const s = getComputedStyle(document.querySelector('.showroom-message-bubble.' + role)); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius]; })"))->toBe([['16px', '16px', '0px', '16px'], ['16px', '16px', '16px', '0px']]);
     expect($page->script("document.querySelector('.document-source-trigger').closest('.showroom-message-bubble.is-assistant') !== null"))->toBeTrue();
     $page->hover('[data-preview-transcript] .document-source-trigger')->assertVisible('[data-cite-preview]')->assertSee('team-handbook.txt');
@@ -454,16 +546,33 @@ test('documents keep own file upload and chat in one responsive workspace', func
     $page->keys('.document-source-trigger', 'Escape');
     expect(documentCitationPreviewDisplay($page))->toBe('none');
     $page->click('[data-preview-transcript] .document-source-trigger')->assertSee('Submit itemized receipts within 30 days')->assertSee('Document source');
+    $sourcePanel = $width >= 1100 ? '#document-source-panel' : 'dialog[open]';
+    $page->assertVisible($sourcePanel);
+    expect($page->script(<<<'JS'
+        [...document.querySelectorAll('.showroom-document-settings')].map(details => {
+            const toggle = details.firstElementChild;
+            const style = getComputedStyle(toggle);
+            return [toggle.tagName, style.display, style.listStyleType, toggle.firstElementChild.tagName];
+        })
+    JS))->toBe([['SUMMARY', 'flex', 'none', 'svg'], ['SUMMARY', 'flex', 'none', 'svg']]);
+    expect($page->script("document.querySelector('$sourcePanel blockquote').textContent"))->toContain('The allowance does not cover personal phone plans.');
+    if ($width >= 1100) {
+        $page->assertMissing('#demo-guide:visible')->assertMissing('dialog[open]');
+    }
     $page->screenshot(filename: 'document-source-preview-'.$width);
-    $page->keys('dialog[open]', 'Escape')->assertMissing('dialog[open]')->assertSee('Read the answer or ask a follow-up');
+    if ($width >= 1100) {
+        $page->click('Back to instructions')->assertVisible('#demo-guide')->assertMissing('#document-source-panel:visible');
+        $page->click('[data-preview-transcript] .document-source-trigger')->assertVisible('#document-source-panel');
+    }
+    $page->keys($width >= 1100 ? '#document-source-heading' : 'dialog[open]', 'Escape')->assertMissing($sourcePanel.':visible')->assertSee('Ask a follow-up');
     Execution::instance()->waitForExpectation(fn () => expect($page->script("document.activeElement.classList.contains('document-source-trigger')"))->toBeTrue());
     $page->click('[aria-label="Hide instructions"]')->click('[data-preview-transcript] .document-source-trigger')->assertSee('Document source')->assertSee('Submit itemized receipts within 30 days');
-    $page->click('Close source')->assertMissing('dialog[open]')->assertNoJavaScriptErrors();
+    $page->click($sourcePanel.' [aria-label="Close source"], '.$sourcePanel.' button:has-text("Close source")')->assertMissing($sourcePanel.':visible')->assertNoJavaScriptErrors();
     $page->assertSee('Show instructions')->click('Show instructions');
-    $page->assertSee('Read the answer or ask a follow-up');
+    $page->assertSee('Ask a follow-up');
     $page->screenshot(filename: 'showroom-documents-answer-'.$width);
     $page->click('Answer settings')->assertSee('Choose how answers are written');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-document-settings button[type=submit]')).backgroundColor"))->toBe('rgb(228, 214, 252)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-document-settings button[type=submit]')).backgroundColor"))->toBe('rgb(8, 8, 8)');
     $page->select('select[wire\\:model="tone"]', 'friendly')->click('Save settings')->assertSee('Settings saved.');
     $page->click('Add instruction')->assertSee('Your instruction');
     $page->screenshot(filename: 'document-answer-settings-'.$width);
@@ -477,18 +586,42 @@ test('documents keep own file upload and chat in one responsive workspace', func
     expect($page->script("document.activeElement.hasAttribute('data-return-code')"))->toBeTrue();
     expect($page->script("(() => { const feedback = document.querySelector('[data-return-code-feedback]'); const buttons = feedback.parentElement.querySelectorAll('button'); return feedback.clientWidth >= feedback.parentElement.clientWidth - 1 && feedback.getBoundingClientRect().top >= buttons[buttons.length - 1].getBoundingClientRect().bottom; })()"))->toBeTrue();
     $page->screenshot(filename: 'document-privacy-access-'.$width);
-    $page->click('Delete workspace')->assertSee('Delete this workspace?');
+    $page->click('Delete workspace')->assertSee('Delete all documents and this conversation?');
     expect($page->script("getComputedStyle(document.querySelector('dialog[open] .showroom-destructive-action')).backgroundColor"))->toBe('rgb(185, 28, 28)');
     $page->screenshot(filename: 'document-delete-confirmation-'.$width);
     $page->click('dialog[open] button:has-text("Cancel")')->click('Privacy & access');
     $page->click('New chat')->assertSee('Start a new conversation?');
-    $page->keys('dialog[open] button[wire\\:click="newChat"]', 'Enter')->assertSee('What would you like to know?')->assertSee('Ask a question')->assertDontSee('Submit itemized receipts within 30 days')->assertMissing('#demo-guide h3:has-text("Check the sources")')->assertDontSee('Choose your next step');
+    $page->keys('dialog[open] button[wire\\:click="newChat"]', 'Enter')->assertSee('What would you like to know?')->assertSee('Ask a question')->assertDontSee('Submit itemized receipts within 30 days')->assertMissing('#demo-guide h3:has-text("Check the sources")')->assertMissing('#demo-guide h3:has-text("Start a new conversation")');
     expect(WorkspaceDocument::query()->count())->toBe(1);
     $page->click('[data-document-delete]')->assertSee('Delete this document?');
     $page->screenshot(filename: 'document-file-delete-confirmation-'.$width);
     $page->click('dialog[open] button:has-text("Cancel")');
     $page->assertDontSee('Back to document choices')->assertNoJavaScriptErrors();
     expect(WorkspaceDocument::query()->count())->toBe(1);
+    $page->fill('#document-question', 'What is the home office allowance?')
+        ->click('.showroom-send[aria-label="Send question"]')
+        ->assertSee('The assistant could not finish that answer. Try again.')
+        ->assertVisible('.showroom-send[aria-label="Send question"]')
+        ->assertValue('#document-question', 'What is the home office allowance?')
+        ->click('.showroom-send[aria-label="Send question"]')
+        ->assertSee('The one-time home office allowance is $400.')
+        ->assertVisible('.showroom-send[aria-label="Send question"]')
+        ->assertDontSee('The assistant could not finish that answer. Try again.')
+        ->assertValue('#document-question', '');
+    $page->click('New chat')->keys('dialog[open] button[wire\\:click="newChat"]', 'Enter')
+        ->assertSee('Your documents are ready.');
+    $page->fill('#document-question', 'What is the home office allowance?')->click('.showroom-send[aria-label="Send question"]')
+        ->assertSee(WorkspaceCopy::GAP)
+        ->assertVisible('.showroom-send[aria-label="Send question"]')
+        ->assertSee('Review the reply')->assertSee('Ask a follow-up')->assertSee('Start a new conversation')
+        ->assertDontSee('Your documents are ready.')->assertMissing('#demo-guide h3:has-text("Check the sources")');
+    $page->screenshot(filename: 'document-guide-without-sources-'.$width);
+    $page->click('button:has-text("Start fresh")')->assertSee('Delete all documents and this conversation?');
+    $page->click('dialog[open] button:has-text("Cancel")');
+    expect(WorkspaceDocument::query()->count())->toBe(1);
+    $page->click('button:has-text("Start fresh")')->click('dialog[open] button[wire\\:click="deleteWorkspace"]')
+        ->assertSee('No documents added yet.')->assertNoJavaScriptErrors();
+    expect(WorkspaceDocument::query()->count())->toBe(0);
 })->with([1440, 390, 320]);
 
 test('homepage backgrounds span the window and scroll naturally', function (int $width, int $height) {
@@ -567,7 +700,7 @@ test('full width homepage keeps readable content before entering the capped work
     $page->screenshot(filename: 'showroom-home-centered-'.$width);
 
     $page->click('.showroom-demo-card:first-child')->assertSee('Harbor support')->assertNoJavaScriptErrors();
-    expect($page->script('getComputedStyle(document.body).backgroundColor'))->toBe('rgb(231, 232, 235)');
+    expect($page->script('getComputedStyle(document.body).backgroundColor'))->toBe('rgb(220, 221, 225)');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-sidebar .showroom-nav-item')).fontSize"))->toBe('16px');
     expect($page->script("document.querySelector('.showroom-workspace').getBoundingClientRect().width"))->toBeLessThanOrEqual(1600);
     $workspace = $page->script("(() => { const shell = document.querySelector('.showroom-workspace'); return shell.getBoundingClientRect().left + parseFloat(getComputedStyle(shell).paddingLeft); })()");
@@ -590,7 +723,7 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     Http::preventStrayRequests();
 
     $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => 1024]]);
-    $page->assertSourceMissing('@vite/client')->assertSee('Less busywork.')->assertSee('Instructions update as you go.')->assertDontSee('Ask about Lucid')->assertNoJavaScriptErrors();
+    $page->assertSourceMissing('@vite/client')->assertSee('Less busywork.')->assertSee('they update as you go.')->assertDontSee('Ask about Lucid')->assertNoJavaScriptErrors();
     expect($page->script("document.querySelectorAll('#lucid-intro').length"))->toBe(0);
     $alignment = $page->script("document.querySelector('header .lucid-wordmark').getBoundingClientRect().left - document.querySelector('.showroom-hero-copy').getBoundingClientRect().left");
     expect($alignment)->toBeLessThanOrEqual(0);
@@ -636,14 +769,29 @@ test('desktop support collapses its panels and keeps examples in the same worksp
     Http::preventStrayRequests();
 
     $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => $height]]);
-    $page->assertSee('How can we help?')->assertSee('Customer view')->assertNoJavaScriptErrors();
+    $page->assertSee('the support assistant for Harbor')->assertSee('Customer view')->assertNoJavaScriptErrors();
+    $page->fill('#chat-question', str_repeat("Check the Harbor return policy.\n", 14));
+    expect($page->script(<<<'JS'
+        (() => {
+            const input = document.querySelector('#chat-question');
+            const transcript = document.querySelector('[data-chat-transcript]');
+            const pageTop = window.scrollY;
+            const transcriptTop = transcript.scrollTop;
+            input.scrollTop = input.scrollHeight;
+            const canScrollDown = input.scrollTop > 0;
+            input.scrollTop = 0;
+            return canScrollDown && input.scrollTop === 0
+                && transcript.scrollTop === transcriptTop && window.scrollY === pageTop;
+        })()
+    JS))->toBeTrue();
+    $page->fill('#chat-question', '');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-toolbar'), '::after').content"))->toBe('none');
     expect($page->script("document.querySelector('.showroom-toolbar').getBoundingClientRect().height"))->toBeLessThanOrEqual(65);
     expect($page->script("document.querySelector('.showroom-sidebar').getBoundingClientRect().width"))->toEqual(220);
     expect($page->script("window.innerHeight - document.querySelector('.showroom-sidebar').getBoundingClientRect().bottom"))->toBeLessThanOrEqual(14);
     expect($page->script("window.innerHeight - document.querySelector('.showroom-work-area').getBoundingClientRect().bottom"))->toBeLessThanOrEqual(14);
     expect($page->script("getComputedStyle(document.querySelector('.showroom-sidebar')).backgroundColor"))->toBe('rgb(0, 0, 0)');
-    expect($page->script("getComputedStyle(document.querySelector('.showroom-toolbar .showroom-demo-badge')).backgroundColor"))->toBe('rgb(41, 42, 61)');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-toolbar .showroom-demo-badge')).backgroundColor"))->toBe('rgb(8, 8, 8)');
     $fit = $page->script(<<<'JS'
         (() => {
             const composer = document.querySelector('.showroom-composer');
@@ -671,8 +819,8 @@ test('desktop support collapses its panels and keeps examples in the same worksp
     $page->hover('.showroom-sidebar .is-active');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-sidebar .is-active')).backgroundColor"))->toBe($selectedFill);
     $page->hover('.showroom-task-header');
-    $accentColors = $page->script("[getComputedStyle(document.querySelector('.showroom-chat-welcome > svg')).color, getComputedStyle(document.querySelector('.showroom-send')).color, getComputedStyle(document.querySelector('.showroom-support-steps > li > span')).color, getComputedStyle(document.querySelector('.showroom-view-switch .is-active')).borderBottomColor]");
-    expect(array_unique($accentColors))->toBe(['rgb(119, 53, 220)']);
+    $accentColors = $page->script("[getComputedStyle(document.querySelector('.showroom-send')).color, getComputedStyle(document.querySelector('.showroom-support-steps > li > span')).color, getComputedStyle(document.querySelector('.showroom-view-switch .is-active')).borderBottomColor]");
+    expect($accentColors)->toBe(['rgb(255, 255, 255)', 'rgb(255, 255, 255)', 'rgb(17, 17, 17)']);
     $page->screenshot(filename: 'showroom-support-desktop');
     $page->click('.showroom-collapse');
     expect($page->script("document.querySelector('.showroom-workspace').classList.contains('sidebar-collapsed')"))->toBeTrue();
@@ -682,7 +830,8 @@ test('desktop support collapses its panels and keeps examples in the same worksp
     $page->screenshot(filename: 'showroom-support-collapsed-rail');
     expect($page->script("getComputedStyle(document.querySelector('#demo-navigation')).display"))->toBe('flex');
     $page->click('.showroom-collapse')->assertVisible('#demo-navigation');
-    $page->click('Replace a damaged item')->assertValue('#chat-question', 'My bag arrived damaged. Order HB-10482. Can you replace it?');
+    $page->click('I’d like to return my $79 Trail Pack.')->assertValue('#chat-question', 'I would like to start a return for order HB-51001.');
+    $page->click('I’d like to return my $249 tent.')->assertValue('#chat-question', 'I would like to start a return for order HB-51003.');
     $page->assertSee('Browse store policies');
     expect($page->script("document.querySelectorAll('.showroom-support-steps summary, .showroom-support-steps button').length"))->toBe(0);
     expect($page->script("getComputedStyle(document.querySelector('.showroom-send')).borderRadius"))->toBe('50%');
@@ -692,6 +841,8 @@ test('desktop support collapses its panels and keeps examples in the same worksp
     expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-heading [data-flux-tooltip-content]')).color"))->toBe($page->script("getComputedStyle(document.querySelector('.showroom-demo-badge')).color"));
     $page->click('[aria-label="Hide instructions"]')->assertMissing('#demo-guide h3:has-text("Create a support ticket")');
     expect($page->script("document.querySelector('.showroom-work-area').classList.contains('guide-hidden')"))->toBeTrue();
+    expect($page->script("(() => { const a = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); const b = document.querySelector('.showroom-send').getBoundingClientRect(); return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom; })()"))->toBeTrue();
+    $page->screenshot(filename: 'harbor-launcher-clear-send-'.$width);
     $page->click('Show instructions')->assertSee('Ask a question')->click('Create a support ticket')->assertSee('Choose a ticket to try')->assertSee('Create a support ticket')->assertSee('Create a support ticket')->assertSee('Keep both views open')->assertNoJavaScriptErrors();
     $page->assertMissing('.showroom-agent-window');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-ticket-steps p')).fontSize"))->toBe('16px');
@@ -701,7 +852,7 @@ test('desktop support collapses its panels and keeps examples in the same worksp
     expect($ticketButtons[0]['width'])->toEqual($ticketButtons[1]['width']);
     expect($ticketButtons[0]['size'])->toEqual($ticketButtons[1]['size']);
     $page->screenshot(filename: 'showroom-ticket-start-refreshed');
-    $page->click('Customer chat')->assertSee('Harbor support')->assertSee('Try customer support')->assertValue('#chat-question', 'My bag arrived damaged. Order HB-10482. Can you replace it?');
+    $page->click('Customer chat')->assertSee('Harbor support')->assertSee('Try customer support')->assertValue('#chat-question', 'I would like to start a return for order HB-51003.');
 })->with([[1440, 900], [1280, 870]]);
 
 test('showroom pages reflow without horizontal scrolling on narrow screens', function (string $route, int $width) {
@@ -714,7 +865,7 @@ test('showroom pages reflow without horizontal scrolling on narrow screens', fun
     if ($route === 'demo.harbor') {
         $page->click('.showroom-mobile-toggle')->assertSee('Document chat');
         $page->click('.showroom-mobile-toggle');
-        $page->assertSee('How can we help?');
+        $page->assertSee('the support assistant for Harbor');
     }
     $page->screenshot(filename: 'showroom-'.str_replace('.', '-', $route).'-'.$width);
 })->with([
@@ -734,10 +885,15 @@ test('visitors can extract a sample invoice and upload another after confirming 
         ], $disk)->all());
     });
     SupplierInvoiceExtractionAgent::fake(array_fill(0, 2, [
-        'supplier_name' => 'Northwind Supply', 'invoice_number' => 'INV-1001',
-        'issued_on' => '2026-03-01', 'currency' => 'USD', 'tax_cents' => 200,
-        'total_cents' => 3200, 'confidence' => 0.9, 'totals_match' => true,
-        'lines' => [['description' => 'Wool socks', 'quantity' => 2, 'unit_price_cents' => 1500, 'line_total_cents' => 3000]],
+        'supplier_name' => 'Northwind Supply', 'invoice_number' => 'INV-1002',
+        'issued_on' => '2026-03-01', 'currency' => 'USD', 'tax_cents' => 1685,
+        'total_cents' => 23745, 'confidence' => 0.9, 'totals_match' => false,
+        'lines' => [
+            ['description' => 'Recycled copy paper', 'quantity' => 6, 'unit_price_cents' => 995, 'line_total_cents' => 6280],
+            ['description' => 'Archive storage boxes', 'quantity' => 5, 'unit_price_cents' => 1790, 'line_total_cents' => 8950],
+            ['description' => 'Binder clips, assorted', 'quantity' => 3, 'unit_price_cents' => 820, 'line_total_cents' => 2460],
+            ['description' => 'Desktop file trays', 'quantity' => 4, 'unit_price_cents' => 920, 'line_total_cents' => 3480],
+        ],
     ]))->preventStrayPrompts();
     $page = visit(route('demo.invoices'), ['viewport' => ['width' => $width, 'height' => 900]]);
     $page->assertSee('Try a sample invoice')->assertSee('Upload your own invoice PDF')->assertSee('Choose an invoice');
@@ -748,20 +904,79 @@ test('visitors can extract a sample invoice and upload another after confirming 
     $sample = SupplierInvoice::query()->sole();
     expect($sample->original_name)->toBe('Northwind-sample-invoice.pdf');
     expect($page->script('document.documentElement.scrollWidth - window.innerWidth'))->toBeLessThanOrEqual(1);
-    $page->click('Confirm invoice')->assertSee('Confirmed invoice')->assertSee('Download the results')->assertSee('Download CSV')->assertNoJavaScriptErrors();
+    $page->assertVisible('a[href$="/original.pdf"][target="_blank"]:visible')
+        ->assertSee('The sample includes deliberate amount errors')
+        ->assertSee('Amounts don’t match')
+        ->assertSee('Check Invoice total above Line items. Invoice total is $237.45. Recalculating the lines and adding tax gives $227.45.')
+        ->assertSee('Go to Line 1')->assertSee('Go to Line 4')
+        ->assertVisible('button[wire\\:click="confirm"][disabled]');
+    $page->screenshot(filename: 'showroom-sample-mismatch-'.$width);
+    if ($width < 1280) {
+        $page->assertSee('Your unsaved edits stay in place.')->assertDontSee('Drag to move at the top of the preview');
+        $page->fill('#invoice-total', '227.45')
+            ->click('Show original PDF')->assertVisible('iframe[title="Original invoice PDF"]')
+            ->assertMissing('#invoice-total:visible');
+        $page->screenshot(filename: 'showroom-invoice-original-'.$width);
+        $page->click('Show invoice fields')->assertValue('#invoice-total', '227.45');
+        $page->fill('#invoice-total', '237.45');
+    } else {
+        $page->assertDontSee('Your unsaved edits stay in place.');
+        $formWidth = $page->script("document.querySelector('[data-invoice-status]').getBoundingClientRect().width");
+        $page->click('View original PDF');
+        $page->assertVisible('iframe[title="Original invoice PDF"]');
+        expect($page->script("document.querySelector('[data-invoice-status]').getBoundingClientRect().width"))->toBe($formWidth);
+        expect($page->script("document.querySelector('[data-invoice-status]').closest('[inert]') === null"))->toBeTrue();
+
+        $previewLeft = $page->script("document.querySelector('#invoice-original').getBoundingClientRect().left");
+        $page->keys('#invoice-original button:has-text("Drag to move")', 'ArrowLeft');
+        expect($page->script("document.querySelector('#invoice-original').getBoundingClientRect().left"))->toBe($previewLeft - 24);
+
+        $previewWidth = $page->script("document.querySelector('#invoice-original').getBoundingClientRect().width");
+        $page->keys('button[aria-label^="Resize original invoice"]', 'ArrowRight');
+        expect($page->script("document.querySelector('#invoice-original').getBoundingClientRect().width"))->toBe($previewWidth + 24);
+        $page->screenshot(filename: 'showroom-invoice-original-'.$width);
+        $page->drag('#invoice-original button:has-text("Drag to move")', '#invoice-review-title');
+        expect($page->script("document.querySelector('#invoice-original').getBoundingClientRect().left"))->toBeLessThan($previewLeft - 24);
+        $page->click('Close preview')->assertMissing('#invoice-original:visible');
+        expect($page->script("document.activeElement.getAttribute('aria-controls')"))->toBe('invoice-original');
+        $page->script("document.querySelector('[data-invoice-checks]').scrollIntoView({ block: 'start' })");
+    }
+    $scrollBeforeJump = $page->script("document.querySelector('.showroom-task-scroll').scrollTop");
+    $page->click('Go to Invoice total');
+    expect($page->script('document.activeElement.id'))->toBe('invoice-total');
+    if ($width === 1440) {
+        expect($page->script("document.querySelector('.showroom-task-scroll').scrollTop"))->toBe($scrollBeforeJump);
+    }
+    expect($page->script("document.activeElement.closest('[data-flux-field]').querySelector('[data-flux-label]').getBoundingClientRect().top >= Math.max(0, document.activeElement.closest('.showroom-task-scroll').getBoundingClientRect().top)"))->toBeTrue();
+    $page->screenshot(filename: 'showroom-invoice-jump-'.$width);
+    $page->click('Go to Line 1');
+    expect($page->script('document.activeElement.id'))->toBe('invoice-line-total-1');
+    $page->fill('#invoice-line-total-1', '59.70')->click('Save corrections')
+        ->assertMissing('a[href="#invoice-line-total-1"]')->assertSee('Go to Line 4')->assertSee('Go to Invoice total');
+    $page->click('Go to Line 4');
+    expect($page->script('document.activeElement.id'))->toBe('invoice-line-total-4');
+    $page->fill('#invoice-line-total-4', '36.80')->click('Save corrections')
+        ->assertMissing('a[href="#invoice-line-total-4"]')->assertSee('Go to Invoice total');
+    $page->click('Go to Invoice total')->fill('#invoice-total', '227.45')->click('Save corrections')->assertSee('Amounts match');
+    $page->click('Confirm invoice')->assertSee('Confirmed invoice')->assertSee('Download the results')->assertSee('Download CSV')->assertSee('Download JSON')->assertNoJavaScriptErrors();
+    $page->screenshot(filename: 'showroom-sample-confirmed-'.$width);
     $page->click('Back to invoice choices')->assertSee('Try a sample invoice')->assertSee('Choose an invoice')->assertVisible('[data-invoice-file]');
     $page->screenshot(filename: 'showroom-invoice-next-upload-'.$width);
     $page->attach('[data-invoice-file]', $samplePath)->assertSee('second-invoice.pdf');
     Execution::instance()->waitForExpectation(fn () => expect($page->script("!document.querySelector('[data-invoice-upload] button[type=submit]').disabled"))->toBeTrue());
     $page->click('Extract fields')->assertSee('Review the proposed fields')->assertSee('Review the details')->assertNoJavaScriptErrors();
-    $page->assertMissing('a[href$="/export.csv"]');
+    $page->assertMissing('a[href$="/export.csv"]')->assertVisible('a[href$="/original.pdf"][target="_blank"]:visible')->assertDontSee('The sample includes deliberate amount errors');
+    $page->assertSee('Go to Line 1')->assertSee('Go to Line 4')->assertSee('Go to Invoice total');
+    $page->click('Go to Line 4');
+    expect($page->script('document.activeElement.id'))->toBe('invoice-line-total-4');
     expect(SupplierInvoice::query()->count())->toBe(2);
-    expect($sample->fresh()->status)->toBe(SupplierInvoiceStatus::Confirmed);
-})->with([1440, 390]);
+    expect($sample->fresh()->status)->toBe(SupplierInvoiceStatus::Confirmed)
+        ->and($sample->fresh()->stated_total_cents)->toBe(22745);
+})->with([1440, 1280, 1100, 768, 390, 320]);
 
 test('the former replacement page opens Harbor on desktop and phone', function (int $width) {
     visit(route('demo.tools'), ['viewport' => ['width' => $width, 'height' => 900]])
-        ->assertSee('Replace a damaged item')->assertNoJavaScriptErrors();
+        ->assertValue('#chat-question', 'My bag arrived damaged. Order HB-10482. Can you replace it?')->assertNoJavaScriptErrors();
 })->with([1440, 390]);
 
 test('Agent Desk sends the edited reply to the customer receipt', function () {
@@ -789,7 +1004,8 @@ test('customer receipt stays interactive and restart is reachable outside chat',
     expect($page->script("document.querySelector('#demo-guide-heading').textContent.trim()"))->toBe('Step-by-step instructions');
     $page->assertDontSee('View ticket as a support agent')->assertSee('Find your ticket in Agent desk');
     $page->hover('[data-restart-demo]');
-    expect($page->script("getComputedStyle(document.querySelector('[data-restart-demo]')).backgroundColor"))->toBe('rgb(246, 240, 255)');
+    expect($page->script("getComputedStyle(document.querySelector('[data-restart-demo]')).backgroundColor"))->toBe('rgb(8, 8, 8)');
+    expect($page->script("getComputedStyle(document.querySelector('[data-restart-demo]')).color"))->toBe('rgb(255, 255, 255)');
     expect($page->script("[...document.querySelectorAll('.showroom-support-steps > li')].every(el => getComputedStyle(el).paddingTop === '16px' && getComputedStyle(el).paddingBottom === '16px')"))->toBeTrue();
     expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-disclaimer')).fontSize"))->toBe('14px');
     expect($page->script("document.querySelector('.showroom-save-ticket').tagName"))->toBe('DIV');
@@ -801,7 +1017,7 @@ test('customer receipt stays interactive and restart is reachable outside chat',
     $page->click('[data-restart-demo]')->assertSee('Restart customer support demo?');
     $page->keys('dialog[open]', 'Escape');
     $page->click('[data-restart-demo]')->assertSee('Restart customer support demo?');
-    $page->click('[data-confirm-restart]')->assertSee('How can we help?')->assertDontSee($ticket->subject)->assertNoJavaScriptErrors();
+    $page->click('[data-confirm-restart]')->assertSee('the support assistant for Harbor')->assertDontSee($ticket->subject)->assertNoJavaScriptErrors();
     $page->click('Create a support ticket')->assertSee('Choose a ticket to try');
     expect(Ticket::query()->whereKey($ticket->id)->exists())->toBeTrue();
 });
@@ -813,10 +1029,14 @@ test('customer instructions follow a reply arriving from another window', functi
     $this->withSession(['supportflow.harbor.center' => 'status', 'supportflow.harbor.status_token' => $ticket->public_token]);
     $page = visit(route('demo.harbor'), ['viewport' => ['width' => 1440, 'height' => 900]]);
     $page->assertSee('Watch for the reply')->assertDontSee('Read the reply');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-status-progress [aria-current=step]')).boxShadow.includes('rgb(17, 17, 17)')"))->toBeTrue();
     $page->wait(6);
     $ticket->messages()->create(['author_type' => 'agent', 'visibility' => 'public', 'body' => 'Your approved reply from the other window.', 'approved_at' => now()]);
     $ticket->update(['status' => TicketStatus::WaitingOnCustomer]);
     $page->wait(6)->assertSee('Your approved reply from the other window.')->assertSee('Read the reply')->assertDontSee('Watch for the reply');
+    $page->assertMissing('.showroom-status-progress [aria-current="step"]');
+    expect($page->script("[...document.querySelectorAll('.showroom-status-progress > li')].every(step => getComputedStyle(step).boxShadow === 'none')"))->toBeTrue();
+    $page->assertMissing('[wire\\:key="customer-status-guide"]')->assertDontSee('Find your ticket in Agent desk');
     $page->assertMissing('[aria-label="Typical ticket status sequence"]')->assertNoJavaScriptErrors();
 });
 
@@ -824,3 +1044,22 @@ function documentCitationPreviewDisplay(mixed $page): string
 {
     return $page->script("(async () => { await new Promise(resolve => setTimeout(resolve, 250)); return getComputedStyle(document.querySelector('[data-cite-preview]')).display; })()");
 }
+
+test('workspace expiry dates follow the viewer zone in embedded and standalone views', function (string $routeName, string $zone, string $date) {
+    $access = app(WorkspaceAccess::class);
+    $workspace = $access->start();
+    $workspace->forceFill(['expires_at' => '2027-01-02 01:54:00'])->save();
+    $this->withCookie(WorkspaceAccess::COOKIE, $access->rememberBrowser($workspace));
+    $page = visit(route($routeName))->withTimezone($zone);
+    if ($routeName === 'demo.documents') {
+        $page->click('Privacy & access');
+    }
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("[...document.querySelectorAll('time')].map(time => time.textContent)"))->each->toBe($date));
+    $page->script('(async () => { await Livewire.first().$refresh(); return true })()');
+    $page->assertSee($date)->assertNoJavaScriptErrors();
+    expect($page->script("document.querySelector('time').dateTime"))->toContain('2027-01-02T01:54:00');
+})->with(['demo.documents', 'workspaces.preview'])->with([
+    ['America/Chicago', 'January 1, 2027'],
+    ['America/Anchorage', 'January 1, 2027'],
+    ['Asia/Tokyo', 'January 2, 2027'],
+]);

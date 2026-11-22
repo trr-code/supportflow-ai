@@ -1,4 +1,4 @@
-@props(['outcome'])
+@props (['outcome'])
 <div {{ $attributes }}>
     @if ($outcome['reference'])
         <section wire:key="replacement-saved-{{ $outcome['reference'] }}" class="showroom-guide-feature" role="status">

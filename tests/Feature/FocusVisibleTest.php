@@ -3,7 +3,7 @@
 use App\Livewire\Chat\Widget;
 use Livewire\Livewire;
 
-test('shared styles give dark-green controls a dual-tone keyboard focus ring', function () {
+test('shared styles give filled controls one contiguous keyboard focus band', function () {
     $css = file_get_contents(resource_path('css/app.css'));
     $chrome = file_get_contents(resource_path('views/components/demo-chrome.blade.php'));
     $widget = file_get_contents(resource_path('views/livewire/chat/widget.blade.php'));
@@ -11,10 +11,10 @@ test('shared styles give dark-green controls a dual-tone keyboard focus ring', f
     expect($css)
         ->toContain(':is(a, button).bg-harbor-pine:focus-visible')
         ->toContain('[data-flux-button][class~="bg-[var(--color-accent)]"]:focus-visible')
-        ->toContain('0 0 0 2px #fff')
-        ->toContain('0 0 0 4px var(--color-harbor-ink)')
+        ->toContain('outline: 2px solid #111;', 'outline-offset: 0;', 'box-shadow: none;')
+        ->not->toContain('0 0 0 2px #fff', '0 0 0 4px var(--color-harbor-ink)')
         ->and($chrome)
-        ->toContain('after:bg-[#d5c5fc]')
+        ->toContain('after:bg-[#ffffff]')
         ->not->toContain('bg-harbor-pine text-white')
         ->not->toContain('tabindex')
         ->and($widget)
@@ -35,7 +35,7 @@ test('the closed chat launcher stays a dark-green control without a pine focus o
 
     expect($html)
         ->toContain('bg-harbor-pine')
-        ->toContain('Ask Harbor &amp; Co')
+        ->toContain('Ask Harbor Outfitters')
         ->not->toContain('outline-harbor-pine')
         ->not->toMatch('/\btabindex="[1-9]\d*"/');
 });
