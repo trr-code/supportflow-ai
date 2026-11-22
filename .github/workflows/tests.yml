@@ -71,6 +71,9 @@ jobs:
       - name: Audit Node dependencies
         run: npm audit
 
+      - name: Check Blade formatting
+        run: npm run format:blade:check
+
       - name: Build frontend assets
         run: npm run build
 

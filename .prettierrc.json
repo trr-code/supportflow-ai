@@ -1,0 +1,18 @@
+{
+    "plugins": ["prettier-plugin-blade", "@prettier/plugin-php", "prettier-plugin-tailwindcss"],
+    "overrides": [
+        {
+            "files": "*.blade.php",
+            "options": {
+                "parser": "blade",
+                "printWidth": 120,
+                "tabWidth": 4,
+                "singleQuote": true,
+                "htmlWhitespaceSensitivity": "css",
+                "bladePhpFormatting": "safe",
+                "bladeInlineIntentElements": ["p", "svg", "svg:*"],
+                "tailwindStylesheet": "./resources/css/app.css"
+            }
+        }
+    ]
+}

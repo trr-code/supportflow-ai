@@ -66,10 +66,12 @@
             "npx concurrently -c \"#c4b5fd,#fdba74\" \"php artisan queue:listen --queue=ai,default --sleep=3 --timeout=120 --tries=3\" \"npm run dev\" --names='queue,vite'"
         ],
         "lint": [
-            "@php vendor/bin/pint --parallel"
+            "@php vendor/bin/pint --parallel",
+            "npm run format:blade"
         ],
         "lint:check": [
-            "@php vendor/bin/pint --parallel --test"
+            "@php vendor/bin/pint --parallel --test",
+            "npm run format:blade:check"
         ],
         "rector": [
             "@php vendor/bin/rector process --no-progress-bar"
