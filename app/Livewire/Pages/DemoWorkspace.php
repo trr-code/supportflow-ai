@@ -13,8 +13,11 @@ use App\Models\Ticket;
 use App\Models\WorkspaceDocument;
 use App\Services\ChatService;
 use App\Services\DemoSessionService;
+use App\Services\HarborChatHandoff;
+use App\Services\HarborReturns;
 use App\Services\ReplacementCaseService;
 use App\Services\SupplierInvoiceAccess;
+use App\Services\TicketService;
 use App\Services\WorkspaceAccess;
 use App\Support\ChatInlineCitations;
 use App\Support\CitedSources;
@@ -117,7 +120,7 @@ class DemoWorkspace extends Component
         session(['supportflow.harbor.center' => 'human']);
     }
 
-    public function restartDemo(ChatService $chat, ReplacementCaseService $replacements): void
+    public function restartDemo(ChatService $chat, ReplacementCaseService $replacements, HarborReturns $returns): void
     {
         if ($this->mode !== 'harbor') {
             return;
@@ -127,6 +130,7 @@ class DemoWorkspace extends Component
 
         if ($session instanceof DemoSession) {
             $chat->startNewConversation($session);
+            $returns->restart($session);
 
             if ($session->replacementCase !== null) {
                 $replacements->reset($session->replacementCase);
@@ -134,6 +138,9 @@ class DemoWorkspace extends Component
         }
 
         session()->forget('supportflow.harbor');
+        if ($session instanceof DemoSession) {
+            session(['supportflow.harbor.restart_ticket_id' => (int) $session->tickets()->max('id')]);
+        }
         $this->redirectRoute('demo.harbor', navigate: true);
     }
 
@@ -381,12 +388,23 @@ class DemoWorkspace extends Component
         ];
 
         $harborSources = $this->harborSources();
+        $session = $this->mode === 'harbor' && $this->center === 'chat' ? $this->demoSession() : null;
+        $messages = $session === null ? collect() : $this->harborMessages();
+        $return = $session === null ? null : app(HarborReturns::class)->currentReply($session, $messages);
+        $handoff = app(HarborChatHandoff::class)->proposal($messages);
+        if ($handoff !== null) {
+            $return = ['status' => $handoff['order'] === '' ? 'choose' : 'review', 'order' => $handoff['order']];
+        }
+        $reviewSubmitted = $session !== null && ($return['status'] ?? null) === 'review' && $return['order'] !== null
+            && app(TicketService::class)->returnReviewTicket($session, $return['order']) !== null;
 
         return view('livewire.pages.demo-workspace', [
             'title' => $titles[$this->mode],
             'proposal' => $this->pendingProposal(),
             'replacementOutcome' => $this->replacementOutcome(),
             'sourceGroups' => $harborSources['groups'],
+            'harborHasMessages' => $messages->isNotEmpty(),
+            'harborReturnStatus' => $reviewSubmitted ? 'review-submitted' : ($return['status'] ?? null),
             'sourceMessageId' => $harborSources['message_id'],
             'hasSentReply' => $this->statusToken !== null && Ticket::query()->where('public_token', $this->statusToken)
                 ->whereHas('messages', fn ($query) => $query->where('visibility', 'public')->where('author_type', 'agent')->whereNotNull('approved_at'))->exists(),
@@ -646,7 +664,17 @@ class DemoWorkspace extends Component
             return 'failed';
         }
 
-        return $workspace->conversations()->whereHas('messages', fn ($query) => $query->where('role', 'assistant')->whereJsonLength('cited_chunk_ids', '>', 0))->exists() ? 'answers' : 'ready';
+        $answer = ChatMessage::query()->whereHas('conversation', fn ($query) => $query->where('workspace_id', $workspace->id))->where('role', 'assistant')->where('body', '!=', '')->latest('id')->first(['is_stopped', 'cited_chunk_ids']);
+
+        if ($answer === null) {
+            return 'ready';
+        }
+
+        if ($answer->is_stopped) {
+            return 'stopped';
+        }
+
+        return $answer->cited_chunk_ids !== [] ? 'answers' : 'answers-without-sources';
     }
 
     private function sideInvoice(): ?SupplierInvoice

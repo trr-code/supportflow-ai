@@ -2,9 +2,14 @@
 
 namespace App\Livewire\Chat;
 
+use App\Exceptions\DemoCapReachedException;
 use App\Livewire\Concerns\HeartbeatsDemoSession;
+use App\Models\ChatMessage;
 use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
+use App\Services\HarborChatHandoff;
+use App\Services\HarborReturns;
+use App\Services\TicketService;
 use App\Support\CitedSources;
 use App\Support\DemoGuide;
 use Illuminate\Contracts\View\View;
@@ -76,6 +81,79 @@ class Widget extends Component
         $this->resetErrorBag('question');
     }
 
+    public function fillReturnExample(string $number, HarborReturns $returns): void
+    {
+        if (! $this->inline || $this->streaming || ! isset($returns->orders()[$number])) {
+            return;
+        }
+
+        $this->question = 'I would like to start a return for order '.$number.'.';
+        $this->resetErrorBag('question');
+        $this->dispatch('demo-chat-focus');
+    }
+
+    public function confirmReturn(string $number, ChatService $chat, HarborReturns $returns): void
+    {
+        if (! $this->inline || $this->streaming) {
+            return;
+        }
+
+        $session = $this->demoSession();
+        $conversation = $chat->conversationFor($session);
+        $question = (string) $conversation->messages()->where('role', 'user')->latest('id')->value('body');
+        $result = $returns->assess($session, $number);
+        $latest = $conversation->messages()->latest('id')->first();
+
+        $previousReply = $conversation->messages()->where('role', 'assistant')->where('id', '<', $latest->id ?? 0)->latest('id')->value('body');
+
+        if ($number !== $returns->requestedOrder($question, $previousReply) || $result['status'] !== 'eligible'
+            || $latest?->role !== 'assistant' || ! $returns->matchesReply($latest->body, $result['message'], $question)) {
+            return;
+        }
+
+        $result = $returns->confirm($session, $number);
+        $conversation->messages()->create([
+            'role' => 'assistant',
+            'body' => $result['message'],
+            'cited_chunk_ids' => [],
+        ]);
+        $this->notifyWorkspace();
+    }
+
+    public function submitReturnReview(ChatService $chat, HarborChatHandoff $handoff, TicketService $tickets): void
+    {
+        if (! $this->inline || $this->streaming) {
+            return;
+        }
+        $session = $this->demoSession();
+        $conversation = $chat->conversationFor($session);
+        $messages = $conversation->messages()->orderBy('id')->get();
+        $proposal = $handoff->proposal($messages);
+        $sampleReview = app(HarborReturns::class)->currentReply($session, $messages);
+        if ($proposal === null || $proposal['order'] === ''
+            || ($messages->last()?->body !== HarborChatHandoff::REVIEW && $sampleReview['status'] !== 'review')) {
+            return;
+        }
+        try {
+            $ticket = $tickets->createReturnReviewTicket([
+                'customer_name' => 'Demo customer',
+                'customer_email' => 'customer@example.test',
+                'subject' => '',
+                'description' => $proposal['description'],
+            ], $session, $proposal['order']);
+        } catch (DemoCapReachedException $exception) {
+            $this->addError('question', $exception->getMessage());
+
+            return;
+        }
+        $conversation->messages()->create([
+            'role' => 'assistant',
+            'body' => 'Your support request has been submitted for review. Your reference is '.$ticket->reference.'. You can follow the reply using View support request.',
+            'cited_chunk_ids' => [],
+        ]);
+        $this->notifyWorkspace();
+    }
+
     public function reportStreamError(string $message): void
     {
         if ($this->pendingQuestion !== '') {
@@ -95,29 +173,43 @@ class Widget extends Component
     }
 
     #[On('request-harbor-escalate')]
-    public function escalate(ChatService $chat): void
+    public function escalate(ChatService $chat, HarborReturns $returns, TicketService $tickets): mixed
     {
-        $transcript = $chat->conversationFor($this->demoSession())
-            ->messages()
-            ->orderBy('id')
-            ->get()
+        $session = $this->demoSession();
+        $messages = $chat->conversationFor($session)->messages()->orderBy('id')->get();
+        $return = $this->inline ? $returns->currentReply($session, $messages) : null;
+        $order = ($return['status'] ?? null) === 'review' ? $return['order'] : null;
+
+        if ($order !== null && ($existing = $tickets->returnReviewTicket($session, $order)) !== null) {
+            session([
+                'supportflow.harbor.center' => 'status',
+                'supportflow.harbor.status_token' => $existing->public_token,
+            ]);
+
+            return $this->redirectRoute('demo.harbor', navigate: true);
+        }
+
+        $transcript = $messages
             ->map(fn ($message): string => ($message->role === 'user' ? 'Customer' : 'Assistant').': '.$message->body)
             ->implode("\n\n");
 
         if ($transcript !== '') {
             session([
+                'supportflow.ticket.return_review_order' => $order,
+                'supportflow.ticket.customer_name' => 'Maya Chen',
+                'supportflow.ticket.customer_email' => 'maya.chen@example.test',
                 'supportflow.ticket.subject' => 'Follow-up from Harbor chat',
-                'supportflow.ticket.description' => Str::limit("Conversation from the Harbor support demo:\n\n".$transcript, 4000, ''),
+                'supportflow.ticket.description' => Str::limit("Conversation from Harbor support:\n\n".$transcript, 4000, ''),
             ]);
         }
 
         if ($this->inline) {
             $this->dispatch('harbor-open-ticket');
 
-            return;
+            return null;
         }
 
-        $this->redirectRoute('demo.harbor', ['view' => 'ticket'], navigate: true);
+        return $this->redirectRoute('demo.harbor', ['view' => 'ticket'], navigate: true);
     }
 
     public function finishTurn(): void
@@ -196,8 +288,16 @@ class Widget extends Component
     }
 
     #[Async]
-    public function stopGenerating(ChatService $chat): void
+    public function stopGenerating(ChatService $chat, ?int $completedId = null, int $revealedCharacters = 0): void
     {
+        if ($completedId !== null) {
+            $chat->conversationFor($this->demoSession())->messages()->where('role', 'assistant')
+                ->whereKey($completedId)->first()?->keepRevealedPrefix($revealedCharacters);
+            $this->finishTurn();
+
+            return;
+        }
+
         $chat->interruptStream($this->demoSession());
         $this->streaming = false;
         $this->streamText = '';
@@ -209,7 +309,7 @@ class Widget extends Component
         $this->pendingQuestion = '';
     }
 
-    public function render(ChatService $chat): View
+    public function render(ChatService $chat, HarborReturns $returns): View
     {
         $conversation = $chat->conversationFor($this->demoSession());
         $messages = $conversation->messages()->orderBy('id')->get();
@@ -235,7 +335,21 @@ class Widget extends Component
             $citedChunks[$message->id] = $ordered->all();
         }
 
+        $return = $this->inline && ! $this->streaming
+            ? $returns->currentReply($this->demoSession(), $messages)
+            : ['order' => null, 'status' => null];
+        $latest = $messages->last();
+        $handoff = $this->inline ? app(HarborChatHandoff::class)->proposal($messages) : null;
+
         return view('livewire.chat.widget', [
+            'handoff' => $handoff,
+            'handoffTicket' => $handoff !== null && $handoff['order'] !== '' ? app(TicketService::class)->returnReviewTicket($this->demoSession(), $handoff['order']) : null,
+            'returnOrder' => $return['order'],
+            'returnMessageId' => $latest instanceof ChatMessage ? $latest->id : null,
+            'returnStatus' => $return['status'],
+            'returnReviewTicket' => $return['status'] === 'review' && $return['order'] !== null
+                ? app(TicketService::class)->returnReviewTicket($this->demoSession(), $return['order'])
+                : null,
             'conversationId' => $conversation->id,
             'messages' => $messages,
             'sourceGroups' => $sourceGroups,

@@ -3,7 +3,7 @@
 return [
 
     'brand' => [
-        'company' => env('SUPPORTFLOW_COMPANY', 'Harbor & Co'),
+        'company' => env('SUPPORTFLOW_COMPANY', 'Harbor Outfitters'),
         'product' => env('SUPPORTFLOW_PRODUCT', 'Harbor Outfitters'),
         'agent_name' => env('SUPPORTFLOW_AGENT_NAME', 'Alex Rivera'),
         'agent_email' => env('SUPPORTFLOW_AGENT_EMAIL', 'alex.rivera@harborandco.example'),

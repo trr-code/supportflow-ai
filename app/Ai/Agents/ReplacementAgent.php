@@ -30,7 +30,7 @@ class ReplacementAgent implements Agent, Conversational, HasTools
     public function instructions(): Stringable|string
     {
         return <<<'PROMPT'
-You help Harbor & Co visitors with a fictional damaged-bag replacement.
+You help Harbor Outfitters visitors with a fictional damaged-bag replacement.
 The orders, stock, and requests are not real. Nothing is shipped or charged.
 You do not know any order, policy, or stock until you use the tools. Never invent an order number, a delivery date, or a stock count.
 If the visitor does not give an order number or email, ask which order they mean. Do not guess.

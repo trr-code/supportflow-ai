@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\TicketCategory;
 use App\Models\KnowledgeArticle;
 use App\Services\DamagedOnArrivalArticle;
+use App\Services\HarborReturns;
 use App\Services\KnowledgeIndexService;
 use Illuminate\Database\Seeder;
 
@@ -42,7 +43,7 @@ Harbor Outfitters accepts unused returns within 30 days of delivery with tags at
 The original shipping box is helpful but not required. A sturdy carton is fine.
 ## Prepaid labels
 We email a prepaid UPS label after the return is approved in the order portal.
-MD],
+MD."\n\n".HarborReturns::CHAT_POLICY],
             ['Exchanges', 'exchanges', TicketCategory::Returns, <<<'MD'
 Size exchanges for packs, shells, and footwear are free within 30 days if the item is unused.
 ## How to start
@@ -107,7 +108,7 @@ MD],
 Harbor Circle points post 14 days after delivery. Returns reverse unredeemed points.
 MD],
             ['Privacy', 'privacy', TicketCategory::Account, <<<'MD'
-This is a live portfolio demo. Harbor & Co uses no real customers, orders, or payments. Harbor & Co does not store real payment data. Do not enter real personal, order, or payment information.
+This is a live portfolio demo. Harbor Outfitters uses no real customers, orders, or payments. Harbor Outfitters does not store real payment data. Do not enter real personal, order, or payment information.
 ## Order lookup
 This demo cannot access real order records or live shipment locations.
 MD],

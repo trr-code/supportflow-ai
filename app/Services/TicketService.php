@@ -13,9 +13,34 @@ use App\Jobs\ProcessTicketIntake;
 use App\Models\DemoSession;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
+use Illuminate\Support\Facades\DB;
 
 class TicketService
 {
+    public function returnReviewTicket(DemoSession $session, string $order, ?int $afterTicketId = null): ?Ticket
+    {
+        return Ticket::query()->where('demo_session_id', $session->id)
+            ->where('id', '>', $afterTicketId ?? (int) session('supportflow.harbor.restart_ticket_id', 0))
+            ->where('source', TicketSource::VisitorDemo)
+            ->where(function ($query) use ($order): void {
+                $query->where('subject', 'Return review for order '.$order)
+                    ->orWhere(fn ($legacy) => $legacy->where('subject', 'Follow-up from Harbor chat')
+                        ->where('description', 'like', "%\nCustomer: I would like to start a return for order ".$order.".\n%"));
+            })
+            ->latest('id')->first();
+    }
+
+    /** @param array{customer_name: string, customer_email: string, subject: string, description: string, product?: string|null} $data */
+    public function createReturnReviewTicket(array $data, DemoSession $session, string $order, ?int $afterTicketId = null): Ticket
+    {
+        return DB::transaction(function () use ($data, $session, $order, $afterTicketId): Ticket {
+            DemoSession::query()->lockForUpdate()->findOrFail($session->id);
+            $data['subject'] = 'Return review for order '.$order;
+
+            return $this->returnReviewTicket($session, $order, $afterTicketId) ?? $this->createVisitorTicket($data, $session, afterCommit: true);
+        });
+    }
+
     public function __construct(
         private readonly TicketTimeline $timeline,
         private readonly AiUsageRecorder $recorder,
@@ -24,7 +49,7 @@ class TicketService
     /**
      * @param  array{customer_name: string, customer_email: string, subject: string, description: string, product?: string|null}  $data
      */
-    public function createVisitorTicket(array $data, DemoSession $session): Ticket
+    public function createVisitorTicket(array $data, DemoSession $session, bool $afterCommit = false): Ticket
     {
         $this->assertWithinCaps($session);
 
@@ -51,7 +76,10 @@ class TicketService
             $ticket,
             (string) config('supportflow.models.triage'),
         );
-        ProcessTicketIntake::dispatch($ticket->id);
+        $intake = ProcessTicketIntake::dispatch($ticket->id);
+        if ($afterCommit) {
+            $intake->afterCommit();
+        }
 
         return $ticket;
     }
