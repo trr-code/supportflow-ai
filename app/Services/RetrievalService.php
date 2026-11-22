@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
+use App\Support\ChatSummaryQuery;
 use App\Support\KnowledgeCorpus;
 use App\Support\RetrievalFacets;
 use App\Support\RetrievalTopics;
@@ -26,6 +28,12 @@ class RetrievalService
 
         if ($query === '') {
             return collect();
+        }
+
+        $overview = $this->overviewArticles($query, $corpus);
+
+        if ($overview !== null) {
+            return $this->overviewPassages($overview);
         }
 
         $topics = RetrievalTopics::matching($query);
@@ -109,6 +117,76 @@ class RetrievalService
             ->keyBy('id');
 
         return $this->selectDiverse($orderedIds, $chunks, $topics, $similarities, $limit, $maxPerArticle, $minSimilarity, $query, $corpus);
+    }
+
+    /** @return Collection<int, KnowledgeArticle>|null */
+    private function overviewArticles(string $query, KnowledgeCorpus $corpus): ?Collection
+    {
+        $target = ChatSummaryQuery::target($query);
+
+        if ($target === null) {
+            return null;
+        }
+
+        $articles = KnowledgeArticle::query()->tap(fn ($query) => $corpus->apply($query));
+
+        if ($target !== '' && $target !== '*') {
+            $title = preg_replace('/\.(?:pdf|docx|txt|md|markdown)$/u', '', $target) ?? $target;
+            $selected = (clone $articles)->where(function ($query) use ($title, $target): void {
+                $query->whereRaw('lower(title) = ?', [$title])
+                    ->orWhereHas('document', fn ($document) => $document->whereRaw('lower(original_name) = ?', [$target]));
+            })->orderBy('id')->get(['id']);
+
+            if ($selected->isNotEmpty() || preg_match('/\.(?:pdf|docx|txt|md|markdown)$/u', $target) === 1) {
+                return $selected;
+            }
+
+            return null;
+        }
+
+        return $articles->orderBy('id')->get(['id']);
+    }
+
+    /**
+     * @param  Collection<int, KnowledgeArticle>  $articles
+     * @return Collection<int, array{chunk: KnowledgeChunk, similarity: float}>
+     */
+    private function overviewPassages(Collection $articles): Collection
+    {
+        $groups = KnowledgeChunk::query()->whereIn('knowledge_article_id', $articles->pluck('id')->all())
+            ->where('body', '!=', '')->orderBy('knowledge_article_id')->orderBy('id')
+            ->get(['id', 'knowledge_article_id'])->groupBy('knowledge_article_id')->values();
+        $ids = [];
+        $budget = 24;
+
+        foreach ($groups as $index => $chunks) {
+            $quota = min($chunks->count(), (int) ceil($budget / ($groups->count() - $index)));
+
+            for ($position = 0; $position < $quota; $position++) {
+                $offset = $quota === 1 ? 0 : (int) round($position * ($chunks->count() - 1) / ($quota - 1));
+                $ids[] = $chunks[$offset]->id;
+            }
+
+            $budget -= $quota;
+        }
+
+        return KnowledgeChunk::query()->with('article')->whereIn('id', $ids)->orderBy('knowledge_article_id')->orderBy('id')
+            ->get()->map($this->overviewMatch(...));
+    }
+
+    /** @return array{chunk: KnowledgeChunk, similarity: float} */
+    private function overviewMatch(KnowledgeChunk $chunk): array
+    {
+        return ['chunk' => $chunk, 'similarity' => 1.0];
+    }
+
+    /** @param Collection<int, array{chunk: KnowledgeChunk, similarity: float}> $matches */
+    public function overviewIsPartial(string $query, KnowledgeCorpus $corpus, Collection $matches): bool
+    {
+        $articles = $this->overviewArticles($query, $corpus);
+
+        return $articles !== null && KnowledgeChunk::query()->whereIn('knowledge_article_id', $articles->pluck('id')->all())
+            ->where('body', '!=', '')->count() > $matches->count();
     }
 
     /**
@@ -250,7 +328,7 @@ class RetrievalService
     {
         preg_match_all('/[A-Za-z][A-Za-z0-9-]{2,}/', $query, $matches);
 
-        $stop = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'can', 'how', 'what', 'when', 'with', 'without', 'this', 'that', 'from', 'have', 'has', 'complete', 'harbor', 'outfitters', 'order', 'orders', 'demo', 'please', 'thanks'];
+        $stop = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'can', 'how', 'what', 'when', 'with', 'without', 'this', 'that', 'from', 'have', 'has', 'complete', 'harbor', 'outfitters', 'order', 'orders', 'demo', 'sales', 'please', 'thanks'];
         $terms = [];
 
         foreach ($matches[0] as $term) {
@@ -576,7 +654,8 @@ class RetrievalService
             return false;
         }
 
-        return array_any($words, fn (string $word): bool => str_contains($heading, $word));
+        return array_any($words, fn (string $word): bool => str_contains($heading, $word)
+            || (str_contains($word, '-') && str_contains(mb_strtolower($chunk->body), $word)));
     }
 
     /**

@@ -4,6 +4,30 @@ namespace App\Support;
 
 class ChatAnswerHtml
 {
+    public static function revealedText(string $body, int $characters): string
+    {
+        $parts = preg_split('/(<[^>]+>)/', self::render($body), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $text = '';
+        foreach ($parts as $part) {
+            if ($characters <= 0) {
+                break;
+            }
+            if (str_starts_with($part, '<')) {
+                if (preg_match('/^<\/(?:p|li)>|^<br\b/', $part)) {
+                    $text .= "\n";
+                }
+
+                continue;
+            }
+            $decoded = html_entity_decode($part, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $prefix = mb_substr($decoded, 0, $characters);
+            $text .= $prefix;
+            $characters -= mb_strlen($prefix);
+        }
+
+        return trim($text);
+    }
+
     /**
      * Escape model text, then apply a closed subset of emphasis, lists, and paragraphs.
      * Output is safe for Livewire stream innerHTML replace mode.
@@ -27,6 +51,7 @@ class ChatAnswerHtml
 
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $escaped = self::replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $escaped);
+        $escaped = self::replace('/(?<![\pL\pN*])\*(?![\s*])([^*\r\n]+?)(?<!\s)\*(?![\pL\pN*])/u', '<em>$1</em>', $escaped);
 
         $blocks = preg_split("/\n{2,}/", $escaped) ?: [];
         $html = [];
@@ -48,6 +73,7 @@ class ChatAnswerHtml
         $html = [];
         $paragraph = [];
         $items = [];
+        $ordered = false;
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
@@ -56,8 +82,13 @@ class ChatAnswerHtml
                 continue;
             }
 
-            if (preg_match('/^[\-\*]\s+(.+)$/', $trimmed, $match) === 1) {
+            if (preg_match('/^(?:[\-\*]|\d+[.)])\s+(.+)$/', $trimmed, $match) === 1) {
                 self::appendParagraph($html, $paragraph);
+                $isOrdered = preg_match('/^\d/', $trimmed) === 1;
+                if ($items !== [] && $isOrdered !== $ordered) {
+                    self::appendList($html, $items, $ordered);
+                }
+                $ordered = $isOrdered;
                 $items[] = '<li>'.self::emphasizeLabel($match[1]).'</li>';
 
                 continue;
@@ -70,12 +101,12 @@ class ChatAnswerHtml
                 continue;
             }
 
-            self::appendList($html, $items);
+            self::appendList($html, $items, $ordered);
             $paragraph[] = self::emphasizeLabel($trimmed);
         }
 
         self::appendParagraph($html, $paragraph);
-        self::appendList($html, $items);
+        self::appendList($html, $items, $ordered);
 
         return implode('', $html);
     }
@@ -144,13 +175,14 @@ class ChatAnswerHtml
      * @param  list<string>  $html
      * @param  list<string>  $items
      */
-    protected static function appendList(array &$html, array &$items): void
+    protected static function appendList(array &$html, array &$items, bool $ordered = false): void
     {
         if ($items === []) {
             return;
         }
 
-        $html[] = '<ul>'.implode('', $items).'</ul>';
+        $tag = $ordered ? 'ol' : 'ul';
+        $html[] = '<'.$tag.'>'.implode('', $items).'</'.$tag.'>';
         $items = [];
     }
 

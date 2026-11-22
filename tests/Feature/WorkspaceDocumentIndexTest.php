@@ -218,7 +218,7 @@ test('a large batch, an empty file, and a closed workspace are rejected before a
 
     expect(fn () => $store->storeMany($workspace, [
         UploadedFile::fake()->createWithContent('empty.txt', ''),
-    ]))->toThrow(WorkspaceUploadException::class, '8 MB');
+    ]))->toThrow(WorkspaceUploadException::class, 'This file is empty.');
 
     $workspace->forceFill(['purged_at' => now()])->save();
 

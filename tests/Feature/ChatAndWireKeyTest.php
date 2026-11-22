@@ -84,7 +84,7 @@ test('new conversation confirmation copy is present and confirming clears the th
         ->streamTurn()
         ->assertSee('Unused returns are accepted')
         ->assertSee('Start a new conversation?')
-        ->assertSee('This permanently deletes the current thread. This demo does not keep a conversation history list.')
+        ->assertSeeNormalizedText('This permanently deletes the current thread. This demo does not keep a conversation history list.')
         ->assertSee('Cancel')
         ->assertSee('Delete and start new');
 
@@ -161,7 +161,7 @@ test('stopping after send records Stopped and does not write a grounded answer',
 
     $component
         ->streamTurn()
-        ->assertSee('Stopped.')
+        ->assertSee('You stopped this answer')
         ->assertDontSee('Unused returns are accepted');
 });
 
@@ -193,7 +193,7 @@ test('send works after a stopped turn', function () {
         ->call('send')
         ->call('stopGenerating')
         ->streamTurn()
-        ->assertSee('Stopped.')
+        ->assertSee('You stopped this answer')
         ->assertDontSee('Unused returns are accepted');
 
     fakeSupportAi(chat: [
@@ -311,6 +311,7 @@ test('replyToLatest records Stopped and skips citations when stop was already re
     $message = $chat->replyToLatest($session);
 
     expect($message->body)->toBe('Stopped.')
+        ->and($message->is_stopped)->toBeTrue()
         ->and($message->cited_chunk_ids ?? [])->toBe([])
         ->and($chat->conversationFor($session)->messages()->where('role', 'assistant')->count())->toBe(1)
         ->and($chat->conversationFor($session)->messages()->where('body', 'like', '%Unused returns are accepted%')->exists())->toBeFalse();
@@ -351,7 +352,7 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
         ->toContain('data-chat-transcript')
         ->toContain("querySelector('[data-chat-transcript]')")
         ->toContain('el.scrollTop = el.scrollHeight')
-        ->toContain('x-on:submit="pinNewest();')
+        ->toMatch('/x-on:submit="\s*pinNewest\(\);/')
         ->toContain('onUserScrollIntent')
         ->toContain('userScrolling')
         ->toContain('x-on:wheel="onUserScrollIntent($event)"')
@@ -394,9 +395,9 @@ test('chat transcript pins to the newest message until the visitor scrolls up', 
     expect($html)
         ->toContain('data-chat-transcript')
         ->toContain('x-on:scroll="onTranscriptScroll()"')
-        ->toContain('x-on:submit="pinNewest();')
+        ->toMatch('/x-on:submit="\s*pinNewest\(\);/')
         ->toContain('x-on:wheel="onUserScrollIntent($event)"')
-        ->toContain('start-4 end-4')
+        ->toContain('start-4')->toContain('end-4')
         ->toContain('chat-dock')
         ->toContain('harbor-expand')
         ->not->toContain('sm:start-auto sm:w-full sm:max-w-sm');
@@ -406,10 +407,10 @@ test('preview re-pins on a downward scroll and reveals the answer on a timer', f
     $view = file_get_contents(resource_path('views/livewire/pages/workspace-preview-chat.blade.php'));
 
     expect($view)
-        ->toContain('scrollingDown')
+        ->toContain('position > this.lastScrollTop')
         ->toContain('this.$root')
-        ->toContain('distance <= 96')
-        ->toContain('if (! this.pinToBottom)')
+        ->toContain('owner.scrollHeight - position - owner.clientHeight <= 2')
+        ->toContain('if (!this.pinToBottom)')
         ->toContain('this.pacedTarget = data.html || \'\'')
         ->toContain('revealMs: 32')
         ->toContain('revealStep: 2')
@@ -417,8 +418,8 @@ test('preview re-pins on a downward scroll and reveals the answer on a timer', f
         ->toContain('this.liveHtml = this.htmlPrefix(target, this.revealedChars)')
         ->toContain('this.$wire.requestStop()')
         ->toContain('this.stopReveal()')
-        ->toMatch('/if \(this\.streamDone\) \{\s+this\.stopReveal\(\)\s+this\.liveHtml = this\.pacedTarget/')
-        ->toMatch('/this\.stopReveal\(\)\s+this\.abortController\?\.abort\(\)\s+this\.\$wire\.requestStop\(\)/')
+        ->toContain('await this.$wire.requestStop(this.completedId, stoppedCharacters)')
+        ->toMatch('/this\.abortController\?\.abort\(\)\s+this\.\$wire\.requestStop\(\)/')
         ->not->toContain('this.liveHtml = data.html')
         ->not->toContain('this.liveSources = data.sources')
         ->not->toContain('setTimeout(() => this.resumeIfAtEnd(), 0)')

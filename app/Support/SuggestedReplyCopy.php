@@ -10,6 +10,9 @@ class SuggestedReplyCopy
     public static function format(string $body, string $customerName, ?string $agentName = null): string
     {
         $first = self::firstName($customerName, 'there');
+        if (preg_match('/^(?:demo|test|sample|customer|visitor)$/i', $first)) {
+            $first = 'there';
+        }
         $text = self::stripLeadingGreetings(self::stripTrailingClosings(trim($body)));
 
         return "Hi {$first},\n\n{$text}\n\n".self::closing($agentName);
@@ -20,7 +23,7 @@ class SuggestedReplyCopy
         $agent = trim($agentName ?? (string) config('supportflow.brand.agent_name'));
         $agent = $agent !== '' ? $agent : 'Alex Rivera';
 
-        return "Best,\n{$agent}\nHarbor & Co Support";
+        return "Best,\n{$agent}\nHarbor Outfitters Support";
     }
 
     public static function firstName(string $name, string $fallback): string
@@ -36,8 +39,8 @@ class SuggestedReplyCopy
 
         while ($previous !== $text) {
             $previous = $text;
-            $text = preg_replace('/(?:\r?\n)*—\s*Alex(?:\s+Rivera)?\s+at Harbor & Co\s*$/u', '', $text) ?? $text;
-            $text = preg_replace('/(?:\r?\n)*Best,?\s*\n\s*Alex(?:\s+Rivera)?\s*(?:\n\s*Harbor & Co Support)?\s*$/u', '', $text) ?? $text;
+            $text = preg_replace('/(?:\r?\n)*—\s*Alex(?:\s+Rivera)?\s+at Harbor (?:Outfitters|& Co)\s*$/u', '', $text) ?? $text;
+            $text = preg_replace('/(?:\r?\n)*Best,?\s*\n\s*Alex(?:\s+Rivera)?\s*(?:\n\s*Harbor (?:Outfitters|& Co) Support)?\s*$/u', '', $text) ?? $text;
             $text = trim($text);
         }
 

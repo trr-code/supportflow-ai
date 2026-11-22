@@ -15,7 +15,9 @@ use App\Support\ChatCitationTrailer;
 use App\Support\ChatFollowUpPassages;
 use App\Support\ChatFollowUpQuery;
 use App\Support\ChatInjectionGate;
+use App\Support\ChatSummaryQuery;
 use App\Support\CitedChunkIds;
+use App\Support\DemoGuide;
 use App\Support\HarborOrderIntent;
 use App\Support\KnowledgeCorpus;
 use App\Support\SupportingPassages;
@@ -40,6 +42,7 @@ class ChatService
         private readonly RetrievalService $retrieval,
         private readonly AiUsageRecorder $recorder,
         private readonly ReplacementCaseService $replacements,
+        private readonly HarborReturns $returns,
     ) {}
 
     public function conversationFor(DemoSession $session): ChatConversation
@@ -114,6 +117,7 @@ class ChatService
         return $conversation->messages()->create([
             'role' => 'assistant',
             'body' => 'Stopped.',
+            'is_stopped' => true,
             'cited_chunk_ids' => [],
         ]);
     }
@@ -159,6 +163,66 @@ class ChatService
             ]);
         }
 
+        if ($question === DemoGuide::prompt('return_window')['question']) {
+            $passages = KnowledgeChunk::query()
+                ->whereHas('article', fn ($article) => $article->where('slug', 'return-window')
+                    ->whereNull('workspace_id')->where('is_published', true)->where('is_seeded', true))
+                ->get();
+            $window = $passages->first(fn (KnowledgeChunk $chunk): bool => str_contains($chunk->body, 'within 30 days of delivery with tags attached'));
+            $box = $passages->firstWhere('heading', 'Box not required');
+            $label = $passages->firstWhere('heading', 'Prepaid labels');
+
+            if ($window !== null && $box !== null && $label !== null) {
+                return $conversation->messages()->create([
+                    'role' => 'assistant',
+                    'body' => implode(' ', [$window->body, $box->body, $label->body]),
+                    'cited_chunk_ids' => [$window->id, $box->id, $label->id],
+                ]);
+            }
+        }
+
+        $handoff = app(HarborChatHandoff::class)->proposal($conversation->messages()->orderBy('id')->get());
+        if ($handoff !== null && ! $this->returns->mentionsSampleOrder($question)) {
+            return $conversation->messages()->create([
+                'role' => 'assistant',
+                'body' => $handoff['order'] === '' ? HarborChatHandoff::ASK_ORDER : HarborChatHandoff::REVIEW,
+                'cited_chunk_ids' => [],
+            ]);
+        }
+
+        $returnOrder = $this->returns->requestedOrder(
+            $question,
+            $conversation->messages()->where('role', 'assistant')->latest('id')->value('body'),
+        );
+
+        if ($returnOrder !== null) {
+            $result = $this->returns->assess($session, $returnOrder, $question);
+            $policyIds = in_array($result['status'], ['eligible', 'review', 'blocked'], true)
+                ? KnowledgeChunk::query()->where('heading', 'Start a return in chat')
+                    ->whereHas('article', fn ($article) => $article->where('slug', 'return-window')
+                        ->whereNull('workspace_id')->where('is_published', true)->where('is_seeded', true))
+                    ->pluck('id')->all()
+                : [];
+
+            if ($this->returns->asksAboutPackagingAndReturn($question)) {
+                $box = KnowledgeChunk::query()->where('heading', 'Box not required')
+                    ->whereHas('article', fn ($article) => $article->where('slug', 'return-window')
+                        ->whereNull('workspace_id')->where('is_published', true)->where('is_seeded', true))
+                    ->first();
+
+                if ($box !== null) {
+                    $result['message'] = $box->body."\n\n".$result['message'];
+                    array_unshift($policyIds, $box->id);
+                }
+            }
+
+            return $conversation->messages()->create([
+                'role' => 'assistant',
+                'body' => $result['message'],
+                'cited_chunk_ids' => $policyIds,
+            ]);
+        }
+
         $min = (float) config('supportflow.retrieval.min_similarity');
         $limit = (int) config('supportflow.retrieval.limit');
         $previous = $this->previousSafeUserTurn($conversation);
@@ -180,7 +244,7 @@ class ChatService
         );
 
         $chunkIds = array_values($matches->map(fn (array $row): int => $row['chunk']->id)->all());
-        $case = HarborOrderIntent::matches($question)
+        $case = HarborOrderIntent::matches($question) && ! $this->returns->mentionsSampleOrder($question)
             ? $this->replacements->forSession($session)
             : null;
 
@@ -219,7 +283,7 @@ class ChatService
         AiRun $run,
         ?ReplacementCase $case = null,
     ): ChatMessage {
-        $refusal = 'I don’t have a documented answer in the Harbor & Co knowledge base. Submit a support ticket and a human agent will take it from here.';
+        $refusal = 'I don’t have a documented answer in the Harbor Outfitters knowledge base. Select Create a support ticket to send your question to Agent Desk for review.';
 
         if ($matches->isEmpty() && $case === null) {
             if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
@@ -335,11 +399,13 @@ class ChatService
             ]);
         }
 
-        if (! str_starts_with($body, $refusalPrefix)) {
+        if ($heldProposal) {
+            $body = 'I’ve prepared a demo replacement request. Select Confirm to save it or Cancel to dismiss it. Nothing will be shipped.';
+        } elseif (! str_starts_with($body, $refusalPrefix)) {
             $body = SupportingPassages::includeAskedFacets($body, $question, $matches);
         }
 
-        $cited = str_starts_with($body, $refusalPrefix)
+        $cited = $heldProposal || str_starts_with($body, $refusalPrefix)
             ? []
             : CitedChunkIds::usedInBody(
                 $body,
@@ -355,9 +421,7 @@ class ChatService
         }
 
         if ($orderTurn && trim($body) === '') {
-            $body = $heldProposal
-                ? 'A replacement proposal is waiting. Confirm or cancel it before anything is saved. Nothing is shipped.'
-                : 'Nothing was saved.';
+            $body = 'Nothing was saved.';
             $cited = [];
             $grounded = false;
         }
@@ -366,6 +430,10 @@ class ChatService
             $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: $chunkIds);
 
             return $abandoned;
+        }
+
+        if ($grounded && ChatSummaryQuery::target($question) !== null && $this->retrieval->overviewIsPartial($question, KnowledgeCorpus::harbor(), $matches)) {
+            $body .= "\n\n".ChatSummaryQuery::PARTIAL_NOTICE;
         }
 
         $this->recorder->complete($run, $streamed, ['grounded' => $grounded], $chunkIds);
@@ -445,6 +513,7 @@ class ChatService
         return $this->conversationFor($session)->messages()->make([
             'role' => 'assistant',
             'body' => 'Stopped.',
+            'is_stopped' => true,
             'cited_chunk_ids' => [],
         ]);
     }

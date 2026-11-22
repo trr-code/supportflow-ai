@@ -270,7 +270,7 @@ test('asking through the stream endpoint does not insert a duplicate user row', 
         ->and(ChatMessage::query()->where('role', 'user')->where('body', $question)->count())->toBe(1);
 });
 
-test('a failed chat stream emits an error event and restores the composer', function () {
+test('a failed chat stream restores the composer and the same question can be retried', function () {
     Exceptions::fake();
 
     $this->mock(RetrievalService::class, function (MockInterface $mock): void {
@@ -300,6 +300,18 @@ test('a failed chat stream emits an error event and restores the composer', func
         ->assertSet('pendingQuestion', '')
         ->assertSet('streaming', false)
         ->assertHasErrors(['question']);
+
+    app()->forgetInstance(RetrievalService::class);
+    fakeSupportAi();
+
+    $component->call('send');
+
+    $retried = postChatStream($question, (string) $component->get('demoSessionId'))
+        ->assertOk()
+        ->assertStreamed()
+        ->streamedContent();
+
+    expect($retried)->toContain('event: done')->not->toContain('event: error');
 });
 
 test('abandoning a failed stream is not rejected with 409 while the previous lock is held', function () {

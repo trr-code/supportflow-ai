@@ -45,3 +45,19 @@ test('an embroidery color question escalates without a customer draft', function
         ->and($ticket->suggestedReplies()->count())->toBe(0)
         ->and($ticket->needs_human)->toBeTrue();
 });
+
+test('a tent return handoff acknowledges the request already reached support', function () {
+    $ticket = Ticket::factory()->create([
+        'customer_name' => 'Maya Chen',
+        'subject' => 'Return review for order HB-51003',
+        'description' => 'Customer: I would like to start a return for order HB-51003. Assistant: The Ridgeline 2P Tent ($249) exceeds the $100 auto-approval limit. Higher-priced items can be sent to support for review.',
+    ]);
+
+    app(TicketIntakeService::class)->process($ticket);
+    $reply = $ticket->suggestedReplies()->latest('id')->firstOrFail();
+
+    expect($reply->body)
+        ->toMatch('/\b(received|thanks for submitting|thank you for submitting)\b/i')
+        ->toMatch('/\breview\b/i')
+        ->not->toMatch('/can be sent to support|open a (support )?ticket|this demo/i');
+});

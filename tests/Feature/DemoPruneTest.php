@@ -139,7 +139,7 @@ test('cancel closes the reset dialog without pruning', function () {
 
     expect($view)
         ->toMatch('/<flux:modal\.close>\s*<flux:button variant="filled">Cancel<\/flux:button>\s*<\/flux:modal\.close>/')
-        ->toContain('<flux:button variant="danger" class="showroom-destructive-action" wire:click="pruneStale">Clear inactive data</flux:button>');
+        ->toMatch('/<flux:button\s+variant="danger"\s+class="showroom-destructive-action"\s+wire:click="pruneStale"\s*>\s*Clear inactive data\s*<\/flux:button\s*>/');
 
     Livewire::test(TicketIndex::class)
         ->assertSee('Cancel')
@@ -160,7 +160,7 @@ test('a desktop ticket row opens from the reference and the subject', function (
     $link = substr($row, (int) strpos($row, '<a '), (int) strpos($row, '</a>') + 4);
 
     expect($html)
-        ->toContain('hover:bg-[#f4f0fc]')
+        ->toContain('hover:bg-[#f4f4f5]')
         ->and($link)->toContain($ticket->reference)
         ->and($link)->toContain('Snapped trekking pole')
         ->and($link)->toContain(route('agent.tickets.show', $ticket))
@@ -285,8 +285,8 @@ test('queue statuses use pastel backgrounds with the live labels', function () {
         ->toContain('Waiting on customer')
         ->toContain('AI unavailable')
         ->toContain('text-sm font-semibold')
-        ->toContain('bg-[#eee7ff] font-semibold text-harbor-ink')
-        ->toContain('border-zinc-100')
+        ->toContain('bg-[#f4f4f5] font-semibold text-harbor-ink')
+        ->toContain('border-harbor-sand-deep')
         ->toContain('bg-zinc-50')
         ->toContain('text-harbor-pine')
         ->not->toContain('bg-lucid-lavender')

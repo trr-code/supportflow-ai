@@ -17,6 +17,7 @@ use App\Services\WorkspaceChatService;
 use App\Services\WorkspaceDocumentStore;
 use App\Services\WorkspacePurgeService;
 use App\Support\ChatAnswerHtml;
+use App\Support\ChatInlineCitations;
 use App\Support\CitedSources;
 use App\Support\WorkspaceCopy;
 use Illuminate\Contracts\View\View;
@@ -268,14 +269,37 @@ class WorkspacePreview extends Component
     {
         $this->streaming = false;
         $this->pendingQuestion = null;
-        $this->dispatch('document-workspace-changed');
+        $this->dispatch('document-workspace-changed', preserveSource: true);
     }
 
-    public function requestStop(WorkspaceAccess $access, WorkspaceChatService $chat): void
+    public function reconcileInterruptedTurn(WorkspaceAccess $access, WorkspaceChatService $chat, string $question): bool
+    {
+        $this->finishTurn();
+        $workspace = $access->current(request());
+
+        if ($workspace === null) {
+            return false;
+        }
+
+        $messages = $chat->conversationFor($workspace)->messages()->latest('id')->limit(2)->get();
+
+        return $messages->get(0)?->role === 'assistant'
+            && $messages->get(1)?->role === 'user'
+            && $messages->get(1)->body === $question;
+    }
+
+    public function requestStop(WorkspaceAccess $access, WorkspaceChatService $chat, ?int $completedId = null, int $revealedCharacters = 0, ?int $userId = null): void
     {
         $workspace = $access->current(request());
 
-        if ($workspace !== null) {
+        if ($workspace !== null && $userId !== null) {
+            $chat->stopVisibleTurn($workspace, $userId, $revealedCharacters);
+            $this->finishTurn();
+        } elseif ($workspace !== null && $completedId !== null) {
+            $chat->conversationFor($workspace)->messages()->where('role', 'assistant')
+                ->whereKey($completedId)->first()?->keepRevealedPrefix($revealedCharacters);
+            $this->finishTurn();
+        } elseif ($workspace !== null) {
             $chat->requestStop($workspace);
         }
     }
@@ -308,12 +332,10 @@ class WorkspacePreview extends Component
             'documents' => $documents,
             'indexing' => $indexing,
             'returnCode' => $workspace ? $access->displayedReturnCode($workspace) : null,
-            'expiresOn' => $workspace?->expires_at->timezone(config('app.timezone'))->format('F j, Y'),
             'messages' => $workspace ? $this->transcript($chat, $workspace) : [],
             'disclosure' => WorkspaceCopy::DISCLOSURE,
             'leaveCopy' => WorkspaceCopy::LEAVE,
             'deleteCopy' => WorkspaceCopy::DELETE,
-            'failureCopy' => WorkspaceCopy::FAILURE,
             'tones' => WorkspaceTone::cases(),
             'lengths' => WorkspaceAnswerLength::cases(),
             'categories' => WorkspaceGuidanceCategory::cases(),
@@ -323,7 +345,7 @@ class WorkspacePreview extends Component
     }
 
     /**
-     * @return list<array{id: int, role: string, html: string, sources: list<array{chunk_id: int, title: string, heading: string|null, excerpt: string}>}>
+     * @return list<array{id: int, role: string, stopped: bool, html: string, sources: list<array{chunk_id: int, title: string, heading: string|null, excerpt: string, passage: string}>}>
      */
     private function transcript(WorkspaceChatService $chat, Workspace $workspace): array
     {
@@ -333,17 +355,20 @@ class WorkspacePreview extends Component
             ->get()
             ->map(function (ChatMessage $message): array {
                 $citedIds = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
+                $chunks = $citedIds === []
+                    ? collect()
+                    : KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get();
+                $sources = CitedSources::workspaceInspector($chunks, $citedIds);
+                $body = $message->role === 'assistant' ? WorkspaceCopy::withoutAnswerSignOff($message->body) : $message->body;
 
                 return [
                     'id' => (int) $message->id,
                     'role' => $message->role,
-                    'html' => ChatAnswerHtml::render($message->body),
-                    'sources' => $citedIds === []
-                        ? []
-                        : CitedSources::workspaceInspector(
-                            KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get(),
-                            $citedIds,
-                        ),
+                    'stopped' => $message->is_stopped,
+                    'html' => $this->embedded && $message->role === 'assistant'
+                        ? ChatInlineCitations::renderWorkspace($body, CitedSources::inCitationOrder($chunks, $citedIds), $sources)
+                        : ChatAnswerHtml::render($body),
+                    'sources' => $sources,
                 ];
             })
             ->all());

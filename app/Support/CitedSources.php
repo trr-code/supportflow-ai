@@ -69,7 +69,7 @@ class CitedSources
     /**
      * @param  iterable<int, KnowledgeChunk>  $chunks
      * @param  list<int>  $citedIds
-     * @return list<array{chunk_id: int, title: string, heading: string|null, excerpt: string}>
+     * @return list<array{chunk_id: int, title: string, heading: string|null, excerpt: string, passage: string}>
      */
     public static function workspaceInspector(iterable $chunks, array $citedIds): array
     {
@@ -82,6 +82,7 @@ class CitedSources
                     'title' => $chunk->article?->title ?: 'Document',
                     'heading' => $chunk->heading,
                     'excerpt' => Str::limit($excerpt, 240),
+                    'passage' => trim($chunk->body),
                 ];
             })
             ->all());

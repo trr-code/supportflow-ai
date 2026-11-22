@@ -29,7 +29,7 @@ class DocumentParser
         $text = trim($text);
 
         if ($text === '') {
-            throw new DocumentExtractException(WorkspaceCopy::NO_TEXT);
+            throw new DocumentExtractException(in_array($extension, ['txt', 'md', 'markdown'], true) ? WorkspaceCopy::BLANK : WorkspaceCopy::NO_TEXT);
         }
 
         $max = $maxCharacters;

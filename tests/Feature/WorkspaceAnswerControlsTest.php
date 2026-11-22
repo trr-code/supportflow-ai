@@ -264,7 +264,7 @@ test('document deletion and new chat explain what is permanently removed', funct
         ->toContain('name="confirm-preview-new-chat"')
         ->toContain('Start a new conversation?')
         ->toContain('This permanently deletes the questions and answers in this conversation.')
-        ->toContain('Your documents and answer settings stay.')
+        ->toMatch('/Your documents and answer\s+settings stay\./')
         ->toContain('The deleted conversation cannot be reopened.')
         ->toContain('wire:click="newChat"');
 
@@ -342,8 +342,37 @@ test('a stopped preview stream does not attach sources', function () {
         ->and($stopped)->not->toHaveKey('html')
         ->and($assistant)->not->toBeNull()
         ->and($assistant->body)->toBe('Stopped.')
+        ->and($assistant->is_stopped)->toBeTrue()
         ->and($assistant->cited_chunk_ids)->toBe([]);
 });
+
+test('stopping an active document answer keeps only its revealed server text', function (bool $disconnected) {
+    $workspace = Workspace::factory()->create();
+    app(WorkspaceDocumentStore::class)->storeMany($workspace, [UploadedFile::fake()->createWithContent('returns.txt', 'Unused items can be returned within 30 days.')]);
+    $chunk = $workspace->documents()->sole()->article->chunks()->first();
+    WorkspaceChatAgent::fake(['Unused items can be returned within 30 days. More detail follows.'."\nCITES: {$chunk->id}"]);
+    $service = app(WorkspaceChatService::class);
+    $turn = null;
+    $stopped = false;
+    $service->ask($workspace, 'What is the return window?', WorkspaceAnswerControls::fromWorkspace($workspace), function (string $text) use ($service, $workspace, $disconnected, &$turn, &$stopped): void {
+        if (! $stopped && mb_strlen($text) >= 12) {
+            $stopped = true;
+            if ($disconnected) {
+                $service->conversationFor($workspace)->messages()->create(['role' => 'assistant', 'body' => 'Stopped.', 'is_stopped' => true, 'cited_chunk_ids' => []]);
+            }
+            $service->stopVisibleTurn($workspace, $turn, 12);
+        }
+    }, onStart: function (int $id) use (&$turn): void {
+        $turn = $id;
+    });
+    $answer = $service->conversationFor($workspace)->messages()->where('role', 'assistant')->sole();
+    expect($stopped)->toBeTrue()->and($answer->body)->toBe('Unused items')
+        ->and($answer->is_stopped)->toBeTrue()->and($answer->cited_chunk_ids)->toBe([]);
+    $service->startNewConversation($workspace);
+    $fresh = $service->conversationFor($workspace)->messages()->create(['role' => 'user', 'body' => 'A new question.']);
+    $service->stopVisibleTurn($workspace, $turn, 12);
+    expect($service->conversationFor($workspace)->messages()->pluck('id')->all())->toBe([$fresh->id]);
+})->with([false, true]);
 
 test('a new preview chat does not send the deleted question', function () {
     $access = app(WorkspaceAccess::class);
@@ -448,17 +477,17 @@ test('a short follow-up retrieves the previous subject when the short text match
     $chat = app(WorkspaceChatService::class);
     $controls = WorkspaceAnswerControls::fromWorkspace($workspace);
 
-    $chat->ask($workspace, 'time', $controls);
+    $ambiguous = $chat->ask($workspace, 'time', $controls);
 
-    expect($captured[0])->toContain('local time')
-        ->and($captured[0])->not->toContain('North counter');
+    expect($ambiguous->body)->toContain('Which topic or points')
+        ->and($captured)->toBe([]);
 
     $chat->startNewConversation($workspace);
     $chat->ask($workspace, 'Where do I pick up the field kit?', $controls);
     $chat->ask($workspace, 'time', $controls);
 
-    expect($captured[2])->toContain('North counter')
-        ->and($captured[2])->toContain('Monday through Saturday');
+    expect($captured[1])->toContain('North counter')
+        ->and($captured[1])->toContain('Monday through Saturday');
 });
 
 test('time keeps the cited pickup hours when the previous question does not name them', function () {
@@ -546,13 +575,13 @@ test('each saved tone uses a different voice rule', function () {
 
     expect($prompts['professional'])->toContain('courteous')
         ->and($prompts['professional'])->toContain('no emoji')
-        ->and($prompts['professional'])->toContain('please or thank you once')
-        ->and($prompts['professional'])->toContain('do not skip that courtesy')
+        ->and($prompts['professional'])->toContain('courteous through clear, direct wording')
+        ->and($prompts['professional'])->not->toContain('please or thank you once')
         ->and($prompts['professional'])->toContain('no exclamation')
-        ->and($prompts['friendly'])->toContain('noticeably warm')
+        ->and($prompts['friendly'])->toContain('warm, natural')
         ->and($prompts['friendly'])->toContain('contraction')
-        ->and($prompts['friendly'])->toContain('optional, not required')
-        ->and($prompts['friendly'])->toContain('Do not start with Hi')
+        ->and($prompts['friendly'])->toContain('without reassuring')
+        ->and($prompts['friendly'])->toContain('Do not force an opening')
         ->and($prompts['friendly'])->not->toContain('one light emoji')
         ->and($prompts['matter-of-fact'])->toContain('short sentences')
         ->and($prompts['matter-of-fact'])->toContain('no courtesy opening')

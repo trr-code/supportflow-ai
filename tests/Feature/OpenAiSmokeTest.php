@@ -22,6 +22,20 @@ test('optional live OpenAI smoke for triage', function () {
     expect($ticket->ai_summary)->not->toBeEmpty();
 })->group('openai')->skip(fn (): bool => ! filter_var(env('OPENAI_SMOKE'), FILTER_VALIDATE_BOOL));
 
+test('optional live OpenAI Northwind sample extracts the printed mismatch', function () {
+    Storage::fake('local');
+
+    Livewire::test(SupplierInvoicePage::class)->call('useSample')->assertHasNoErrors()
+        ->assertSee('Amounts don’t match');
+
+    $invoice = SupplierInvoice::query()->sole();
+    expect($invoice->status)->toBe(SupplierInvoiceStatus::NeedsReview)
+        ->and($invoice->invoice_number)->toBe('INV-1002')
+        ->and($invoice->stated_total_cents)->toBe(23745)
+        ->and($invoice->tax_cents)->toBe(1685)
+        ->and($invoice->lines()->orderBy('position')->pluck('stated_line_total_cents')->all())->toBe([6280, 8950, 2460, 3480]);
+})->group('openai')->skip(fn (): bool => ! filter_var(env('OPENAI_SMOKE'), FILTER_VALIDATE_BOOL));
+
 test('optional live OpenAI invoice upload preserves review boundaries and minimizes retained content', function () {
     Storage::fake('local');
 

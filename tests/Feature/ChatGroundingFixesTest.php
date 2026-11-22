@@ -120,7 +120,7 @@ test('multiline customer chat messages stay right-positioned with left-aligned t
 
     expect($html)
         ->toContain('<div class="text-end">')
-        ->toContain('inline-block max-w-full whitespace-pre-wrap rounded-lg bg-harbor-pine px-3 py-2 text-left text-white">First line of a long customer question')
+        ->toContain('inline-block max-w-full rounded-lg bg-harbor-pine px-3 py-2 text-left whitespace-pre-wrap text-white">First line of a long customer question')
         ->not->toMatch('/text-white">\s+First line/')
         ->and($html)
         ->not->toMatch('/class="[^"]*text-end[^"]*"[^>]*>\s*<p class="[^"]*bg-harbor-pine(?![^"]*text-left)/');

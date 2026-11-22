@@ -7,6 +7,13 @@ use App\Support\RetrievalFacets;
 use App\Support\RetrievalQuery;
 use App\Support\RetrievalTopics;
 
+test('chat formatting separates numbered actions from facts and escapes unsafe content', function () {
+    $html = ChatAnswerHtml::render("**Next steps**\n\n1. Open the document.\n2. Check the dates.\n- Keep a copy.\n\n<script>alert(1)</script>");
+
+    expect($html)->toContain('<p><strong>Next steps</strong></p>', '<ol><li>Open the document.</li><li>Check the dates.</li></ol>', '<ul><li>Keep a copy.</li></ul>', '&lt;script&gt;')
+        ->not->toContain('<script>');
+});
+
 test('ticket retrieval query prefers the description when the subject adds no distinct terms', function () {
     expect(RetrievalQuery::forTicket(
         'Return unused pack',
@@ -39,9 +46,14 @@ test('chat follow-up retrieval reuses previous subjects for which-one comparison
     $followUp = 'Which one is longer?';
 
     expect(ChatFollowUpQuery::needsPreviousSubjects($followUp, $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('Explain those points in detail.', $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('Could you explain those points in more detail?', $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('Tell me more about that.', $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('Explain this warranty.', $previous))->toBeFalse()
         ->and(ChatFollowUpQuery::retrievalQuery($followUp, $previous))->toBe($previous."\n".$followUp)
         ->and(ChatFollowUpQuery::needsPreviousSubjects('How long is that window?', $previous))->toBeTrue()
         ->and(ChatFollowUpQuery::needsPreviousSubjects('Is that free?', $previous))->toBeTrue()
+        ->and(ChatFollowUpQuery::needsPreviousSubjects('What condition does it need to be in?', $previous))->toBeTrue()
         ->and(ChatFollowUpQuery::needsPreviousSubjects(
             'Can I exchange it for the 36L version instead?',
             $previous,
@@ -165,6 +177,14 @@ test('chat answer html strips a trailing unmatched emphasis marker', function ()
         ->toBe('<p>Returns stay at 30 days.</p>')
         ->and(ChatAnswerHtml::render('Stopped.'))
         ->toBe('<p>Stopped.</p>');
+});
+
+test('chat answer html renders title emphasis without changing bullets math or escaped markup', function () {
+    $html = ChatAnswerHtml::render("The *Meridian Civic Theater* requires a **deposit**.\n\n* Keep the *signed addendum*.\n* Calculate 2 * 3 * 4.\n\n*<script>alert(1)</script>*");
+
+    expect($html)->toContain('<em>Meridian Civic Theater</em>', '<strong>deposit</strong>', '<li>Keep the <em>signed addendum</em>.</li>', '<li>Calculate 2 * 3 * 4.</li>', '<em>&lt;script&gt;alert(1)&lt;/script&gt;</em>')
+        ->not->toContain('<script>', '*Meridian', '*signed');
+    expect(ChatAnswerHtml::render('An unfinished *title'))->toContain('An unfinished *title')->not->toContain('<em>');
 });
 
 test('chat answer html bolds only leading labels', function () {

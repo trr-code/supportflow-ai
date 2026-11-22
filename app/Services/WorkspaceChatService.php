@@ -10,10 +10,12 @@ use App\Models\ChatMessage;
 use App\Models\KnowledgeChunk;
 use App\Models\Workspace;
 use App\Support\ChatAnswerCopy;
+use App\Support\ChatAnswerHtml;
 use App\Support\ChatCitationTrailer;
 use App\Support\ChatFollowUpPassages;
 use App\Support\ChatFollowUpQuery;
 use App\Support\ChatInjectionGate;
+use App\Support\ChatSummaryQuery;
 use App\Support\CitedChunkIds;
 use App\Support\KnowledgeCorpus;
 use App\Support\SupportingPassages;
@@ -51,19 +53,55 @@ class WorkspaceChatService
         WorkspaceAnswerControls $controls,
         ?Closure $onDelta = null,
         ?string $model = null,
+        ?Closure $onStart = null,
     ): ChatMessage {
         $generation = $this->currentStreamGeneration($workspace);
-        $this->conversationFor($workspace)->messages()->create([
+        $user = $this->conversationFor($workspace)->messages()->create([
             'role' => 'user',
             'body' => $question,
         ]);
+        Cache::put('workspace-chat-turn:'.$workspace->id, $user->id, now()->addMinutes(5));
+        if ($onStart) {
+            $onStart($user->id);
+        }
 
-        return $this->replyToLatest($workspace, $controls, $onDelta, $generation, $model);
+        $snapshot = $onDelta === null ? null : function (string $visible) use ($onDelta, $user): void {
+            Cache::put('workspace-chat-prefix:'.$user->id, $visible, now()->addMinutes(5));
+            $onDelta($visible);
+        };
+
+        return $this->replyToLatest($workspace, $controls, $snapshot, $generation, $model);
     }
 
     public function requestStop(Workspace $workspace): void
     {
         Cache::put($this->stopCacheKey($workspace), true, now()->addMinutes(2));
+    }
+
+    public function stopVisibleTurn(Workspace $workspace, int $userId, int $characters): void
+    {
+        Cache::lock('workspace-chat-state:'.$workspace->id, 5)->block(2, function () use ($workspace, $userId, $characters): void {
+            $conversation = $this->conversationFor($workspace);
+            $user = $conversation->messages()->where('role', 'user')->latest('id')->first();
+            if ($user?->id !== $userId || Cache::get('workspace-chat-turn:'.$workspace->id) !== $userId) {
+                return;
+            }
+            $this->requestStop($workspace);
+            Cache::put($this->streamGenerationKey($workspace), $this->currentStreamGeneration($workspace) + 1, now()->addMinutes(5));
+            $assistant = $conversation->messages()->where('role', 'assistant')->where('id', '>', $userId)->first();
+            if ($assistant !== null && ! ($assistant->is_stopped && $assistant->body === 'Stopped.')) {
+                $assistant->keepRevealedPrefix(min(20000, max(0, $characters)));
+            } else {
+                $prefix = ChatAnswerHtml::revealedText((string) Cache::get('workspace-chat-prefix:'.$userId, ''), min(20000, max(0, $characters)));
+                $attributes = ['role' => 'assistant', 'body' => $prefix !== '' ? $prefix : 'Stopped.', 'is_stopped' => true, 'cited_chunk_ids' => []];
+                if ($assistant !== null) {
+                    $assistant->update($attributes);
+                } else {
+                    $conversation->messages()->create($attributes);
+                }
+            }
+            $this->streamLock($workspace)->forceRelease();
+        });
     }
 
     public function clearStopRequest(Workspace $workspace): void
@@ -104,30 +142,65 @@ class WorkspaceChatService
                 $onDelta(ChatInjectionGate::PREVIEW_REFUSAL);
             }
 
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => ChatInjectionGate::PREVIEW_REFUSAL,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->persistReply($workspace, $generation, ChatInjectionGate::PREVIEW_REFUSAL);
+        }
+
+        $summaryTarget = ChatSummaryQuery::target($question);
+        $summaryProblem = null;
+
+        if ($summaryTarget !== null && preg_match('/\.(?:pdf|docx|txt|md|markdown)$/u', $summaryTarget) === 1) {
+            $document = $workspace->documents()->whereRaw('lower(original_name) = ?', [$summaryTarget])->first();
+            $summaryProblem = match (true) {
+                $document === null => 'There is no uploaded file with that filename in this workspace. Check the filename under Your documents.',
+                $document->status->value === 'failed' => 'I cannot summarize that file because it could not be read. '.($document->failure_reason ?? 'Check the message beside the filename and upload a readable copy.'),
+                $document->status->value !== 'ready' => 'That file is still being prepared. Wait for Ready for answers beside its filename, then ask again.',
+                default => null,
+            };
+        }
+
+        if ($summaryTarget === '' && $workspace->documents()->count() > 1) {
+            $summaryProblem = 'Which document would you like me to summarize? Mention its filename, or ask me to summarize all documents.';
+        }
+
+        if ($summaryProblem !== null) {
+            $body = $summaryProblem;
+
+            if ($onDelta) {
+                $onDelta($body);
+            }
+
+            return $this->persistReply($workspace, $generation, $body);
         }
 
         $min = (float) config('supportflow.retrieval.min_similarity');
         $limit = (int) config('supportflow.retrieval.limit');
         $previous = $this->previousSafeUserTurn($conversation);
-        $query = ChatFollowUpQuery::retrievalQuery($question, $previous);
+        if (ChatFollowUpQuery::lacksPreviousSubject($question, $previous)) {
+            $body = 'Which topic or points would you like me to explain? Name the section or ask about a specific detail in your documents.';
+            if ($onDelta) {
+                $onDelta($body);
+            }
+
+            return $this->persistReply($workspace, $generation, $body);
+        }
+        $contextual = ChatSummaryQuery::target($question) === null && $previous !== null && (
+            ChatFollowUpQuery::needsPreviousSubjects($question, $previous)
+            || preg_match('/^\s*what if I cancel(?:\s+(?:exactly\s+)?\d+\s+(?:hours?|days?)\s+before(?:\s+(?:access|the booking))?)?\s*\??\s*$/i', $question) === 1
+        );
+        $continuesOverview = $contextual && ChatSummaryQuery::target($previous) !== null;
+        $query = $continuesOverview ? $previous : ($contextual ? $previous."\n".$question : $question);
         $corpus = KnowledgeCorpus::workspace($workspace->id);
         $matches = $this->retrieval->search($query, $corpus, $limit, $min);
 
-        if ($matches->isEmpty() && $previous !== null && $query === $question) {
+        if ($matches->isEmpty() && ChatSummaryQuery::target($question) === null && $previous !== null && $query === $question) {
             $matches = $this->retrieval->search($previous."\n".$question, $corpus, $limit, $min);
         }
 
-        $contextual = $previous !== null && ChatFollowUpQuery::needsPreviousSubjects($question, $previous);
         [$matches, $continuing] = ChatFollowUpPassages::mergePreviousCitations(
             $matches,
             $conversation,
             $corpus,
-            $limit,
+            $continuesOverview ? max($limit, $matches->count()) : $limit,
             $contextual,
         );
 
@@ -172,11 +245,7 @@ class WorkspaceChatService
                 $onDelta(WorkspaceCopy::GAP);
             }
 
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => WorkspaceCopy::GAP,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->persistReply($workspace, $generation, WorkspaceCopy::GAP);
         }
 
         $passages = $matches->map(function (array $row): string {
@@ -229,7 +298,7 @@ class WorkspaceChatService
                 $raw .= $event->delta;
 
                 if ($onDelta) {
-                    $onDelta(ChatCitationTrailer::visible($raw));
+                    $onDelta(WorkspaceCopy::withoutAnswerSignOff(ChatCitationTrailer::visible($raw)));
                 }
             }
 
@@ -249,16 +318,12 @@ class WorkspaceChatService
 
         $text = $streamed instanceof StreamedAgentResponse ? $streamed->text : $raw;
         [$body, $citedRaw] = ChatCitationTrailer::split($text);
-        $body = ChatAnswerCopy::normalize($body);
+        $body = WorkspaceCopy::withoutAnswerSignOff(ChatAnswerCopy::normalize($body));
 
         if (ChatInjectionGate::isRefusal($body) || str_starts_with($body, WorkspaceCopy::GAP)) {
             $this->recorder->complete($run, $streamed, ['grounded' => false], $chunkIds);
 
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => $body !== '' ? $body : WorkspaceCopy::GAP,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->persistReply($workspace, $generation, $body !== '' ? $body : WorkspaceCopy::GAP);
         }
 
         $body = SupportingPassages::includeAskedFacets($body, $question, $matches);
@@ -274,25 +339,44 @@ class WorkspaceChatService
             $cited = [];
         }
 
+        if ($grounded && ChatSummaryQuery::target($question) !== null && $this->retrieval->overviewIsPartial($question, KnowledgeCorpus::workspace($workspace->id), $matches)) {
+            $body .= "\n\n".ChatSummaryQuery::PARTIAL_NOTICE;
+        }
+
+        if ($grounded && ChatSummaryQuery::target($question) === '*' && $workspace->documents()->where('status', '!=', 'ready')->exists()) {
+            $body .= "\n\nOnly files marked Ready for answers were included. Check the status beside the other filenames.";
+        }
+
         $this->recorder->complete($run, $streamed, ['grounded' => $grounded], $chunkIds);
 
-        return $conversation->messages()->create([
-            'role' => 'assistant',
-            'body' => $body,
-            'cited_chunk_ids' => $cited,
-        ]);
+        return $this->persistReply($workspace, $generation, $body, $cited);
+    }
+
+    /** @param list<int> $cited */
+    private function persistReply(Workspace $workspace, int $generation, string $body, array $cited = []): ChatMessage
+    {
+        return Cache::lock('workspace-chat-state:'.$workspace->id, 5)->block(2, fn (): ChatMessage => $this->abandonIfNeeded($workspace, $generation) ?? $this->conversationFor($workspace)->messages()->create([
+            'role' => 'assistant', 'body' => $body, 'cited_chunk_ids' => $cited,
+        ]));
     }
 
     private function previousSafeUserTurn(ChatConversation $conversation): ?string
     {
-        $priors = $conversation->messages()
-            ->where('role', 'user')
-            ->latest('id')
-            ->skip(1)
-            ->get();
+        $turns = $conversation->messages()->latest('id')->get(['role', 'body', 'is_stopped']);
+        $skippedCurrent = false;
+        $answerStopped = false;
+        foreach ($turns as $message) {
+            if ($message->role === 'assistant') {
+                $answerStopped = $message->is_stopped;
 
-        foreach ($priors as $message) {
-            if (! ChatInjectionGate::blocks($message->body)) {
+                continue;
+            }
+            if (! $skippedCurrent) {
+                $skippedCurrent = true;
+
+                continue;
+            }
+            if (! $answerStopped && ! ChatInjectionGate::blocks($message->body)) {
                 return $message->body;
             }
         }
@@ -302,7 +386,13 @@ class WorkspaceChatService
 
     private function abandonIfNeeded(Workspace $workspace, int $generation): ?ChatMessage
     {
-        if ($this->currentStreamGeneration($workspace) !== $generation || Cache::get($this->stopCacheKey($workspace)) === true || connection_aborted() === 1) {
+        if ($this->currentStreamGeneration($workspace) !== $generation) {
+            $latest = $this->conversationFor($workspace)->messages()->latest('id')->first();
+
+            return $latest?->is_stopped ? $latest : new ChatMessage(['role' => 'assistant', 'body' => 'Stopped.', 'is_stopped' => true, 'cited_chunk_ids' => []]);
+        }
+
+        if (Cache::get($this->stopCacheKey($workspace)) === true || connection_aborted() === 1) {
             return $this->stoppedMessage($workspace);
         }
 
@@ -318,6 +408,7 @@ class WorkspaceChatService
             return $conversation->messages()->create([
                 'role' => 'assistant',
                 'body' => 'Stopped.',
+                'is_stopped' => true,
                 'cited_chunk_ids' => [],
             ]);
         }
@@ -329,6 +420,7 @@ class WorkspaceChatService
         return $conversation->messages()->make([
             'role' => 'assistant',
             'body' => 'Stopped.',
+            'is_stopped' => true,
             'cited_chunk_ids' => [],
         ]);
     }

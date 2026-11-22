@@ -226,7 +226,11 @@ class WorkspaceDocumentStore
 
         $max = (int) config('supportflow.workspaces.max_file_bytes', 8 * 1024 * 1024);
 
-        if ((int) $file->getSize() > $max || (int) $file->getSize() < 1) {
+        if ((int) $file->getSize() < 1) {
+            throw new WorkspaceUploadException('This file is empty. Choose a file containing readable text.');
+        }
+
+        if ((int) $file->getSize() > $max) {
             throw new WorkspaceUploadException('Each file must be 8 MB or smaller.');
         }
     }

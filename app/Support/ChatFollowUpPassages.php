@@ -30,6 +30,7 @@ final class ChatFollowUpPassages
 
         $previous = $conversation->messages()
             ->where('role', 'assistant')
+            ->where('is_stopped', false)
             ->latest('id')
             ->first();
 

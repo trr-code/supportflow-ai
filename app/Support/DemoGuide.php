@@ -14,8 +14,8 @@ class DemoGuide
         return [
             'return_window' => [
                 'label' => 'Use a return question',
-                'question' => 'I have an unused Harbor Trail Pack with tags, but I don\'t have the original box. What\'s the return window, and can I get a prepaid label?',
-                'observe' => 'Look for Source: Return window. The knowledge base covers the 30-day unused window, original box, and prepaid label.',
+                'question' => 'How long do I have to return my Trail Pack, do I need the original box, and can I get a prepaid label?',
+                'observe' => 'Look for Return window passages covering the deadline, packaging, and prepaid labels.',
                 'layer' => 'primary',
             ],
             'missing_parts' => [

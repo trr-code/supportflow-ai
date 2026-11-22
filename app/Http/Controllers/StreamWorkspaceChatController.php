@@ -7,6 +7,7 @@ use App\Models\KnowledgeChunk;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceChatService;
 use App\Support\ChatAnswerHtml;
+use App\Support\ChatInlineCitations;
 use App\Support\CitedSources;
 use App\Support\WorkspaceAnswerControls;
 use Illuminate\Http\JsonResponse;
@@ -95,9 +96,10 @@ class StreamWorkspaceChatController extends Controller
                             $html = $visible === '' ? '' : ChatAnswerHtml::render($visible);
                             $emit('delta', ['html' => $html]);
                         },
+                        onStart: fn (int $id) => $emit('start', ['id' => $id]),
                     );
 
-                    $event = $message->body === 'Stopped.' ? 'stopped' : 'done';
+                    $event = $message->is_stopped ? 'stopped' : 'done';
                     $emit($event, self::terminalPayload($event, $message));
                 } catch (Throwable $exception) {
                     report($exception);
@@ -121,7 +123,7 @@ class StreamWorkspaceChatController extends Controller
     }
 
     /**
-     * @return array{id: int, html?: string, sources?: list<array{chunk_id: int, title: string, heading: string|null, excerpt: string}>}
+     * @return array{id: int, html?: string, cited_html?: string, sources?: list<array{chunk_id: int, title: string, heading: string|null, excerpt: string, passage: string}>}
      */
     private static function terminalPayload(string $event, ChatMessage $message): array
     {
@@ -132,15 +134,20 @@ class StreamWorkspaceChatController extends Controller
         }
 
         $citedIds = array_values(array_map(intval(...), $message->cited_chunk_ids ?? []));
-        $payload['sources'] = $citedIds === []
-            ? []
-            : CitedSources::workspaceInspector(
-                KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get(),
-                $citedIds,
-            );
+        $chunks = $citedIds === []
+            ? collect()
+            : KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get();
+        $payload['sources'] = CitedSources::workspaceInspector($chunks, $citedIds);
 
         if ($message->body !== '') {
             $payload['html'] = ChatAnswerHtml::render($message->body);
+            if ($payload['sources'] !== []) {
+                $payload['cited_html'] = ChatInlineCitations::renderWorkspace(
+                    $message->body,
+                    CitedSources::inCitationOrder($chunks, $citedIds),
+                    $payload['sources'],
+                );
+            }
         }
 
         return $payload;

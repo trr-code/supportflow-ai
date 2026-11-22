@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\KnowledgeChunk;
+use Closure;
 use Illuminate\Support\Str;
 
 class ChatInlineCitations
@@ -24,6 +25,29 @@ class ChatInlineCitations
         $html = ChatAnswerHtml::render($marked);
 
         return self::replaceMarks($html, $marks, $messageId);
+    }
+
+    /**
+     * @param  iterable<int, KnowledgeChunk>  $chunks
+     * @param  list<array{chunk_id: int, title: string, heading: string|null, excerpt: string, passage: string}>  $sources
+     */
+    public static function renderWorkspace(string $body, iterable $chunks, array $sources): string
+    {
+        $sourceById = array_column($sources, null, 'chunk_id');
+        [$marked, $marks] = self::mark($body, self::chunks($chunks), workspace: true);
+
+        return self::replaceMarks(ChatAnswerHtml::render($marked), $marks, null, function (int $number, array $mark) use ($sourceById): string {
+            $source = $sourceById[$mark['chunk_id']];
+            $encoded = e(json_encode($source, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+
+            return '<button type="button" class="harbor-cite document-source-trigger"'
+                .' data-source="'.$encoded.'"'
+                .' data-cite-title="'.e($source['title']).'" data-cite-excerpt="'.e($source['excerpt']).'"'
+                .' x-on:mouseenter="pointerOverCite($event)" x-on:mouseleave="pointerLeftCite()"'
+                .' x-on:focus="focusCite($event)" x-on:blur="focusLeftCite()" x-on:keydown.escape="closeCite()"'
+                .' x-on:click="inspectSource(JSON.parse($el.dataset.source), $el)"'
+                .' aria-label="'.e('Read source '.$number.': '.$source['title']).'">'.$number.'</button>';
+        });
     }
 
     /**
@@ -99,16 +123,19 @@ class ChatInlineCitations
      * @param  list<KnowledgeChunk>  $chunks
      * @return array{0: string, 1: array<int, array{number: int, chunk_id: int, article_id: string, title: string, heading: string|null, excerpt: string}>}
      */
-    protected static function mark(string $body, array $chunks): array
+    protected static function mark(string $body, array $chunks, bool $workspace = false): array
     {
         $marks = [];
         $numberByChunk = [];
 
-        if (preg_match_all('/[^.!?\n]+[.!?]+|[^.!?\n]+$/u', $body, $matches, PREG_OFFSET_CAPTURE) < 1) {
+        $sentencePattern = '/[^\n]+?(?:[.!?]+(?=\s|$)(?!(?<=\b[ap]\.m\.)[ \t]+(?:(?-i:\p{Ll})|(?:Central|Eastern|Mountain|Pacific|Alaska|Hawaii|UTC|GMT|[ECMP][SD]T)\b))|(?=\n|$))/iu';
+
+        if (preg_match_all($sentencePattern, $body, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return [$body, []];
         }
 
         $inserts = [];
+        $previousChunkIds = [];
 
         foreach ($matches[0] as [$sentence, $offset]) {
             if (trim($sentence) === '') {
@@ -116,42 +143,112 @@ class ChatInlineCitations
             }
 
             $pairs = [];
+            $currentChunkIds = [];
+            $position = $offset + strlen($sentence);
+            $directChunks = array_filter($chunks, fn (KnowledgeChunk $chunk): bool => CitedChunkIds::usesChunk($sentence, $chunk));
+            $supportingChunks = $directChunks !== [] ? $directChunks : array_filter($chunks, fn (KnowledgeChunk $chunk): bool => $workspace && self::sharesAmount($sentence, $chunk->body));
 
-            foreach ($chunks as $chunk) {
-                if (! CitedChunkIds::usesChunk($sentence, $chunk)) {
-                    continue;
-                }
-
+            foreach ($workspace ? $supportingChunks : self::preferDirectReturnWindow($sentence, $supportingChunks) as $chunk) {
                 $numberByChunk[$chunk->id] ??= count($numberByChunk) + 1;
                 $number = $numberByChunk[$chunk->id];
                 $marks[$number] ??= self::markMeta($chunk, $number);
-                $pairs[] = $number.':'.$chunk->id;
+                $pair = $number.':'.$chunk->id;
+                $previousPosition = $previousChunkIds[$chunk->id] ?? null;
+                if ($previousPosition !== null) {
+                    unset($inserts[$previousPosition][$chunk->id]);
+                }
+                $currentChunkIds[$chunk->id] = $position;
+                $pairs[$chunk->id] = $pair;
             }
+
+            $previousChunkIds = $currentChunkIds;
 
             if ($pairs === []) {
                 continue;
             }
 
-            $inserts[$offset + strlen($sentence)] = '⟦c:'.implode(',', array_unique($pairs)).'⟧';
+            $inserts[$position] = $pairs;
         }
 
         krsort($inserts);
 
-        foreach ($inserts as $position => $marker) {
-            $body = substr($body, 0, $position).$marker.substr($body, $position);
+        foreach ($inserts as $position => $pairs) {
+            if ($pairs !== []) {
+                $body = substr($body, 0, $position).'⟦c:'.implode(',', $pairs).'⟧'.substr($body, $position);
+            }
         }
 
-        return [$body, $marks];
+        if ($workspace && $marks === []) {
+            foreach ($chunks as $chunk) {
+                if (! isset($numberByChunk[$chunk->id])) {
+                    $number = count($marks) + 1;
+                    $marks[$number] = self::markMeta($chunk, $number);
+                    $body .= '⟦c:'.$number.':'.$chunk->id.'⟧';
+                }
+            }
+        }
+
+        $visibleMarks = [];
+        $visibleNumbers = [];
+        $body = preg_replace_callback('/⟦c:([0-9:,]+)⟧/', function (array $match) use ($marks, &$visibleMarks, &$visibleNumbers): string {
+            $pairs = [];
+            foreach (explode(',', $match[1]) as $pair) {
+                [$oldNumber, $chunkId] = array_pad(explode(':', $pair, 2), 2, '');
+                $mark = $marks[(int) $oldNumber] ?? null;
+                if ($mark === null || $mark['chunk_id'] !== (int) $chunkId) {
+                    continue;
+                }
+                $visibleNumbers[$chunkId] ??= count($visibleNumbers) + 1;
+                $number = $visibleNumbers[$chunkId];
+                $visibleMarks[$number] = array_replace($mark, ['number' => $number]);
+                $pairs[] = $number.':'.$chunkId;
+            }
+
+            return $pairs === [] ? '' : '⟦c:'.implode(',', $pairs).'⟧';
+        }, $body) ?? $body;
+
+        return [$body, $visibleMarks];
+    }
+
+    private static function sharesAmount(string $sentence, string $passage): bool
+    {
+        preg_match_all('/\$\d[\d,]*(?:\.\d{2})?(?!\d)/', $sentence, $answerAmounts);
+        preg_match_all('/\$\d[\d,]*(?:\.\d{2})?(?!\d)/', $passage, $sourceAmounts);
+
+        return array_intersect($answerAmounts[0], $sourceAmounts[0]) !== [];
+    }
+
+    /**
+     * @param  array<int, KnowledgeChunk>  $chunks
+     * @return array<int, KnowledgeChunk>
+     */
+    private static function preferDirectReturnWindow(string $sentence, array $chunks): array
+    {
+        if ((! CitedChunkIds::statesThirtyDayReturnWindow($sentence)
+                && preg_match('/\bunused\b/i', $sentence) !== 1)
+            || preg_match('/\$|\b(?:chat|approv\w*|confirm\w*|final.sale|refund\w*|label\w*|reference\w*|staff|review)\b/i', $sentence)) {
+            return $chunks;
+        }
+
+        foreach ($chunks as $chunk) {
+            if ($chunk->article->slug === 'return-window' && $chunk->heading !== 'Start a return in chat'
+                && CitedChunkIds::statesThirtyDayReturnWindow($chunk->body)) {
+                return array_filter($chunks, fn (KnowledgeChunk $source): bool => $source->knowledge_article_id !== $chunk->knowledge_article_id
+                    || $source->heading !== 'Start a return in chat');
+            }
+        }
+
+        return $chunks;
     }
 
     /**
      * @param  array<int, array{number: int, chunk_id: int, article_id: string, title: string, heading: string|null, excerpt: string}>  $marks
      */
-    protected static function replaceMarks(string $html, array $marks, ?int $messageId): string
+    protected static function replaceMarks(string $html, array $marks, ?int $messageId, ?Closure $renderButton = null): string
     {
         $replaced = preg_replace_callback(
             '/⟦c:([0-9]+(?::[0-9]+)?(?:,[0-9]+(?::[0-9]+)?)*)⟧/',
-            function (array $match) use ($marks, $messageId): string {
+            function (array $match) use ($marks, $messageId, $renderButton): string {
                 $buttons = '';
 
                 foreach (explode(',', $match[1]) as $pair) {
@@ -162,7 +259,9 @@ class ChatInlineCitations
                         continue;
                     }
 
-                    $buttons .= self::button((int) $number, $mark, $messageId);
+                    $buttons .= $renderButton === null
+                        ? self::button((int) $number, $mark, $messageId)
+                        : $renderButton((int) $number, $mark);
                 }
 
                 return $buttons;
@@ -220,7 +319,7 @@ class ChatInlineCitations
             'article_id' => (string) ($chunk->knowledge_article_id ?: 'unknown-'.$chunk->id),
             'title' => $chunk->article?->title ?: 'Knowledge article',
             'heading' => $heading !== '' ? $heading : null,
-            'excerpt' => Str::limit($excerpt, 280, ''),
+            'excerpt' => Str::limit($excerpt, 280, '…', preserveWords: true),
         ];
     }
 }

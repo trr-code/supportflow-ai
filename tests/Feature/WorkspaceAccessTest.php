@@ -64,7 +64,7 @@ test('a visitor gets a return code once and this browser can reopen the workspac
         ->assertSee(WorkspaceCopy::DISCLOSURE)
         ->call('start')
         ->assertSee('Save your return code')
-        ->assertSee('Anyone using this browser can reopen it during that time.')
+        ->assertSeeNormalizedText('Anyone using this browser can reopen it during that time.')
         ->assertSee('The code is not stored. A hash is.')
         ->assertSee('Copy return code')
         ->assertSee('$flux.toast({ text: \'Copied.\', variant: \'success\', duration: 3000 })', false)

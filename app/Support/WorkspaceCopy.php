@@ -8,13 +8,11 @@ final class WorkspaceCopy
 
     public const string CAPACITY = 'This server cannot store more documents right now. Try again later, or delete a document from this workspace.';
 
-    public const string FAILURE = 'This document could not be read. It is not available for answers. You can delete it and upload another file.';
-
     public const string LEAVE = 'Forget this browser. The workspace and your files stay until the expiration date.';
 
     public const string DELETE = 'Delete this workspace now. Files, chats, and the return code stop working.';
 
-    public const string GAP = 'These documents do not contain an answer to that.';
+    public const string GAP = 'I couldn’t find an answer in these documents. If you have a document that covers it, you can upload it and ask again.';
 
     public const string WRONG_CODE = 'That return code does not open a workspace.';
 
@@ -22,5 +20,23 @@ final class WorkspaceCopy
 
     public const string PASSWORD = 'This file is password-protected.';
 
-    public const string NO_TEXT = 'This file has no extractable text.';
+    public const string NO_TEXT = 'No readable text was found. This file may be blank or contain only images. Upload a copy with text you can highlight and copy; image-only scans cannot be read here.';
+
+    public const string BLANK = 'This file is blank or contains only whitespace. Add text and upload it again.';
+
+    public static function fileFailureMessage(?string $reason): string
+    {
+        return match ($reason) {
+            self::BLANK => 'This file is blank. Upload a copy containing text.',
+            self::NO_TEXT, 'This file has no extractable text.' => 'No readable text found. Upload a text-readable copy.',
+            self::PASSWORD => 'Password-protected file. Upload an unlocked copy.',
+            null, '' => 'Could not read this file. Upload another copy.',
+            default => $reason,
+        };
+    }
+
+    public static function withoutAnswerSignOff(string $body): string
+    {
+        return preg_replace('/(?:^|(?<=[.!?])\s+|\R+)Thank you[.!]?\s*\z/i', '', $body) ?? $body;
+    }
 }

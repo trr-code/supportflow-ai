@@ -496,7 +496,7 @@ test('billing dispute draft cites gift cards and billing splits and states the r
         ->and($reply->body)->toContain('captured first')
         ->and($reply->body)->toContain('3 business days')
         ->and($reply->body)->toContain('two authorizations')
-        ->and($reply->body)->toContain("Best,\nAlex Rivera\nHarbor & Co Support")
+        ->and($reply->body)->toContain("Best,\nAlex Rivera\nHarbor Outfitters Support")
         ->and($reply->citedChunks()->pluck('article.slug')->unique()->sort()->values()->all())
         ->toBe(['billing-splits', 'gift-cards']);
 
@@ -676,7 +676,7 @@ test('approving an unchanged draft does not record suggestion edited', function 
         ->call('showTools', 'activity')
         ->assertDontSee('Reply draft edited');
 
-    expect($ticket->fresh()->status)->toBe(TicketStatus::WaitingOnCustomer)
+    expect($ticket->fresh()->status)->toBe(TicketStatus::AwaitingStaff)
         ->and($ticket->events()->where('type', TicketEventType::SuggestionEdited)->count())->toBe(0)
         ->and($ticket->events()->where('type', TicketEventType::SuggestionApproved)->count())->toBe(1);
 });
@@ -705,7 +705,7 @@ test('approving an edited draft records suggestion edited', function () {
         ->assertSee('Suggested reply approved');
 
     expect($ticket->events()->where('type', TicketEventType::SuggestionEdited)->count())->toBe(1)
-        ->and($ticket->fresh()->status)->toBe(TicketStatus::WaitingOnCustomer);
+        ->and($ticket->fresh()->status)->toBe(TicketStatus::AwaitingStaff);
 });
 
 test('agent ticket show polls while submitted or ai reviewing', function () {
@@ -1063,7 +1063,7 @@ test('an identical regenerate retries once then keeps the current draft and tell
 
     $chunk = KnowledgeChunk::query()->where('knowledge_article_id', $article->id)->firstOrFail();
     $inner = 'The original shipping box is helpful but not required. A sturdy carton is fine.';
-    $original = "Hi Jamie,\n\n{$inner}\n\nBest,\nAlex Rivera\nHarbor & Co Support";
+    $original = "Hi Jamie,\n\n{$inner}\n\nBest,\nAlex Rivera\nHarbor Outfitters Support";
     $payload = [
         'body' => $inner,
         'cited_chunk_ids' => [$chunk->id],

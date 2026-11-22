@@ -1,8 +1,35 @@
 <?php
 
 use App\Models\ChatMessage;
+use App\Models\DemoSession;
+use App\Models\KnowledgeArticle;
 use App\Models\KnowledgeChunk;
 use App\Services\ChatService;
+use App\Services\HarborChatHandoff;
+use App\Services\SuggestedReplyService;
+use App\Services\TicketIntakeService;
+use App\Services\TicketService;
+use Illuminate\Support\Str;
+
+test('typed return handoff produces a grounded staff draft and approved customer reply', function () {
+    $session = DemoSession::query()->create(['id' => (string) Str::uuid(), 'last_activity_at' => now()]);
+    $chat = app(ChatService::class);
+    $chat->ask($session, 'I want to return my $249 tent. It arrived 10 days ago, is unused, and still has its tags.');
+    $chat->ask($session, 'HBR-TEST-249');
+    $proposal = app(HarborChatHandoff::class)->proposal($chat->conversationFor($session)->messages()->orderBy('id')->get());
+    expect($proposal)->not->toBeNull();
+    $ticket = app(TicketService::class)->createReturnReviewTicket([
+        'customer_name' => 'Demo customer', 'customer_email' => 'customer@example.test', 'subject' => '', 'description' => $proposal['description'],
+    ], $session, $proposal['order']);
+    app(TicketIntakeService::class)->process($ticket);
+    $replies = app(SuggestedReplyService::class);
+    $reply = $replies->generate($ticket->fresh());
+    expect($reply)->not->toBeNull();
+    expect($reply->body)->not->toMatch('/(?:create|submit|open) (?:a |another |new )?(?:support )?ticket/iu');
+    expect($reply->cited_chunk_ids)->not->toBeEmpty();
+    $replies->approveAndSend($reply, 'Test agent');
+    $this->get(route('tickets.status', $ticket->public_token))->assertOk()->assertSee($reply->body);
+});
 
 test('chat answers an unused 28L to 36L exchange from the seeded policies', function () {
     $message = null;
@@ -28,6 +55,25 @@ test('chat answers an unused 28L to 36L exchange from the seeded policies', func
                 ->whereNull('heading')
                 ->exists(),
         )->toBeTrue();
+});
+
+test('chat resolves the condition follow-up from the previous return subject', function () {
+    $session = evalDemoSession();
+    $chat = app(ChatService::class);
+    $chat->ask($session, 'What do I need to return my pack?');
+    $answer = $chat->ask($session, 'What condition does it need to be in?');
+    expect($answer->body)->toMatch('/unused/i')->toMatch('/tags/i')
+        ->not->toContain('I don’t have a documented answer')
+        ->and(citedArticleSlugs($answer))->toContain('return-window');
+});
+
+test('chat summarizes a named Harbor policy with sources', function () {
+    $article = KnowledgeArticle::query()->where('slug', 'return-window')->whereNull('workspace_id')->firstOrFail();
+    $answer = app(ChatService::class)->ask(evalDemoSession(), 'Summarize '.$article->title);
+    expect($answer->body)->not->toContain('I don’t have a documented answer')
+        ->and($answer->body)->toMatch('/30\s*days/i')
+        ->and($answer->cited_chunk_ids)->not->toBeEmpty()
+        ->and(citedArticleSlugs($answer))->toContain('return-window');
 });
 
 test('chat refuses an undocumented tax question without citations', function () {
@@ -151,4 +197,14 @@ test('chat covers the unused return window and original box', function () {
 
     expect($message)->toBeInstanceOf(ChatMessage::class)
         ->and(citedArticleSlugs($message))->toContain('return-window');
+});
+
+test('chat declines an overdue Trail Pack return without offering an undocumented exception', function () {
+    $message = app(ChatService::class)->ask(evalDemoSession(), 'My unused Trail Pack with tags arrived 40 days ago. Can I return it?');
+
+    expect($message->body)
+        ->toMatch('/30\s*days|30-day/i')
+        ->toMatch('/outside|not eligible|can.t return|cannot return|can’t return/i')
+        ->not->toMatch('/exception|support ticket|review/i')
+        ->and(citedArticleSlugs($message))->toBe(['return-window']);
 });

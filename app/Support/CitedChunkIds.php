@@ -75,7 +75,22 @@ class CitedChunkIds
             }
         }
 
-        return self::sharesGroundedClaims($haystack, $source);
+        return self::sharesGroundedClaims($haystack, $source)
+            || self::sharesDistinctiveWords($haystack, $source);
+    }
+
+    private static function sharesDistinctiveWords(string $body, string $source): bool
+    {
+        $stop = ['a', 'an', 'or', 'in', 'on', 'of', 'to', 'be', 'those', 'these', 'cases', 'the', 'and', 'for', 'with', 'that', 'this', 'from', 'within', 'after', 'before', 'are', 'was', 'has', 'have', 'not', 'does', 'may', 'can', 'will', 'its', 'you', 'your', 'they', 'their', 'only', 'must', 'when', 'than', 'then', 'been', 'being'];
+        $words = static fn (string $text): array => array_values(array_unique(array_filter(
+            explode(' ', $text),
+            static fn (string $word): bool => strlen($word) > 2 && ! in_array($word, $stop, true),
+        )));
+        $answer = $words($body);
+        $passage = $words($source);
+        $shared = count(array_intersect($answer, $passage));
+
+        return $shared >= 3 && $shared >= min(count($answer), count($passage)) * 0.75;
     }
 
     /**
@@ -83,6 +98,16 @@ class CitedChunkIds
      */
     protected static function sharesGroundedClaims(string $body, string $source): bool
     {
+        if (self::statesThirtyDayReturnWindow($body) && self::statesThirtyDayReturnWindow($source)) {
+            return true;
+        }
+
+        $damageDeadline = '/\b(?:file|report)(?: the damage)? within (?:5|five) days of delivery\b/';
+
+        if (preg_match($damageDeadline, $source) === 1 && preg_match($damageDeadline, $body) === 1) {
+            return true;
+        }
+
         $bodyHasFree = str_contains($body, 'free')
             || str_contains($body, 'no charge')
             || str_contains($body, 'without a fee')
@@ -94,9 +119,19 @@ class CitedChunkIds
             && str_contains($body, '30 days');
     }
 
+    public static function statesThirtyDayReturnWindow(string $text): bool
+    {
+        $text = self::normalize($text);
+
+        return preg_match('/\b(?:30|thirty) day return window\b/', $text) === 1
+            || (preg_match('/\breturns?\b/', $text) === 1
+                && preg_match('/\bwithin (?:30|thirty) days of delivery\b/', $text) === 1);
+    }
+
     protected static function normalize(string $text): string
     {
         $text = mb_strtolower($text);
+        $text = preg_replace('/\b(refund|return|cover|inspect|offer)(?:ed|s|ing)\b/u', '$1', $text) ?? $text;
         $text = preg_replace('/[^a-z0-9]+/u', ' ', $text) ?? $text;
 
         return trim(preg_replace('/\s+/', ' ', $text) ?? $text);

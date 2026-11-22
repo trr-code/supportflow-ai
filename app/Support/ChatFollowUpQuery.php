@@ -4,6 +4,11 @@ namespace App\Support;
 
 class ChatFollowUpQuery
 {
+    public static function lacksPreviousSubject(string $current, ?string $previous): bool
+    {
+        return $previous === null && ! ChatInjectionGate::blocks($current) && self::isContextual($current);
+    }
+
     public static function needsPreviousSubjects(string $current, string $previous): bool
     {
         if (trim($current) === '' || trim($previous) === '') {
@@ -28,6 +33,15 @@ class ChatFollowUpQuery
 
     private static function isContextual(string $current): bool
     {
+        $current = preg_replace('/^\s*(?:can|could|would) you\s+(?:please\s+)?/i', '', $current) ?? $current;
+        if (preg_match('/^\s*(?:please\s+)?(?:explain|expand(?: on)?|elaborate(?: on)?|describe|clarify|summari[sz]e|tell me (?:more )?about)\s+(?:(?:all|more of)\s+)?(?:those|these|the above|that|this|them|it)(?:\s+(?:points|rules|details|requirements|conditions|exceptions|answer))?(?:\s+(?:in (?:more )?detail|further|more|again))?\s*[.!?]*\s*$/i', $current) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^\s*(?:what|which|how)\b.{0,70}\b(?:does|do|should|must)\s+(?:it|that|they|those)\b/i', $current) === 1) {
+            return true;
+        }
+
         if (preg_match('/^\s*(?:so[,:]?\s+)?(?:and\s+)?(?:which(?: one)? is |what(?:\'s| is) )?(?:longer|shorter)\??\s*$/i', $current) === 1) {
             return true;
         }
