@@ -7,6 +7,7 @@ enum AiRunFeature: string
     case Triage = 'triage';
     case SuggestedReply = 'suggested_reply';
     case Chat = 'chat';
+    case AskLucid = 'ask_lucid';
     case WorkspaceChat = 'workspace_chat';
     case Embedding = 'embedding';
     case Transcription = 'transcription';

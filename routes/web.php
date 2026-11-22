@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AskLucidController;
 use App\Http\Controllers\EnterDemoAgentController;
 use App\Http\Controllers\StartDictationSessionController;
 use App\Http\Controllers\StreamChatController;
 use App\Http\Controllers\StreamWorkspaceChatController;
 use App\Http\Controllers\SupplierInvoiceExportController;
+use App\Http\Controllers\SupplierInvoiceOriginalController;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoEnvironment;
 use App\Livewire\Pages\DemoSafety;
@@ -24,6 +26,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', Welcome::class)->name('home');
 
+Route::get('/ask-lucid', [AskLucidController::class, 'index'])->name('ask-lucid.index');
+Route::post('/ask-lucid', [AskLucidController::class, 'store'])->middleware('throttle:chat')->name('ask-lucid.store');
+Route::patch('/ask-lucid', [AskLucidController::class, 'update'])->name('ask-lucid.stop');
+Route::delete('/ask-lucid', [AskLucidController::class, 'destroy'])->name('ask-lucid.destroy');
+
 Route::get('/demo/harbor', DemoWorkspace::class)->name('demo.harbor');
 Route::get('/demo/documents', DemoWorkspace::class)->name('demo.documents');
 Route::get('/demo/invoices', DemoWorkspace::class)->name('demo.invoices');
@@ -38,6 +45,9 @@ Route::get('/demo/environment', DemoEnvironment::class)->name('demo.environment'
 Route::get('/tools', fn () => redirect()->route('demo.harbor', ['example' => 'replacement']))->name('demo.tools');
 Route::get('/preview', WorkspacePreview::class)->name('workspaces.preview');
 
+Route::get('/invoices/{invoice}/original.pdf', SupplierInvoiceOriginalController::class)
+    ->whereUuid('invoice')
+    ->name('documents.invoices.original');
 Route::get('/invoices/{invoice}/export.csv', [SupplierInvoiceExportController::class, 'csv'])
     ->where('invoice', '[0-9a-fA-F-]{36}')
     ->name('documents.invoices.export.csv');
