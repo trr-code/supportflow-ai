@@ -4,6 +4,21 @@ use App\Ai\Agents\AskLucidAgent;
 use Illuminate\Support\Facades\Http;
 use Pest\Browser\Execution;
 
+test('Ask Lucid does not restore a sent question when microphone controls return', function (int $width) {
+    Http::preventStrayRequests();
+    AskLucidAgent::fake(['This app demonstrates business workflows.']);
+    $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => 900]]);
+    $page->click('.lucid-assistant-launcher')->assertSee('AI app guide');
+    $page->fill('[aria-label="Ask about Lucid"]', 'What does this app do?')
+        ->click('[aria-label="Send Ask Lucid question"]')
+        ->assertSee('This app demonstrates business workflows.');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("!Alpine.\$data(document.querySelector('[data-ask-lucid]')).busy && !!document.querySelector('[data-ask-lucid] [data-dictation-key]')"))->toBeTrue());
+    $page->assertValue('[aria-label="Ask about Lucid"]', '');
+    expect($page->script("document.querySelectorAll('.lucid-assistant-turn.is-user').length"))->toBe(1);
+    $page->click('[aria-label="Close Ask Lucid"]')->click('.lucid-assistant-launcher')
+        ->assertValue('[aria-label="Ask about Lucid"]', '')->assertNoJavaScriptErrors();
+})->with([1440, 390]);
+
 test('compact Ask Lucid keeps its header and composer inside the available screen', function (int $width, int $height) {
     $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => $height]]);
 
@@ -241,7 +256,8 @@ test('Ask Lucid keeps its question and visible answer when stopped during paced 
     $page = visit(route('home'));
     $page->click('.lucid-assistant-launcher')->fill('[aria-label="Ask about Lucid"]', 'Explain Document chat')->click('[aria-label="Send Ask Lucid question"]');
     $page->assertSee('Document chat finds')->click('[aria-label="Stop answer"]')
-        ->assertSee('Explain Document chat')->assertSee('Document chat finds')->assertSee('You stopped this answer');
+        ->assertSee('Explain Document chat')->assertSee('Document chat finds')->assertSee('You stopped this answer')
+        ->assertValue('[aria-label="Ask about Lucid"]', '');
     expect($page->script("document.querySelector('.lucid-assistant-error').getClientRects().length"))->toBe(0);
     $page->click('[aria-label="Close Ask Lucid"]')->click('.lucid-assistant-launcher')->assertSee('You stopped this answer')->assertNoJavaScriptErrors();
     expect($page->script("document.querySelector('.chat-stopped-status').closest('.showroom-message-bubble') === null"))->toBeTrue();

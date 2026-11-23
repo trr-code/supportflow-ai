@@ -131,7 +131,7 @@
             'inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ring-[#111] before:block before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-[\'\']':
                 pill,
             'text-emerald-950': tone === 'success',
-            'bg-emerald-50': tone === 'success' && pill,
+            'bg-emerald-200': tone === 'success' && pill,
             'text-blue-800': tone === 'info',
             'text-amber-900': tone === 'warning',
             'text-red-800': tone === 'error',

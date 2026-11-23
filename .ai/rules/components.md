@@ -23,3 +23,6 @@ Owner approved 2026-11-21: while recording, explicit Send stops capture, waits f
 
 ## Anonymous presentation components are the default
 Default to anonymous Blade presentation components with explicit @props and attributes forwarded/merged onto their intended elements. Keep workflow state in the calling Livewire component. Class-based Blade components remain available when their capabilities are warranted; this does not require converting Livewire components.
+
+## Status pills use stronger pastel semantics with black outlines
+Owner 2026-11-23 keeps black inset outlines and readable dark labels/shapes, but wants more distinctive pastel status fills. Shared status and success pills use blue/amber/orange/red/emerald/zinc 200 fills: information/progress, waiting/attention, escalation, failure, success, neutral respectively. Priority medium/high/urgent follows golden amber/peach-orange/red with a black outline; instruction examples reuse shared status components. Match actual roles consistently; W3C requires contrast and non-color meaning, not a specific palette. Carbon/GOV.UK status guidance supports these conventional meanings; exact Lucid tones are owner-authorized design choices.

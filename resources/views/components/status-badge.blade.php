@@ -4,14 +4,14 @@
     $label = $label ?? ($status instanceof \App\Enums\TicketStatus ? $status->label() : (string) $status);
     $value = $status instanceof \App\Enums\TicketStatus ? $status->value : (string) $status;
     $classes = match ($value) {
-        'submitted', 'queued', 'processing' => 'bg-blue-50 text-blue-950',
-        'triaging' => 'bg-blue-50 text-blue-950',
-        'awaiting_review', 'awaiting_staff' => 'bg-amber-50 text-amber-950',
-        'escalated' => 'bg-orange-50 text-orange-950',
-        'ai_failed', 'failed' => 'bg-red-50 text-red-950',
-        'resolved', 'ready' => 'bg-emerald-50 text-emerald-950',
-        'waiting_on_customer' => 'bg-zinc-100 text-zinc-800',
-        default => 'bg-harbor-sand text-harbor-ink',
+        'submitted', 'queued', 'processing' => 'bg-blue-200 text-blue-950',
+        'triaging' => 'bg-blue-200 text-blue-950',
+        'awaiting_review', 'awaiting_staff' => 'bg-amber-200 text-amber-950',
+        'escalated' => 'bg-orange-200 text-orange-950',
+        'ai_failed', 'failed' => 'bg-red-200 text-red-950',
+        'resolved', 'ready' => 'bg-emerald-200 text-emerald-950',
+        'waiting_on_customer' => 'bg-zinc-200 text-zinc-800',
+        default => 'bg-zinc-200 text-zinc-800',
     };
     $mark = match ($value) {
         'submitted' => 'rounded-sm',

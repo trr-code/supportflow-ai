@@ -16,7 +16,7 @@ test('ticket link copying has local feedback and a usable failure fallback', fun
     $page->script("Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedTicketLink = text; } } })");
     $page->click('Copy ticket link')->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');
     expect($page->script('window.copiedTicketLink'))->toBe(route('tickets.status', $ticket->public_token));
-    expect($page->script("document.querySelector('[data-ticket-copy-feedback] span').classList.contains('bg-emerald-50')"))->toBeTrue();
+    expect($page->script("document.querySelector('[data-ticket-copy-feedback] span').classList.contains('bg-emerald-200')"))->toBeTrue();
     $page->wait(6)->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');
     $page->wait(3)->assertDontSee('Link copied.');
     $page->click('Copy ticket link')->assertSeeIn('[data-ticket-copy-feedback]', 'Link copied.');

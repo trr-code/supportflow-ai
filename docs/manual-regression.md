@@ -22,7 +22,7 @@ Explicitly started dictation continues across internal browsing and external-app
 
 - [x] Terry confirmed the spoken navigation narrative remained in Document chat after policies, Agent desk tab, Invoice review and Customer support browsing. This is the exercised path, not every browser/device.
 - [x] Terry confirmed Stop/resume kept the earlier draft and appended one additional sentence exactly once.
-- [ ] Separately test switching focus to another application and returning; do not equate focus loss with internal navigation. Record browser/device limitations and actual behavior.
+- [ ] Samsung owner observation 2026-11-23 used Android Recents to leave the browser entirely: pre-switch speech retained, background phrase absent, recording still active on return. Preserve this observation without claiming a confirmed app defect or a universal browser guarantee; do not repeat/fix it as an internal-navigation failure. Desktop external-focus acceptance remains distinct.
 - [x] Terry confirmed Send submitted once, recording stayed off and the cleared composer stayed empty while he continued talking (2026-11-22). Preserve this pass; do not repeat without a relevant change.
 - [ ] Review the quieter dotted waveform and absence of routine status popups with the physical microphone; actionable errors remain visible. Stop still finalizes without sending.
 
@@ -65,6 +65,8 @@ Controlled browser coverage checks first-recording waveforms, Stop/finalization,
 - [ ] If the browser has no mic, the typed fallback message appears.
 
 ## Mobile and iPad
+
+Current owner clarification (2026-11-23): this remaining device pass checks mobile/tablet UI—readability, clipping, navigation, scrolling, orientation and keyboard/control reachability. Reuse accepted functional evidence. Do not require repeating upload processing, grounding or complete ticket workflows merely to inspect their layout; use existing content where available. Repeat functional actions only when necessary to expose a device-specific state or investigate an observed defect. Samsung Ask Lucid composer/Stop/background-recording observations are recorded in the newest release-readiness checkpoint and remain unresolved; no repair is claimed.
 
 Terry explicitly defers the complete physical-device review to the end of Package 4, after the desktop repair/design pass and availability on the independently authorized live deployment. Do not insert phone checks into the current desktop walkthrough. Automated viewport evidence does not close these physical-device items.
 

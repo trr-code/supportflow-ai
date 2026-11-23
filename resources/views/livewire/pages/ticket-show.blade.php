@@ -314,9 +314,9 @@
                                         </div>
                                     </div>
                                     @if ($pendingReply?->grounded && $sources !== [])
-                                        <p data-policy-sources-badge class="inline-flex shrink-0 items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs whitespace-nowrap text-blue-700 ring-1 ring-[#111] ring-inset"><flux:icon.information-circle class="size-3.5" />Policy sources available</p>
+                                        <p data-policy-sources-badge class="inline-flex shrink-0 items-center gap-1 rounded-md bg-blue-200 px-2 py-1 text-xs whitespace-nowrap text-blue-950 ring-1 ring-[#111] ring-inset"><flux:icon.information-circle class="size-3.5" />Policy sources available</p>
                                     @elseif ($pendingReply)
-                                        <p class="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-xs font-medium text-harbor-ink ring-1 ring-[#111] ring-inset">Grounded: {{ $pendingReply->grounded ? 'yes' : 'no' }}.</p>
+                                        <p class="rounded-full bg-[#e4e4e7] px-2 py-0.5 text-xs font-medium text-harbor-ink ring-1 ring-[#111] ring-inset">Grounded: {{ $pendingReply->grounded ? 'yes' : 'no' }}.</p>
                                     @endif
                                 </div>
 

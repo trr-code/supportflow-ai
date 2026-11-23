@@ -345,10 +345,10 @@ test('customer receipt distinguishes the current human check from AI processing'
     $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview]);
     Livewire::test(App\Livewire\Pages\TicketStatus::class, ['publicToken' => $ticket->public_token, 'embedded' => true])
         ->assertSee('Human review')->assertSee('aria-current="step"', false)
-        ->assertSee('bg-amber-50', false)->assertDontSee('bg-amber-200', false);
+        ->assertSee('bg-amber-200 text-amber-950', false)->assertDontSee('bg-amber-50 text-amber-950', false);
 
     $ticket->update(['status' => TicketStatus::Triaging]);
     Livewire::test(App\Livewire\Pages\TicketStatus::class, ['publicToken' => $ticket->public_token, 'embedded' => true])
-        ->assertSee('AI reviewing')->assertSee('bg-blue-50', false)
+        ->assertSee('AI reviewing')->assertSee('bg-blue-200', false)
         ->assertDontSee('aria-current="step"', false);
 });

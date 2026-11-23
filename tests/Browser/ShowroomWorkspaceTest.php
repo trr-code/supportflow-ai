@@ -225,23 +225,52 @@ test('updated demo screens keep guidance larger than bottom notices', function (
     $page->assertNoJavaScriptErrors()->screenshot(filename: 'showroom-typography-'.$screen);
 })->with(['chat', 'ticket-start', 'prepared-ticket', 'own-ticket', 'documents', 'invoices', 'replacement']);
 
-test('ticket queue shows every shared pastel status and compact heading', function () {
+test('ticket queue shows every shared pastel status and compact heading', function (int $width) {
     fakeSupportAi();
     Http::preventStrayRequests();
     $this->actingAs(User::factory()->create());
     foreach (TicketStatus::cases() as $status) {
         Ticket::factory()->seeded()->create(['status' => $status, 'subject' => 'Status example: '.$status->label()]);
     }
-    $page = visit(route('agent.tickets.index'), ['viewport' => ['width' => 1440, 'height' => 900]]);
+    $page = visit(route('agent.tickets.index'), ['viewport' => ['width' => $width, 'height' => 900]]);
     expect($page->script("getComputedStyle(document.querySelector('#ticket-queue-title')).fontSize"))->toBe('24px');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-queue-heading')).backgroundColor"))->toBe('rgba(0, 0, 0, 0)');
     foreach (TicketStatus::cases() as $status) {
         $page->assertSee($status->label());
     }
     $tones = $page->script("[...document.querySelectorAll('table tbody span.rounded-full')].map(badge => badge.className)");
-    expect(implode(' ', $tones))->toContain('bg-blue-50', 'bg-amber-50', 'bg-orange-50', 'bg-red-50', 'bg-emerald-50', 'bg-zinc-100');
-    $page->assertNoJavaScriptErrors()->screenshot(filename: 'showroom-queue-all-status-colors');
-});
+    expect(implode(' ', $tones))->toContain('bg-blue-200', 'bg-amber-200', 'bg-orange-200', 'bg-red-200', 'bg-emerald-200', 'bg-zinc-200');
+    $contrast = $page->script(<<<'JS'
+        (() => {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 1;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            const luminance = color => {
+                context.clearRect(0, 0, 1, 1);
+                context.fillStyle = color;
+                context.fillRect(0, 0, 1, 1);
+                const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3)
+                    .map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+                return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+            };
+            const ratio = (a, b) => (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+            const badges = [...document.querySelectorAll('span.rounded-full')]
+                .filter(badge => badge.querySelector(':scope > .truncate') && badge.getClientRects().length);
+            return badges.map(badge => {
+                const style = getComputedStyle(badge);
+                const fill = luminance(style.backgroundColor);
+                return { label: badge.textContent.trim(), text: ratio(fill, luminance(style.color)), outline: ratio(fill, luminance('#111')), blackOutline: style.boxShadow.includes('rgb(17, 17, 17)') };
+            });
+        })()
+    JS);
+    expect($contrast)->not->toBeEmpty();
+    foreach ($contrast as $badge) {
+        expect($badge['text'])->toBeGreaterThanOrEqual(4.5);
+        expect($badge['outline'])->toBeGreaterThanOrEqual(3);
+        expect($badge['blackOutline'])->toBeTrue();
+    }
+    $page->assertNoJavaScriptErrors()->screenshot(filename: 'showroom-queue-all-status-colors-'.$width);
+})->with([1440, 390]);
 
 test('dashboard uses consistent spacing and its instructions can be hidden and restored', function (int $width, int $height) {
     $this->actingAs(User::factory()->create());

@@ -272,11 +272,11 @@ test('queue statuses use pastel backgrounds with the live labels', function () {
     $html = Livewire::test(TicketIndex::class)->html();
 
     expect($html)
-        ->toContain('bg-blue-50 text-blue-950')
-        ->toContain('bg-amber-50 text-amber-950')
-        ->toContain('bg-orange-50 text-orange-950')
-        ->toContain('bg-zinc-100 text-zinc-800')
-        ->toContain('bg-red-50 text-red-950')
+        ->toContain('bg-blue-200 text-blue-950')
+        ->toContain('bg-amber-200 text-amber-950')
+        ->toContain('bg-orange-200 text-orange-950')
+        ->toContain('bg-zinc-200 text-zinc-800')
+        ->toContain('bg-red-200 text-red-950')
         ->toContain('Submitted')
         ->toContain('Awaiting review')
         ->toContain('Escalated')

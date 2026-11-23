@@ -92,13 +92,13 @@ test('ticket save feedback stays by its action without a first-save jump', funct
         expect($page->script("(() => { const button = document.querySelector('.showroom-ticket-tools form button').getBoundingClientRect(); const feedback = document.querySelector('[data-details-feedback]').getBoundingClientRect(); return Math.abs(button.top - feedback.top) < 50 && feedback.bottom > 0 && feedback.top < innerHeight; })()"))->toBeTrue();
     }
     $page->click('#workspace-review')->fill('#ticket-draft', 'My updated private draft.')->click('Save edits')->assertSee('Draft saved.');
-    expect($page->script("(() => { const feedback = document.querySelector('[data-reply-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
+    expect($page->script("(() => { const feedback = document.querySelector('[data-reply-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-200') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
     $page->script("document.querySelector('[data-reply-feedback]').scrollIntoView({ block: 'center', behavior: 'instant' })");
     $page->screenshot(filename: 'reply-save-pill-'.$width);
     expect($page->script("document.querySelector('[data-reply-feedback]').previousElementSibling.hasAttribute('data-manual-reply')"))->toBeTrue();
     $page->click('#workspace-notes')->fill('#ticket-note', 'A private team note.')->click('[aria-label="Add note"]')->assertSee('Internal note saved');
     expect($page->script("document.querySelector('[data-note-feedback]').closest('form') !== null"))->toBeTrue();
-    expect($page->script("document.querySelector('[data-note-feedback] span').classList.contains('bg-emerald-50')"))->toBeTrue();
+    expect($page->script("document.querySelector('[data-note-feedback] span').classList.contains('bg-emerald-200')"))->toBeTrue();
     $page->assertNoJavaScriptErrors();
 })->with([1440, 390]);
 
@@ -107,7 +107,7 @@ test('routine save confirmation expires without a jump and returns on an identic
     $ticket = Ticket::factory()->create(['status' => TicketStatus::AwaitingReview, 'priority' => TicketPriority::Low]);
     $page = visit(route('agent.tickets.show', $ticket), ['viewport' => ['width' => $width, 'height' => 900]]);
     $page->click('#tools-details')->click('.showroom-ticket-tools form button[type="submit"]')->assertSee('Details saved. No reply was sent.');
-    expect($page->script("(() => { const pill = document.querySelector('[data-details-feedback] span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && parseFloat(getComputedStyle(pill).borderRadius) > 100; })()"))->toBeTrue();
+    expect($page->script("(() => { const pill = document.querySelector('[data-details-feedback] span'); return pill.classList.contains('bg-emerald-200') && pill.classList.contains('text-emerald-950') && getComputedStyle(pill).boxShadow.includes('rgb(17, 17, 17)') && parseFloat(getComputedStyle(pill).borderRadius) > 100; })()"))->toBeTrue();
     $page->screenshot(filename: 'details-save-pill-'.$width);
     $measure = "(() => { const button = document.querySelector('.showroom-ticket-tools form button'); return [button.getBoundingClientRect().top, document.querySelector('.showroom-page-body').scrollTop, window.scrollY]; })()";
     $before = $page->script($measure);
@@ -285,7 +285,7 @@ test('ticket priority remains visible with a distinct urgency treatment', functi
     $page->assertVisible('[data-ticket-priority="'.$priority.'"]');
     expect($page->script("document.querySelector('[data-ticket-priority]').textContent.trim()"))->toBe(ucfirst($priority));
     expect($page->script("getComputedStyle(document.querySelector('[data-ticket-priority]')).backgroundColor"))->toBe($background);
-})->with([['low', 'rgb(244, 244, 245)'], ['medium', 'rgb(255, 251, 235)'], ['high', 'rgb(255, 247, 237)'], ['urgent', 'rgb(254, 242, 242)']]);
+})->with([['low', 'rgb(228, 228, 231)'], ['medium', 'rgb(253, 230, 138)'], ['high', 'rgb(254, 215, 170)'], ['urgent', 'rgb(254, 202, 202)']]);
 
 test('the opened ticket shares the instructional layout and keeps reply, note, and approval controls', function () {
     $this->actingAs(User::factory()->create());

@@ -15,7 +15,7 @@ test('queue reset reports its result beside the controls', function (int $width)
     $page->screenshot(filename: 'clear-inactive-confirmation-'.$width);
     $page->keys('dialog[open] button[wire\\:click="pruneStale"]', 'Enter')->assertSee('Cleared 0 inactive visitor tickets');
     expect($page->script("document.querySelector('[data-reset-feedback]').dataset.feedbackDuration"))->toBe('0');
-    expect($page->script("(() => { const feedback = document.querySelector('[data-reset-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-50') && pill.classList.contains('text-emerald-950') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
+    expect($page->script("(() => { const feedback = document.querySelector('[data-reset-feedback]'); const pill = feedback.querySelector('span'); return pill.classList.contains('bg-emerald-200') && pill.classList.contains('text-emerald-950') && pill.getBoundingClientRect().right <= feedback.getBoundingClientRect().right + 1; })()"))->toBeTrue();
     $page->screenshot(filename: 'inactive-cleanup-result-pill-'.$width);
     $beforeDismiss = $page->script("document.querySelector('[data-reset-feedback]').getBoundingClientRect().height");
     $page->keys('[aria-label="Dismiss cleanup result"]', 'Enter')->assertDontSee('Cleared 0 inactive visitor tickets');

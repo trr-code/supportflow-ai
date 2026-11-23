@@ -176,6 +176,32 @@ test('shared chat Send finalizes recording exactly once and cannot restore submi
     }
 })->with(['harbor', 'documents', 'ask'])->with([1440, 390]);
 
+test('Ask Lucid keeps dictated questions cleared after answering with or without Stop first', function (bool $stopFirst, int $width) {
+    AskLucidAgent::fake(['Lucid demonstrates business workflows.'])->preventStrayPrompts();
+    $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => 900]]);
+    $page->click('.lucid-assistant-launcher')->assertSee('AI app guide');
+    installDictationConnection($page);
+    $page->click('[data-ask-lucid] [aria-label="Dictate with microphone"]')
+        ->assertVisible('[data-dictation-state="recording"] [data-dictation-stop]');
+    if ($stopFirst) {
+        $page->click('[data-ask-lucid] [aria-label="Stop dictation"]');
+    } else {
+        $page->click('[aria-label="Send Ask Lucid question"]');
+    }
+    $page->script("window.completeDictation(0, 'What does this app do?')");
+    if ($stopFirst) {
+        $page->assertValue('[data-ask-lucid] textarea', 'What does this app do?')
+            ->click('[aria-label="Send Ask Lucid question"]');
+    }
+    $page->assertSee('Lucid demonstrates business workflows.');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("!Alpine.\$data(document.querySelector('[data-ask-lucid]')).busy && !!document.querySelector('[data-ask-lucid] [data-dictation-key]')"))->toBeTrue());
+    $page->assertValue('[data-ask-lucid] textarea', '');
+    $page->script("window.completeDictation(0, 'Late text must not restore the question.')");
+    $page->assertValue('[data-ask-lucid] textarea', '')->assertNoJavaScriptErrors();
+    expect($page->script("document.querySelectorAll('.lucid-assistant-turn.is-user').length"))->toBe(1);
+    expect($page->script('window.dictationTracks[0].stopped'))->toBeTrue();
+})->with([true, false])->with([1440, 390]);
+
 test('Send preserves a draft without submitting when final transcription fails or contains no speech', function (bool $empty) {
     fakeSupportAi();
     $page = visit(route('demo.harbor'));

@@ -81,7 +81,7 @@ test('document guidance describes the current file state', function (WorkspaceDo
         ->assertDontSee('Check the sources')->assertDontSee('<h3>Start fresh</h3>', false)
         ->assertSee($heading)->assertSee('Answer settings')->assertSee('Privacy &amp; access', false)
         ->assertDontSee('Back to document choices')->assertDontSee('expand Documents')
-        ->assertSee('bg-'.$color.'-50', false)
+        ->assertSee('bg-'.$color.'-200', false)
         ->assertSee('wire:key="document-status-'.$workspace->documents()->sole()->id.'"', false);
     $dom = new DOMDocument;
     @$dom->loadHTML($response->getContent());

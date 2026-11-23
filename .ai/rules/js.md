@@ -10,3 +10,6 @@ Before changing dictation.js or its integration in app.js, read .ai/rules/compon
 
 ## Finalize chat dictation only for an explicit Send
 Customer chat, Document chat and Ask Lucid opt in to Send stopping capture and awaiting a successful final transcript before one submission; Stop only reviews. Repeated finalizing sends, failed/empty transcription, reset or a detached/replaced originating composer must not submit. Non-chat forms and instruction Save controls remain review-first. Keep quiet accessible progress, visible actionable errors and original-draft ownership.
+
+## Clear Ask Lucid DOM before microphone view unmounts
+Ask Lucid removes its dictation view while answering; that view snapshots textarea.value during destruction and restores it when remounted. Clear both the question state and actual textarea synchronously on accepted Send before removal, or the sent question returns after the answer. Preserve failure-draft restoration and unsent edits. Regression assertions must wait for answer completion and microphone controls to return, covering typed Send, dictating Send and Stop-then-Send.

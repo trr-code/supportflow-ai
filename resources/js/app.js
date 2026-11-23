@@ -284,6 +284,7 @@ window.lucidAsk = (endpoint, page) => ({
         this.follow = true
         this.error = ''
         this.question = ''
+        this.$refs.question.value = ''
         this.$refs.question.style.height = 'auto'
         const user = { id: ++this.nextId, role: 'user', content: question }
         const assistant = { id: ++this.nextId, role: 'assistant', html: '' }
