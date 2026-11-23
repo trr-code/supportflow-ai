@@ -190,6 +190,22 @@ window.lucidTextReveal = () => ({
 
 window.lucidAsk = (endpoint, page) => ({
     ...window.lucidTextReveal(),
+    compact: matchMedia('(max-width: 699px), (max-width: 1099px) and (max-height: 500px)').matches,
+    viewportChanged: null,
+    init() {
+        this.viewportChanged = () => {
+            const viewport = window.visualViewport
+            this.compact = matchMedia('(max-width: 699px), (max-width: 1099px) and (max-height: 500px)').matches
+                || (viewport?.height ?? innerHeight) < innerHeight * .75
+            this.$el.style.setProperty('--assistant-viewport-height', `${viewport?.height ?? innerHeight}px`)
+            this.$el.style.setProperty('--assistant-viewport-width', `${viewport?.width ?? innerWidth}px`)
+            this.$el.style.setProperty('--assistant-viewport-top', `${viewport?.offsetTop ?? 0}px`)
+            this.$el.style.setProperty('--assistant-viewport-left', `${viewport?.offsetLeft ?? 0}px`)
+        }
+        window.visualViewport?.addEventListener('resize', this.viewportChanged)
+        window.visualViewport?.addEventListener('scroll', this.viewportChanged)
+        this.viewportChanged()
+    },
     open: false, dictating: false, question: '', messages: [], busy: false, loading: false, loaded: false,
     error: '', resetting: false, stopping: false, follow: true,
     controller: null, sequence: 0, nextId: 0, interrupted: false,
@@ -382,6 +398,8 @@ window.lucidAsk = (endpoint, page) => ({
         finally { this.resetting = false }
     },
     destroy() {
+        window.visualViewport?.removeEventListener('resize', this.viewportChanged)
+        window.visualViewport?.removeEventListener('scroll', this.viewportChanged)
         this.stopReveal()
         ++this.sequence
         this.controller?.abort()

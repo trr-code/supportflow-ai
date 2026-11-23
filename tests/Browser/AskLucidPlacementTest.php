@@ -64,7 +64,7 @@ test('the launcher keeps its workspace anchor and clears desktop controls', func
         if ($state === 'hidden' && $page->script("!!document.querySelector('[aria-label=\"Hide instructions\"]')")) {
             $page->click('[aria-label="Hide instructions"]');
         }
-        if ($state === 'collapsed' && $width >= 700 && $page->script("!!document.querySelector('.showroom-collapse')")) {
+        if ($state === 'collapsed' && $width >= 700 && $page->script("!!document.querySelector('.showroom-collapse')?.getClientRects().length")) {
             $page->click('.showroom-collapse');
         }
         foreach (['top', 'bottom'] as $position) {
@@ -120,7 +120,7 @@ test('the launcher keeps its workspace anchor and clears desktop controls', func
     $page->click('.lucid-assistant-launcher')->assertSee('AI app guide');
     try {
         Execution::instance()->waitForExpectation(function () use ($page): void {
-            $bounds = $page->script("(() => { const p = document.querySelector('#ask-lucid-panel').getBoundingClientRect(), b = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); return { top: p.top, left: p.left, right: p.right, bottom: p.bottom, launcherTop: b.top, viewport: innerWidth, fits: p.top >= 0 && p.left >= 0 && p.right <= innerWidth && p.bottom < b.top }; })()");
+            $bounds = $page->script("(() => { const p = document.querySelector('#ask-lucid-panel').getBoundingClientRect(), b = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); const compact = matchMedia('(max-width: 699px), (max-width: 1099px) and (max-height: 500px)').matches; return { top: p.top, left: p.left, right: p.right, bottom: p.bottom, launcherTop: b.top, viewport: innerWidth, fits: p.top >= 0 && p.left >= 0 && p.right <= innerWidth && (compact ? p.bottom <= innerHeight : p.bottom < b.top) }; })()");
             expect($bounds['fits'])->toBeTrue(json_encode($bounds));
         });
     } catch (Throwable $exception) {

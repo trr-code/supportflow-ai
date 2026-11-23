@@ -26,6 +26,40 @@ use Livewire\Features\SupportFileUploads\FileUploadController;
 use Mockery\MockInterface;
 use Pest\Browser\Execution;
 
+test('stacked customer support keeps every suggested question and the composer reachable', function (int $width, int $height) {
+    fakeSupportAi();
+    Http::preventStrayRequests();
+    $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => $height]]);
+
+    $page->assertVisible('#chat-question');
+    expect($page->script(<<<'JS'
+        (() => {
+            const panel = document.querySelector('.showroom-support-panel').getBoundingClientRect();
+            const dock = document.querySelector('.chat-dock-panel').getBoundingClientRect();
+            return [...document.querySelectorAll('.harbor-starter-question, .showroom-composer')].every(el => {
+                const box = el.getBoundingClientRect();
+                return box.top >= dock.top && box.bottom <= dock.bottom + 1 && box.bottom <= panel.bottom + 1;
+            });
+        })()
+    JS))->toBeTrue();
+    expect($page->script('document.documentElement.scrollWidth - innerWidth'))->toBeLessThanOrEqual(1);
+    if ($width < 700 || $height <= 500) {
+        $page->assertVisible('.showroom-phone-action')->assertMissing('#demo-navigation');
+        $page->click('.showroom-mobile-toggle')->assertVisible('#demo-navigation');
+        $page->click('.showroom-mobile-toggle')->assertMissing('#demo-navigation');
+    }
+    $page->fill('#chat-question', 'Keep this unsent mobile draft.');
+    $page->click('a.showroom-stacked-action[href="#demo-guide-heading"]');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script('document.activeElement.id'))->toBe('demo-guide-heading'));
+    $page->click('[aria-label="Hide instructions"]')->assertMissing('#demo-guide');
+    $page->assertValue('#chat-question', 'Keep this unsent mobile draft.');
+    $page->click('[data-open-guide]')->assertVisible('#demo-guide');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script('document.activeElement.id'))->toBe('demo-guide-heading'));
+    $page->click('Create a support ticket')->assertSee('Choose a ticket to try');
+    $page->click('Customer chat')->assertValue('#chat-question', 'Keep this unsent mobile draft.');
+    $page->assertNoJavaScriptErrors()->screenshot(filename: 'mobile-support-'.$width.'-'.$height);
+})->with([[320, 568], [384, 740], [740, 384], [768, 1024], [1024, 768]]);
+
 test('a separate Harbor browser session cannot see another chat or its pending return', function () {
     Http::preventStrayRequests();
     $first = visit(route('demo.harbor'));
@@ -42,11 +76,11 @@ test('a separate Harbor browser session cannot see another chat or its pending r
     $first->assertVisible('.showroom-replacement-confirm');
 });
 
-test('the Ask Lucid preview opens and closes without covering its launcher', function (string $routeName, int $width) {
+test('the Ask Lucid preview opens within the viewport and restores its launcher on close', function (string $routeName, int $width) {
     $page = visit(route($routeName), ['viewport' => ['width' => $width, 'height' => 800]]);
     $page->click('.lucid-assistant-launcher')->assertSee('AI app guide')->assertNoJavaScriptErrors();
     Execution::instance()->waitForExpectation(fn () => expect($page->script('document.activeElement.id'))->toBe('ask-lucid-title'));
-    Execution::instance()->waitForExpectation(fn () => expect($page->script("(() => { const panel = document.querySelector('#ask-lucid-panel').getBoundingClientRect(); const launcher = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); return panel.left >= 0 && panel.top >= 0 && panel.right <= innerWidth && panel.bottom < launcher.top; })()"))->toBeTrue());
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("(() => { const panel = document.querySelector('#ask-lucid-panel').getBoundingClientRect(); const launcher = document.querySelector('.lucid-assistant-launcher').getBoundingClientRect(); return panel.left >= 0 && panel.top >= 0 && panel.right <= innerWidth && (innerWidth < 700 ? panel.bottom <= innerHeight : panel.bottom < launcher.top); })()"))->toBeTrue());
     $page->screenshot(filename: 'ask-lucid-'.$width);
     $page->click('[aria-label="Close Ask Lucid"]')->assertDontSee('AI app guide');
     expect($page->script("document.activeElement.classList.contains('lucid-assistant-launcher')"))->toBeTrue();
@@ -738,7 +772,20 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     }
     $joined = $page->script("(() => { const hero = document.querySelector('.showroom-hero').getBoundingClientRect(); const demos = document.querySelector('#demos').getBoundingClientRect(); const cards = document.querySelectorAll('.showroom-demo-card'); return { gap: demos.top - hero.bottom, cardHeight: cards[0].getBoundingClientRect().height }; })()");
     expect(abs($joined['gap']))->toBeLessThanOrEqual(1);
-    expect($joined['cardHeight'])->toBeGreaterThanOrEqual(200);
+    if ($width >= 1100) {
+        expect($joined['cardHeight'])->toBeGreaterThanOrEqual(200);
+    } else {
+        expect($page->script(<<<'JS'
+            [...document.querySelectorAll('.showroom-demo-card')].every(card => {
+                const bounds = card.getBoundingClientRect();
+                return [...card.children].every(child => {
+                    const box = child.getBoundingClientRect();
+                    return box.left >= bounds.left && box.right <= bounds.right && box.bottom <= bounds.bottom;
+                });
+            })
+        JS))->toBeTrue();
+        expect($page->script("(() => { const hero = document.querySelector('.showroom-hero'), copy = document.querySelector('.showroom-hero-description'); return hero.getBoundingClientRect().top + parseFloat(getComputedStyle(hero, '::before').top) - copy.getBoundingClientRect().bottom; })()"))->toBeGreaterThanOrEqual(0);
+    }
     $seams = $page->script("(() => { const header = document.querySelector('.showroom-home-header').getBoundingClientRect(); const main = document.querySelector('.showroom-home > main').getBoundingClientRect(); const footer = document.querySelector('.showroom-home-footer'); return { top: main.top - header.bottom, bottom: footer.getBoundingClientRect().top - main.bottom, mist: getComputedStyle(footer, '::before').backgroundImage.includes('lucid-header-mist.png') }; })()");
     expect($seams['top'])->toEqual(0);
     expect($seams['bottom'])->toEqual(0);
@@ -751,7 +798,7 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     expect($page->script("getComputedStyle(document.querySelector('.showroom-home')).clipPath"))->toBe('none');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-home-header')).borderRadius"))->toBe('0px');
     expect($page->script("document.querySelectorAll('.showroom-hero-waves').length"))->toEqual(0);
-    if ($width >= 700) {
+    if ($width >= 1100) {
         expect($page->script("parseFloat(getComputedStyle(document.querySelector('.showroom-hero'), '::before').top)"))->toEqual(152);
     }
     expect($page->script("[...document.querySelectorAll('main h1, main h2, main h3')].map(heading => heading.tagName)"))->toBe(['H1', 'H2', 'H3', 'H3', 'H3']);
@@ -762,7 +809,7 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     expect($page->script('window.location.hash'))->toBe('#demos');
     expect($page->script('document.documentElement.scrollWidth - window.innerWidth'))->toBeLessThanOrEqual(1);
     $page->click('.showroom-demo-card:first-child')->assertSee('Harbor support')->assertSee('Try customer support')->assertNoJavaScriptErrors();
-})->with([2560, 1440, 1366, 1024, 390, 320]);
+})->with([2560, 1440, 1366, 1024, 768, 390, 320]);
 
 test('desktop support collapses its panels and keeps examples in the same workspace', function (int $width, int $height) {
     fakeSupportAi();

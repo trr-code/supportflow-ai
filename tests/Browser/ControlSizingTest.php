@@ -118,7 +118,13 @@ test('action density stays consistent across screens without shrinking navigatio
                 const style = getComputedStyle(el);
                 return Math.abs(el.getBoundingClientRect().height - 40) > 1 || style.fontSize !== '14px' || style.paddingInlineStart !== '12px' || style.paddingInlineEnd !== '12px' || el.scrollWidth > el.clientWidth + 1;
             });
-            return { actions: actions.length, invalid: invalid.map(el => ({ label: el.textContent.trim(), height: el.getBoundingClientRect().height, font: getComputedStyle(el).fontSize, min: getComputedStyle(el).minHeight, css: el.className, padding: getComputedStyle(el).padding, width: el.clientWidth, scroll: el.scrollWidth })), tabs: tabs.every(el => Math.abs(el.getBoundingClientRect().height - 36) <= 1 && el.scrollHeight <= el.clientHeight + 1), navigation: [...document.querySelectorAll('.showroom-nav-item')].filter(visible).every(el => el.getBoundingClientRect().height >= 48), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
+            return { actions: actions.length, invalid: invalid.map(el => ({ label: el.textContent.trim(), height: el.getBoundingClientRect().height, font: getComputedStyle(el).fontSize, min: getComputedStyle(el).minHeight, css: el.className, padding: getComputedStyle(el).padding, width: el.clientWidth, scroll: el.scrollWidth })), tabs: tabs.every(el => {
+                const height = el.getBoundingClientRect().height;
+                const wrappingSupportView = innerWidth < 1100 && el.closest('.showroom-view-switch');
+                return (wrappingSupportView ? height >= 36 : Math.abs(height - 36) <= 1)
+                    && getComputedStyle(el).fontSize === '16px'
+                    && el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+            }), navigation: [...document.querySelectorAll('.showroom-nav-item')].filter(visible).every(el => el.getBoundingClientRect().height >= 48), overflow: document.documentElement.scrollWidth > innerWidth + 1 };
         })()
     JS);
     if (! in_array($screen, ['home', 'demo.environment', 'demo.safety', 'demo.workflow', 'invoice-confirmed', 'policy'], true)) {

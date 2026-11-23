@@ -8,7 +8,14 @@
         <flux:tooltip content="Hide instructions">
             <button
                 type="button"
-                @if ($clientControlled) x-on:click="instructionsOpen = false" @else wire:click="hideGuide" @endif
+                @if ($clientControlled)
+                    x-on:click="
+                        instructionsOpen = false;
+                        $nextTick(() => $root.querySelector('[data-open-guide]')?.focus());
+                    "
+                @else
+                    wire:click="hideGuide"
+                @endif
                 aria-label="Hide instructions"
                 aria-controls="demo-guide"
                 aria-expanded="true"

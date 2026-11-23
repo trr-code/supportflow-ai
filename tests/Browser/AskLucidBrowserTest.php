@@ -4,6 +4,51 @@ use App\Ai\Agents\AskLucidAgent;
 use Illuminate\Support\Facades\Http;
 use Pest\Browser\Execution;
 
+test('compact Ask Lucid keeps its header and composer inside the available screen', function (int $width, int $height) {
+    $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => $height]]);
+
+    $page->click('[aria-label="Open Ask Lucid"]')->assertVisible('#ask-lucid-panel');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script(<<<'JS'
+        (() => {
+            const panel = document.querySelector('#ask-lucid-panel').getBoundingClientRect();
+            const header = document.querySelector('.lucid-assistant-header').getBoundingClientRect();
+            const composer = document.querySelector('.lucid-assistant-composer').getBoundingClientRect();
+            const transcript = document.querySelector('.lucid-assistant-messages').getBoundingClientRect();
+            return panel.top >= 0 && panel.bottom <= innerHeight && panel.left >= 0 && panel.right <= innerWidth
+                && header.top >= panel.top && composer.bottom <= panel.bottom + 1 && transcript.height > 0;
+        })()
+    JS))->toBeTrue());
+    $page->assertVisible('[aria-label="Close Ask Lucid"]')->assertSee('New chat');
+    $page->assertAttribute('#ask-lucid-panel', 'aria-modal', 'true');
+    $page->fill('[aria-label="Ask about Lucid"]', 'An unsent phone draft.');
+    $page->keys('[aria-label="Send Ask Lucid question"]', 'Tab');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("document.querySelector('[data-ask-lucid]').contains(document.activeElement)"))->toBeTrue());
+    $page->screenshot(filename: 'mobile-ask-'.$width.'-'.$height);
+    $page->click('[aria-label="Close Ask Lucid"]')->assertVisible('[aria-label="Open Ask Lucid"]');
+    $page->click('[aria-label="Open Ask Lucid"]')->assertValue('[aria-label="Ask about Lucid"]', 'An unsent phone draft.');
+    $page->keys('[aria-label="Close Ask Lucid"]', 'Escape')->assertVisible('[aria-label="Open Ask Lucid"]')->assertNoJavaScriptErrors();
+})->with([[320, 568], [384, 740], [740, 384], [844, 256]]);
+
+test('Ask Lucid follows a reduced visual viewport without losing its draft', function (int $width) {
+    $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => 844]]);
+    $page->click('[aria-label="Hide instructions"]')->assertMissing('#demo-guide');
+    $page->click('[aria-label="Open Ask Lucid"]')->fill('[aria-label="Ask about Lucid"]', 'Keep this keyboard draft.');
+
+    $page->script(<<<'JS'
+        Object.defineProperty(visualViewport, 'height', { configurable: true, value: 360 });
+        Object.defineProperty(visualViewport, 'offsetTop', { configurable: true, value: 120 });
+        visualViewport.dispatchEvent(new Event('resize'));
+    JS);
+    Execution::instance()->waitForExpectation(fn () => expect($page->script("(() => { const panel = document.querySelector('#ask-lucid-panel').getBoundingClientRect(); return panel.top >= 120 && panel.bottom <= 480; })()"))->toBeTrue());
+    $page->assertAttribute('#ask-lucid-panel', 'aria-modal', 'true')->assertValue('[aria-label="Ask about Lucid"]', 'Keep this keyboard draft.');
+    $page->script(<<<'JS'
+        delete visualViewport.height;
+        delete visualViewport.offsetTop;
+        visualViewport.dispatchEvent(new Event('resize'));
+    JS);
+    $page->click('[aria-label="Close Ask Lucid"]')->assertNoJavaScriptErrors();
+})->with([390, 768, 1180]);
+
 test('Ask Lucid preloads history once and opens without waiting on its response', function () {
     $page = visit(route('demo.harbor'));
     $page->script(<<<'JS_WRAP'

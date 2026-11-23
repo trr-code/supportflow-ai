@@ -55,10 +55,10 @@
                 x-on:click="mobileNav = !mobileNav"
                 :aria-expanded="mobileNav"
                 aria-controls="demo-navigation"
-                aria-label="Toggle demo navigation"
             >
-                <x-lucid.icon name="collapse" />
+                <x-lucid.icon name="collapse" /><span>Menu</span>
             </button>
+            <a href="{{ route('home') }}" wire:navigate class="showroom-outline-light showroom-phone-action">Home</a>
             <p>{{ $modes[$activeMode]['label'] }}</p>
             <span class="showroom-demo-badge">{{
                 $mode === 'harbor'
@@ -66,6 +66,14 @@
                     : 'Demo workspace'
             }}</span>
             <div class="ms-auto flex items-center gap-2">
+                @if ($guideOpen)
+                    <a
+                        href="#demo-guide-heading"
+                        class="showroom-outline-light showroom-stacked-action"
+                        x-show="!documentSource"
+                        >Instructions</a
+                    >
+                @endif
                 @if (!$guideOpen)
                     <button
                         type="button"

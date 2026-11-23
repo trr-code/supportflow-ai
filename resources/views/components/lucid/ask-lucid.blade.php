@@ -2,6 +2,9 @@
     class="lucid-assistant"
     data-ask-lucid
     x-data="lucidAsk(@js(route('ask-lucid.index')), @js(request()->route()?->getName() ?? 'home'))"
+    :class="{ 'is-open': open, 'is-compact': compact }"
+    x-on:resize.window="viewportChanged()"
+    x-trap.inert.noscroll.noautofocus.noreturn="open && compact"
     x-on:dictation-state="dictating = $event.detail === 'recording'"
     x-on:keydown.escape.stop="if (open) close();"
 >
@@ -10,6 +13,8 @@
         class="lucid-assistant-panel"
         :class="{ 'is-expanded': expanded }"
         aria-labelledby="ask-lucid-title"
+        :role="compact ? 'dialog' : 'region'"
+        :aria-modal="compact && open ? 'true' : null"
         x-cloak
         x-show="open"
         x-transition:enter="lucid-assistant-motion"

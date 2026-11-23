@@ -30,14 +30,20 @@
                 x-on:click="mobileNav = !mobileNav"
                 :aria-expanded="mobileNav"
                 aria-controls="demo-navigation"
-                aria-label="Toggle demo navigation"
             >
-                <x-lucid.icon name="collapse" />
+                <x-lucid.icon name="collapse" /><span>Menu</span>
             </button>
+            <a href="{{ route('home') }}" wire:navigate class="showroom-outline-light showroom-phone-action">Home</a>
             <p>{{ $title }}</p>
             <span class="showroom-demo-badge">{{ $badge ?? ($agent ? 'Agent view' : 'Customer view') }}</span>
             <div class="ms-auto flex flex-wrap items-center gap-3">
                 @if ($hasInstructions)
+                    <a
+                        href="#demo-guide-heading"
+                        class="showroom-outline-light showroom-stacked-action"
+                        x-show="instructionsOpen"
+                        >Instructions</a
+                    >
                     <button
                         type="button"
                         x-show="!instructionsOpen"
@@ -47,6 +53,7 @@
                             $nextTick(() => document.getElementById('demo-guide-heading').focus());
                         "
                         aria-controls="demo-guide"
+                        data-open-guide
                         :aria-expanded="instructionsOpen"
                         class="showroom-outline-light"
                     >
