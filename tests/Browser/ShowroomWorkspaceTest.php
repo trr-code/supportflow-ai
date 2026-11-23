@@ -643,6 +643,7 @@ test('documents keep own file upload and chat in one responsive workspace', func
         ->assertDontSee('The assistant could not finish that answer. Try again.')
         ->assertValue('#document-question', '');
     $page->click('New chat')->keys('dialog[open] button[wire\\:click="newChat"]', 'Enter')
+        ->assertMissing('dialog[open]')
         ->assertSee('Your documents are ready.');
     $page->fill('#document-question', 'What is the home office allowance?')->click('.showroom-send[aria-label="Send question"]')
         ->assertSee(WorkspaceCopy::GAP)
