@@ -44,8 +44,20 @@ test('stacked customer support keeps every suggested question and the composer r
     JS))->toBeTrue();
     expect($page->script('document.documentElement.scrollWidth - innerWidth'))->toBeLessThanOrEqual(1);
     if ($width < 700 || $height <= 500) {
-        $page->assertVisible('.showroom-phone-action')->assertMissing('#demo-navigation');
-        $page->click('.showroom-mobile-toggle')->assertVisible('#demo-navigation');
+        $page->assertVisible('[aria-label="Open navigation"]')->assertMissing('#demo-navigation');
+        expect($page->script(<<<'JS'
+            (() => {
+                const menu = document.querySelector('.showroom-mobile-toggle');
+                const box = menu.getBoundingClientRect();
+                const title = document.querySelector('.showroom-toolbar > p').getBoundingClientRect();
+                return menu.textContent.trim() === '' && box.width >= 44 && box.height >= 44
+                    && title.left >= box.right && title.right <= innerWidth
+                    && ![...document.querySelectorAll('.showroom-toolbar a')].some(link => link.textContent.trim() === 'Home');
+            })()
+        JS))->toBeTrue();
+        $page->click('[aria-label="Open navigation"]')->assertVisible('#demo-navigation a[aria-label="Home"]')
+            ->assertAttribute('.showroom-mobile-toggle', 'aria-expanded', 'true')
+            ->assertVisible('[aria-label="Close navigation"]');
         $page->click('.showroom-mobile-toggle')->assertMissing('#demo-navigation');
     }
     $page->fill('#chat-question', 'Keep this unsent mobile draft.');
@@ -58,6 +70,9 @@ test('stacked customer support keeps every suggested question and the composer r
     $page->click('Create a support ticket')->assertSee('Choose a ticket to try');
     $page->click('Customer chat')->assertValue('#chat-question', 'Keep this unsent mobile draft.');
     $page->assertNoJavaScriptErrors()->screenshot(filename: 'mobile-support-'.$width.'-'.$height);
+    if ($width < 700 || $height <= 500) {
+        $page->click('[aria-label="Open navigation"]')->click('#demo-navigation a[aria-label="Home"]')->assertSee('Explore demos');
+    }
 })->with([[320, 568], [384, 740], [740, 384], [768, 1024], [1024, 768]]);
 
 test('a separate Harbor browser session cannot see another chat or its pending return', function () {
@@ -189,7 +204,10 @@ test('remaining showroom screens reflow in the shared frame', function (string $
         $page->click('.showroom-collapse')->assertVisible('#demo-navigation');
     }
     if ($width < 700) {
-        $page->click('.showroom-mobile-toggle')->assertSee('Browse policies')->click('.showroom-mobile-toggle');
+        $page->assertVisible('[aria-label="Open navigation"]');
+        $page->click('[aria-label="Open navigation"]')->assertVisible('#demo-navigation a[aria-label="Home"]')
+            ->assertAttribute('.showroom-mobile-toggle', 'aria-expanded', 'true');
+        $page->click('[aria-label="Close navigation"]')->assertMissing('#demo-navigation');
     }
     $page->screenshot(filename: 'showroom-remaining-'.str_replace('.', '-', $screen).'-'.$width);
 })->with([

@@ -30,10 +30,11 @@
                 x-on:click="mobileNav = !mobileNav"
                 :aria-expanded="mobileNav"
                 aria-controls="demo-navigation"
+                aria-label="Open navigation"
+                :aria-label="mobileNav ? 'Close navigation' : 'Open navigation'"
             >
-                <x-lucid.icon name="collapse" /><span>Menu</span>
+                <x-lucid.icon name="menu" />
             </button>
-            <a href="{{ route('home') }}" wire:navigate class="showroom-outline-light showroom-phone-action">Home</a>
             <p>{{ $title }}</p>
             <span class="showroom-demo-badge">{{ $badge ?? ($agent ? 'Agent view' : 'Customer view') }}</span>
             <div class="ms-auto flex flex-wrap items-center gap-3">

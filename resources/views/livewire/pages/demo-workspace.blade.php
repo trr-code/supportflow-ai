@@ -55,10 +55,11 @@
                 x-on:click="mobileNav = !mobileNav"
                 :aria-expanded="mobileNav"
                 aria-controls="demo-navigation"
+                aria-label="Open navigation"
+                :aria-label="mobileNav ? 'Close navigation' : 'Open navigation'"
             >
-                <x-lucid.icon name="collapse" /><span>Menu</span>
+                <x-lucid.icon name="menu" />
             </button>
-            <a href="{{ route('home') }}" wire:navigate class="showroom-outline-light showroom-phone-action">Home</a>
             <p>{{ $modes[$activeMode]['label'] }}</p>
             <span class="showroom-demo-badge">{{
                 $mode === 'harbor'
