@@ -107,3 +107,6 @@ Owner 2026-11-22 authorizes mobile/tablet completion separately from later perfo
 
 ## Compact headers use one hamburger beside the page title
 Owner 2026-11-23 replaces the compact Menu text plus separate Home link with one icon-only hamburger next to the existing current-page title across shared demo/support/agent headers. Keep Home inside navigation. Use invisible Open navigation/Close navigation accessible names, aria-expanded and aria-controls, and a 44px square tap area. Keep the desktop sidebar collapse chevron: collapsing a visible rail is distinct from opening compact navigation. Remove obsolete phone-Home markup/styles; do not add visible Open navigation text or change unrelated page actions.
+
+## Compact panel gaps and contextual return arrows match desktop
+Keep a 12px gap between expanded compact navigation and the work area, including portrait; panels retain separate rounded corners. Policy contextual return and Back to guide use centered 14px shared SVG arrows on desktop and phone, smaller than the existing 16px scenario arrows. Guide/source dividers separate actual groups only: empty Livewire feedback siblings must not create trailing footer-like lines; preserve the guide disclaimer footer boundary.

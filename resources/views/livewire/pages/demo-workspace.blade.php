@@ -365,7 +365,7 @@
                     @elseif ($sideTab === 'sources')
                         <div wire:key="support-sources">
                             <button type="button" wire:click="showSideTab('instructions')" class="showroom-back-guide">
-                                ← Back to guide
+                                <x-lucid.icon name="arrow" class="lucid-return-arrow" /><span>Back to guide</span>
                             </button>
                             @include ('components.lucid.support-sources')
                         </div>

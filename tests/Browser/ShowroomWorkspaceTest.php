@@ -58,6 +58,7 @@ test('stacked customer support keeps every suggested question and the composer r
         $page->click('[aria-label="Open navigation"]')->assertVisible('#demo-navigation a[aria-label="Home"]')
             ->assertAttribute('.showroom-mobile-toggle', 'aria-expanded', 'true')
             ->assertVisible('[aria-label="Close navigation"]');
+        expect($page->script("document.querySelector('.showroom-work-area, .showroom-secondary-area').getBoundingClientRect().top - document.querySelector('#demo-navigation').getBoundingClientRect().bottom"))->toEqual(12);
         $page->click('.showroom-mobile-toggle')->assertMissing('#demo-navigation');
     }
     $page->fill('#chat-question', 'Keep this unsent mobile draft.');
@@ -207,6 +208,7 @@ test('remaining showroom screens reflow in the shared frame', function (string $
         $page->assertVisible('[aria-label="Open navigation"]');
         $page->click('[aria-label="Open navigation"]')->assertVisible('#demo-navigation a[aria-label="Home"]')
             ->assertAttribute('.showroom-mobile-toggle', 'aria-expanded', 'true');
+        expect($page->script("document.querySelector('.showroom-work-area, .showroom-secondary-area').getBoundingClientRect().top - document.querySelector('#demo-navigation').getBoundingClientRect().bottom"))->toEqual(12);
         $page->click('[aria-label="Close navigation"]')->assertMissing('#demo-navigation');
     }
     $page->screenshot(filename: 'showroom-remaining-'.str_replace('.', '-', $screen).'-'.$width);

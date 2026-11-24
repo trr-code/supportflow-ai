@@ -52,6 +52,8 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
     $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => 900]]);
 
     $page->screenshot(filename: 'package4-harbor-sources-'.$width);
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-feature')).borderBottomWidth"))->toBe('0px');
+    expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-disclaimer')).borderTopWidth"))->toBe('1px');
 
     expect($page->script("['is-user', 'is-assistant'].map(role => { const s = getComputedStyle(document.querySelector('.showroom-message-bubble.' + role)); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius]; })"))->toBe([['16px', '16px', '0px', '16px'], ['16px', '16px', '16px', '0px']]);
 
@@ -86,6 +88,7 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
     expect(browserCitationPreviewDisplay($page))->toBe('none');
     expect(browserCitationSidebarOpen($page))->toBeTrue();
     $page->assertSee($passage)->assertDontSee('Get more help')->assertSee('Select Open policy to read the full article.');
+    expect($page->script("[...document.querySelectorAll('.showroom-source-group')].map(el => getComputedStyle(el).borderBottomWidth)"))->toBe(['1px', '0px']);
     expect($page->script("getComputedStyle(document.querySelector('.showroom-guide-disclaimer')).fontSize"))->toBe('14px');
     expect($page->script("getComputedStyle(document.querySelector('.showroom-source-passage')).fontSize"))->toBe('16px');
 
@@ -103,6 +106,15 @@ Unused returns are accepted within 30 days of delivery with tags attached.',
     $page->keys('[aria-label="Open policy: Return window"]', 'Enter')->assertSee('Return conditions')->assertDontSee('## Return conditions');
     expect($page->script("document.querySelector('.policy-prose h2').textContent"))->toBe('Return conditions');
     $page->assertSee('Back to customer chat')->assertSee('Back to all policies')->assertSee('Read a policy');
+    expect($page->script(<<<'JS'
+        (() => {
+            const link = document.querySelector('[data-policy-return]');
+            const arrow = link.querySelector('svg').getBoundingClientRect();
+            const label = link.querySelector('span').getBoundingClientRect();
+            return arrow.width === 14 && arrow.height === 14
+                && Math.abs(arrow.top + arrow.height / 2 - label.top - label.height / 2) <= 1;
+        })()
+    JS))->toBeTrue();
     $page->screenshot(filename: 'harbor-cited-policy-'.$width);
     $page->click('.lucid-page-header a:not([data-policy-return])')->assertSee('Harbor Outfitters policies');
     $page->click('.showroom-policy-grid a[href*="browser-cite-returns"]')->assertSee('Return conditions');

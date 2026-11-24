@@ -8,7 +8,7 @@
             @if ($returnUrl)
                 <x-slot:actions>
                     <a href="{{ $returnUrl }}" wire:navigate class="policy-link" data-policy-return
-                        >← {{ $returnLabel }}</a
+                        ><x-lucid.icon name="arrow" class="lucid-return-arrow" /><span>{{ $returnLabel }}</span></a
                     >
                 </x-slot:actions>
             @endif

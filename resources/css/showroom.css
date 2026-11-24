@@ -157,14 +157,16 @@
 .showroom-guide-heading button { color: #626262; padding: 4px; cursor: pointer; }
 .showroom-support-unified .showroom-guide-heading [data-flux-tooltip-content] { background: #080808; color: #fff; }
 .showroom-guide-scroll { min-height: 0; flex: 1; overflow-y: auto; padding-inline-end: 16px; scrollbar-gutter: stable; scrollbar-width: thin; }
-.showroom-guide-feature { padding: 16px 0; border-bottom: 1px solid #111; display: grid; justify-items: start; gap: 8px; }
+.showroom-guide-feature { padding: 16px 0; display: grid; justify-items: start; gap: 8px; }
 .showroom-guide-feature h3 { font-size: 1.0625rem; font-weight: 650; letter-spacing: -.02em; }
 .showroom-guide-feature p { color: #626262; font-size: .875rem; line-height: 1.5; }
-.showroom-guide-feature:last-child { border-bottom: 0; }
+.showroom-guide-feature:has(~ .showroom-guide-feature) { border-bottom: 1px solid #111; }
 .showroom-soft-button[data-flux-button] { background: #f4f4f5; color: #111; border: 0; border-radius: 8px; font-size: .875rem; }
 .showroom-guide-disclaimer { flex-shrink: 0; display: flex; align-items: start; gap: 8px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #111; color: #626262; font-size: .75rem; line-height: 1.5; }
 .showroom-guide-disclaimer svg { width: 19px; height: 19px; }
 .showroom-back-guide { font-size: .875rem; color: #626262; margin-bottom: 20px; cursor: pointer; }
+[data-policy-return], .showroom-back-guide { display: inline-flex; align-items: center; gap: 6px; }
+.lucid-return-arrow { width: 14px; height: 14px; transform: rotate(180deg); }
 .showroom-policy { border-bottom: 1px solid #111; margin-top: 16px; }
 .showroom-work-area.guide-hidden { grid-template-columns: minmax(0,1fr); }
 .showroom-mobile-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 10px; }
@@ -374,7 +376,7 @@ body.lucid-showroom:has(.showroom-secondary) { height: auto; max-height: none; o
 .showroom-support-unified > .showroom-support-surface { border-radius: 0 var(--showroom-panel-radius) var(--showroom-panel-radius) 0; }
 .showroom-support-surface > .showroom-toolbar { position: relative; isolation: isolate; background: #080808; }
 .showroom-support-surface > .showroom-toolbar::after { content: ""; position: absolute; z-index: 0; inset: auto 0 -1px; height: 86px; pointer-events: none; background: var(--support-header-mist) center bottom / 100% 100% no-repeat; }
-@media (max-width: 699px) { .showroom-support-unified > .showroom-sidebar { border-radius: var(--showroom-panel-radius) var(--showroom-panel-radius) 0 0; margin-bottom: 0; } .showroom-support-unified > .showroom-support-surface { border-radius: var(--showroom-panel-radius); } .showroom-support-unified.mobile-nav-open > .showroom-support-surface { border-radius: 0 0 var(--showroom-panel-radius) var(--showroom-panel-radius); } }
+@media (max-width: 699px) { .showroom-support-unified > .showroom-sidebar { margin-bottom: 12px; } .showroom-support-unified > .showroom-support-surface { border-radius: var(--showroom-panel-radius); } }
 
 .showroom-support-surface > .showroom-toolbar > .showroom-demo-badge { margin-top: 5px; background: #080808; color: #fff; }
 @media (max-width: 699px) { .showroom-support-unified .showroom-toolbar > .showroom-demo-badge { display: inline-flex; font-size: .6875rem; } }
@@ -710,7 +712,8 @@ body:has([data-ticket-activity], [data-reply-history]) { overflow-anchor: none; 
 .showroom-support-unified .showroom-nav-item.is-active:hover { background: var(--lucid-selected); color: #111; }
 .showroom-message-bubble.is-assistant .harbor-cite, .showroom-chat-answer .harbor-cite { background: #fff; color: #111; }
 /* Source inspection shares the monochrome guide treatment. */
-.showroom-source-group { padding: 16px 0; border-bottom: 1px solid #111; }
+.showroom-source-group { padding: 16px 0; }
+.showroom-source-group:has(~ .showroom-source-group) { border-bottom: 1px solid #111; }
 .showroom-source-group:first-of-type { padding-top: 0; }
 .showroom-source-passages { display: grid; gap: 10px; padding-top: 12px; }
 .showroom-source-passages > p:first-child:not(.showroom-source-passage) { padding-inline: 10px; color: #626262; }

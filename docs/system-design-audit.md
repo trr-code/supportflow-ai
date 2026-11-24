@@ -2,6 +2,8 @@
 
 ## Compact header simplification — 2026-11-23
 
+Live verification: exact main/Forge source 75109e1f610fe2beb5863ad886d8fa52bc4cad0b; CI 45337855721 passed 1,114/four skips/11,323 assertions and deploy hook. After Forge finished building/reloading, seven GETs returned 200 and all five shared headers/actual CSS served the new hamburger controls, invisible names and 44px target without obsolete phone-Home styles. Laravel remains 13.42.0; server tracked tree clean. Physical-device acceptance continues; these verification notes remain local for next authorized documentation commit.
+
 Owner approves icon-only hamburger beside current-page title throughout shared customer/demo/policy/agent headers, with Home inside navigation and invisible accessible names. Updated both shared toolbar implementations and existing icon set; preserved desktop sidebar collapse and ordinary actions. Removed redundant Home markup/styles and reconciled the superseded Menu/Home rule through Boost. Focused browser cases passed 38/731 assertions, including compact sizing/title, expanded state, actual Home navigation and draft retention; build/Pint/stable Blade check passed. Actual customer phone/short-landscape, agent phone and invoice desktop captures inspected. Full Composer passed all stages: 1,114 passed/four optional skips/11,323 assertions. Four real Herd GETs returned 200 and fresh site-scoped Insights reported no issues. CI-gated hosted release verification remains pending; unchanged provider/concurrency evidence is retained. Documentation basis and detailed scope are in the newest readiness checkpoint; no AI, database or runtime changes.
 
 ## Composer/divider/pill repair hosted verification — 2026-11-23
