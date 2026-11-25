@@ -1,5 +1,13 @@
 # Lucid system-design audit
 
+## Approved security unblock — 2026-11-24
+
+Owner approves the four affected library updates and required Symfony polyfill. Installed compatible versions match the preview; no other version/config/auth changes. Audit is clean without suppressions; platform checks and 13 auth/security tests (35 assertions) pass. Existing passkeys remain disabled. Full Composer passed all stages (1,114/four optional skips/11,348 assertions); CI/actual hosted verification pending. See newest readiness checkpoint for versions and official references. Earlier blocked checkpoint is historical, not permission to bypass CI.
+
+## Mobile release stopped by dependency audit — 2026-11-24
+
+UI commit 0c2b5a7 is pushed and all local checks passed, but CI 45504386487 failed the Composer security audit (four passkey-related dependencies); deploy was gated off. No dependency or audit-policy change made. A narrow dry-run plan is recorded in readiness; owner approval is required by AGENTS.md before changing dependencies. Do not claim this UI batch is live.
+
 ## Compact header simplification — 2026-11-23
 
 Live verification: exact main/Forge source 75109e1f610fe2beb5863ad886d8fa52bc4cad0b; CI 45337855721 passed 1,114/four skips/11,323 assertions and deploy hook. After Forge finished building/reloading, seven GETs returned 200 and all five shared headers/actual CSS served the new hamburger controls, invisible names and 44px target without obsolete phone-Home styles. Laravel remains 13.42.0; server tracked tree clean. Physical-device acceptance continues; these verification notes remain local for next authorized documentation commit.
