@@ -45,7 +45,7 @@ test('the landing page and ticket form do not use a positive tabindex', function
     $create = $this->get(route('demo.harbor', ['view' => 'ticket']))->assertOk()->getContent();
 
     expect($home)
-        ->toContain('Explore demos')
+        ->toContain('See where AI can save your team time')
         ->not->toMatch('/\btabindex="[1-9]\d*"/')
         ->and($create)
         ->toContain('Submit ticket')

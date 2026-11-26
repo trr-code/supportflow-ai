@@ -19,3 +19,6 @@ Homepage root supplies --landing-hero-art and --landing-footer-art via asset() a
 
 ## Development refresh follows standard Vite configuration
 Use the current Laravel Vite refresh:true development workflow; CSS HMR and watched template/server edits update normally. Built assets are used by browser tests. Treat stale hot markers or reconnect reloads as a diagnosis, not a reason to disable standard refresh or reinstate old manual-refresh workarounds.
+
+## Homepage header keeps only the Lucid home link
+Owner removes the upper-right Explore demos anchor because the demo cards are directly below the hero. Keep the Lucid home/wordmark link and existing header geometry; no empty navigation landmark or replacement CTA. Preserve demo cards, section anchor, responsive guide copy and footer.

@@ -83,7 +83,8 @@ test('the landing page invites clients to test a working copilot', function () {
         ->assertSee('Document chat')
         ->assertSee('Invoice review')
         ->assertDontSee('Order actions')
-        ->assertSee('Explore demos')
+        ->assertSee('See where AI can save your team time')
+        ->assertDontSee('Explore demos')
         ->assertSee('Sources you can inspect')
         ->assertSee('Human approval when needed')
         ->assertSee('Open a demo below and follow the')
@@ -135,7 +136,7 @@ test('the homepage hides the signed-in name and leave control', function () {
     $user = User::factory()->create(['name' => 'Casey Harbor']);
 
     $this->actingAs($user)->get(route('home'))
-        ->assertSee('Explore demos')
+        ->assertSee('See where AI can save your team time')
         ->assertDontSee('Casey Harbor')
         ->assertDontSee('>Leave<', false)
         ->assertDontSee('Agent desk');

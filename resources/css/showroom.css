@@ -11,7 +11,6 @@
 .showroom-home > :is(header, footer) { flex-shrink: 0; }
 .showroom-home-content > .showroom-hero { flex: 1; }
 .showroom-home-header, .showroom-home-footer { border-radius: var(--showroom-panel-radius); min-height: 66px; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.showroom-home-header nav { font-size: .9375rem; }
 .showroom-outline-light { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; padding: 7px 16px; border: 1px solid #fff; border-radius: 9px; font-size: .875rem; color: #fff; cursor: pointer; }
 .showroom-outline-light:hover { background: #ffffff12; }
 .lucid-assistant { --assistant-motion: 360ms; --assistant-gap: 12px; --assistant-inset: 16px; --assistant-bottom: max(16px, env(safe-area-inset-bottom)); --assistant-icon-motion: calc(var(--assistant-motion) / 2); position: fixed; z-index: 80; inset-inline-end: max(var(--assistant-workspace-inset, 16px), calc((100vw - 1600px) / 2 + var(--assistant-workspace-inset, 16px))); bottom: var(--assistant-bottom); display: grid; justify-items: end; gap: var(--assistant-gap); }
@@ -297,7 +296,6 @@ body.lucid-showroom:has(.showroom-secondary) { height: auto; max-height: none; o
     .showroom-home-header, .showroom-home-footer { padding: 16px 20px; gap: 16px; border-radius: var(--showroom-panel-radius); }
     .lucid-wordmark { font-size: 1.875rem; }
     .showroom-home-header { flex-wrap: wrap; }
-    .showroom-home-header nav { flex-wrap: wrap; gap: 16px; font-size: .875rem; }
     .showroom-hero { grid-template-columns: minmax(0,1fr); padding: 26px 20px 70px; gap: 26px; border-radius: 0; }
     .showroom-hero-copy { padding-top: 0; }
     .showroom-hero h1 { font-size: clamp(2rem,8.5vw,3rem); }
@@ -1006,7 +1004,6 @@ button[data-dictation-blocked] { opacity: .45; cursor: wait; }
     .showroom-home .showroom-card-link { grid-column: 2; min-height: 40px; }
     .showroom-home .showroom-demo-card p { max-width: none; line-height: 1.6; }
     .showroom-home .showroom-section-description { margin-top: 12px; line-height: 1.6; }
-    .showroom-home-header .showroom-outline-light { min-height: 44px; }
 }
 @media (max-width: 699px) {
     .showroom-support-unified .showroom-toolbar > .showroom-demo-badge { display: none; }

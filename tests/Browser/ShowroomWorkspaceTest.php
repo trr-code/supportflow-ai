@@ -72,7 +72,7 @@ test('stacked customer support keeps every suggested question and the composer r
     $page->click('Customer chat')->assertValue('#chat-question', 'Keep this unsent mobile draft.');
     $page->assertNoJavaScriptErrors()->screenshot(filename: 'mobile-support-'.$width.'-'.$height);
     if ($width < 700 || $height <= 500) {
-        $page->click('[aria-label="Open navigation"]')->click('#demo-navigation a[aria-label="Home"]')->assertSee('Explore demos');
+        $page->click('[aria-label="Open navigation"]')->click('#demo-navigation a[aria-label="Home"]')->assertSee('See where AI can save your team time');
     }
 })->with([[320, 568], [384, 740], [740, 384], [768, 1024], [1024, 768]]);
 
@@ -713,7 +713,7 @@ test('homepage backgrounds span the window and scroll naturally', function (int 
     Http::preventStrayRequests();
 
     $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => $height]]);
-    $page->assertSee('Explore demos')->assertNoJavaScriptErrors();
+    $page->assertSee('See where AI can save your team time')->assertNoJavaScriptErrors();
     $layout = $page->script(<<<'JS'
         (() => {
             const header = document.querySelector('.showroom-home-header').getBoundingClientRect();
@@ -750,7 +750,7 @@ test('full width homepage keeps readable content before entering the capped work
     Http::preventStrayRequests();
 
     $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => 900]]);
-    $page->assertSee('Explore demos')->assertNoJavaScriptErrors();
+    $page->assertSee('See where AI can save your team time')->assertNoJavaScriptErrors();
     $home = $page->script(<<<'JS'
         (() => {
             const bounds = document.querySelector('.showroom-home-header').getBoundingClientRect();
@@ -855,8 +855,7 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     expect($page->script("getComputedStyle(document.querySelector('.showroom-hero'), '::after').content"))->not->toBe('none');
     expect($page->script("document.querySelector('.showroom-hero').getBoundingClientRect().left"))->toEqual(0);
     $page->screenshot(filename: 'showroom-home-demos-'.$width);
-    $page->click('Explore demos');
-    expect($page->script('window.location.hash'))->toBe('#demos');
+    $page->assertMissing('.showroom-home-header a[href="#demos"]')->assertVisible('.showroom-demo-cards');
     expect($page->script('document.documentElement.scrollWidth - window.innerWidth'))->toBeLessThanOrEqual(1);
     $page->click('.showroom-demo-card:first-child')->assertSee('Harbor support')->assertSee('Try customer support')->assertNoJavaScriptErrors();
 })->with([2560, 1440, 1366, 1024, 768, 390, 320]);

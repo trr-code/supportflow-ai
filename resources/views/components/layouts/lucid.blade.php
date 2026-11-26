@@ -21,9 +21,6 @@
             >
                 <header class="showroom-home-header showroom-dark">
                     <a href="{{ route('home') }}" wire:navigate aria-label="Lucid home"><x-lucid.wordmark /></a>
-                    <nav aria-label="Lucid" class="flex items-center gap-4 sm:gap-8">
-                        <a href="#demos" class="showroom-outline-light">Explore demos <x-lucid.icon name="arrow" /></a>
-                    </nav>
                 </header>
                 <main id="main-content">{{ $slot }}</main>
                 <footer class="showroom-home-footer showroom-dark">

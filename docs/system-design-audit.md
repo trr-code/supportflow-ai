@@ -1,5 +1,13 @@
 # Lucid system-design audit
 
+## Homepage header button removal — 2026-11-25
+
+Owner approves removal only of upper-right Explore demos. Removed the in-page link, empty nav wrapper and three unused private styles; preserved header size/brand, demo cards, responsive copy and footer/artwork. Actual desktop/phone views inspected and existing assertions updated; no abandoned code remains from this change. Full Composer passed 1,114/four optional skips/11,356 assertions, with build/format/diff checks passed. CI-gated release/actual hosted verification pending. No dependency/runtime/performance changes; unrelated deferred artifacts preserved.
+
+## Homepage copy verified live — 2026-11-25
+
+Exact main/Forge source bb9aa22, server tracked tree clean, Laravel 13.42.0. CI 45731208438 and local Composer passed 1,114/four optional skips/11,348 assertions; audits clean. Actual served copy and hosted laptop/phone inspection confirm approved wording, responsive direction, all safeguards and cloud footer with 36px desktop clearance. Seven final GETs returned 200. No abandoned code found in the reviewed copy-only batch; no Docker/runtime/performance work included. Earlier pending notes are historical; latest readiness checkpoint has complete evidence. Final verification-only notes stay local for the next authorized docs commit; source/test changes are live.
+
 ## Homepage copy release validation — 2026-11-25
 
 Read the shared conversation and confirmed latest approved homepage wording; source diff is copy-only plus existing assertion updates. Actual local laptop/phone views preserve safeguards, cloud footer and responsive direction; laptop has 36px safeguard/footer clearance and natural scrolling. No abandoned CSS/JS or dependency/runtime changes found in this batch. Normal local execution resolves the earlier Rector/readability issue; GitHub reachable. Build, full Composer (1,114/four optional skips/11,348 assertions), diff check and both dependency audits pass. Authorized CI-gated publication/actual hosted verification pending. Existing Package 5 setup/performance work and Package 6 artifacts remain separate.
