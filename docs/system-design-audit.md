@@ -1,5 +1,13 @@
 # Lucid system-design audit
 
+## Homepage copy release validation — 2026-11-25
+
+Read the shared conversation and confirmed latest approved homepage wording; source diff is copy-only plus existing assertion updates. Actual local laptop/phone views preserve safeguards, cloud footer and responsive direction; laptop has 36px safeguard/footer clearance and natural scrolling. No abandoned CSS/JS or dependency/runtime changes found in this batch. Normal local execution resolves the earlier Rector/readability issue; GitHub reachable. Build, full Composer (1,114/four optional skips/11,348 assertions), diff check and both dependency audits pass. Authorized CI-gated publication/actual hosted verification pending. Existing Package 5 setup/performance work and Package 6 artifacts remain separate.
+
+## Mobile/security release verified live — 2026-11-24
+
+Main and actual Forge source dfcd4ce includes mobile polish 0c2b5a7. CI 45519496129 passed 1,114/four optional skips/11,348 assertions and deploy hook; local full/focused/auth checks passed. Actual server WebAuthn 5.3.17 and production dependency audit clean. Seven final sequential GETs returned 200 after two early deployment-time failures; their exact cause was not established. Actual served CSS/markup plus hosted browser confirm 12px navigation separation and centered 14px return arrow. Temporary browser work cleaned up; deferred artifacts retained. Full details and remaining physical-device review are in newest readiness checkpoint. Earlier blocked notes resolved; these final evidence-only notes remain local for next authorized documentation commit.
+
 ## Approved security unblock — 2026-11-24
 
 Owner approves the four affected library updates and required Symfony polyfill. Installed compatible versions match the preview; no other version/config/auth changes. Audit is clean without suppressions; platform checks and 13 auth/security tests (35 assertions) pass. Existing passkeys remain disabled. Full Composer passed all stages (1,114/four optional skips/11,348 assertions); CI/actual hosted verification pending. See newest readiness checkpoint for versions and official references. Earlier blocked checkpoint is historical, not permission to bypass CI.

@@ -20,7 +20,7 @@ use Livewire\Livewire;
 
 test('the prepared question path opens chat without filling or sending', function () {
     Livewire::test(Welcome::class)
-        ->assertSee('they update as you go.')
+        ->assertSee('Open a demo below and follow the')
         ->assertSee('Less busywork.')
         ->assertDontSee('Use a return question');
 });

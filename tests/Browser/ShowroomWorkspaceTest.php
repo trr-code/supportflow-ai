@@ -807,7 +807,7 @@ test('the homepage has in-context guidance and aligned direct demo links', funct
     Http::preventStrayRequests();
 
     $page = visit(route('home'), ['viewport' => ['width' => $width, 'height' => 1024]]);
-    $page->assertSourceMissing('@vite/client')->assertSee('Less busywork.')->assertSee('they update as you go.')->assertDontSee('Ask about Lucid')->assertNoJavaScriptErrors();
+    $page->assertSourceMissing('@vite/client')->assertSee('Less busywork.')->assertSee('Open a demo below and follow the')->assertDontSee('Ask about Lucid')->assertNoJavaScriptErrors();
     expect($page->script("document.querySelectorAll('#lucid-intro').length"))->toBe(0);
     $alignment = $page->script("document.querySelector('header .lucid-wordmark').getBoundingClientRect().left - document.querySelector('.showroom-hero-copy').getBoundingClientRect().left");
     expect($alignment)->toBeLessThanOrEqual(0);

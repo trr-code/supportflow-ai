@@ -41,7 +41,7 @@ test('homepage describes three demos and includes replacements inside customer s
         ->assertSee('property="og:description"', false)
         ->assertSee('rel="canonical" href="'.route('home').'"', false)
         ->assertSee('request a replacement')
-        ->assertSee('they update as you go.')
+        ->assertSee('Open a demo below and follow the')
         ->assertDontSee('homepage assistant is a design preview')
         ->assertDontSee('Try the workspace');
 

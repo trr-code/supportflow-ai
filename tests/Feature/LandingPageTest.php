@@ -86,7 +86,7 @@ test('the landing page invites clients to test a working copilot', function () {
         ->assertSee('Explore demos')
         ->assertSee('Sources you can inspect')
         ->assertSee('Human approval when needed')
-        ->assertSee('they update as you go.')
+        ->assertSee('Open a demo below and follow the')
         ->assertDontSeeText('Ask about Lucid')
         ->assertDontSee('Watch overview')
         ->assertDontSee('Read steps')
@@ -124,7 +124,7 @@ test('the landing hero opens the demos and keeps policy browsing inside support'
         ->assertSee('href="'.route('demo.harbor').'"', false)
         ->assertSee('href="'.route('demo.documents').'"', false)
         ->assertSee('href="'.route('demo.invoices').'"', false)
-        ->assertSee('they update as you go.')
+        ->assertSee('Open a demo below and follow the')
         ->assertSee('Privacy')
         ->assertDontSee('Browse policies')
         ->assertDontSee('Use prepared ticket');
