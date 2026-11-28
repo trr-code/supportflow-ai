@@ -1,0 +1,17 @@
+services:
+  app:
+    environment:
+      SUPPORTFLOW_CHAT_LIMITER_STORE: redis
+      REDIS_HOST: limiter-redis
+    depends_on:
+      limiter-redis:
+        condition: service_healthy
+
+  limiter-redis:
+    image: redis:8.4-alpine@sha256:ff72f74e4f471df79ed920aa8bbc35efe72ff8a1f8acdc50aad5dbb9b14a4034
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 6

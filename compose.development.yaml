@@ -1,0 +1,14 @@
+# Opt-in edit mode. Omit this file for repeatable performance measurements.
+x-watch: &watch
+  watch:
+    - action: rebuild
+      path: .
+
+services:
+  app:
+    command: [octane:start, --server=frankenphp, --host=0.0.0.0, --port=8001, --admin-port=2019, --workers=1, --max-requests=1]
+    develop: *watch
+  queue:
+    develop: *watch
+  scheduler:
+    develop: *watch

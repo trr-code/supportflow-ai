@@ -69,6 +69,21 @@ function stressMaxConcurrency(): ?int
     return $max > 0 ? $max : null;
 }
 
+function stressCapacityP95BudgetMs(): ?int
+{
+    $raw = getenv('STRESS_CAPACITY_P95_MS');
+    if ($raw === false) {
+        return null;
+    }
+
+    $budget = filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($budget === false) {
+        throw new InvalidArgumentException('STRESS_CAPACITY_P95_MS must be a positive integer.');
+    }
+
+    return $budget;
+}
+
 function persistStresslessCookiesAcrossIterations(): void
 {
     putenv('K6_NO_COOKIES_RESET=true');

@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+FROM postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382 AS vector
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates curl postgresql-server-dev-18 \
+    && curl -fsSL https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.6.tar.gz | tar xz -C /tmp \
+    && make -C /tmp/pgvector-0.8.6 OPTFLAGS="" \
+    && make -C /tmp/pgvector-0.8.6 install
+FROM postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+COPY --from=vector /usr/lib/postgresql/18/lib/vector.so /usr/lib/postgresql/18/lib/vector.so
+COPY --from=vector /usr/share/postgresql/18/extension/vector* /usr/share/postgresql/18/extension/
+COPY docker-postgres-init.sql /docker-entrypoint-initdb.d/10-lucid.sql
