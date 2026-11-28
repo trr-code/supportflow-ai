@@ -67,6 +67,21 @@ test('chat resolves the condition follow-up from the previous return subject', f
         ->and(citedArticleSlugs($answer))->toContain('return-window');
 });
 
+test('chat makes overnight replacement conditional on proof of departure', function () {
+    $answer = app(ChatService::class)->ask(
+        evalDemoSession(),
+        'My Ridgeline 2P tent arrived without poles. I leave for Olympic National Park tomorrow. Can you overnight replacements or hold them for Seattle Flagship pickup?',
+    );
+
+    expect($answer->body)
+        ->toMatch('/documented departure|proof of (?:your )?departure/i')
+        ->toMatch('/48\s*hours/i')
+        ->toMatch('/seattle flagship/i')
+        ->toMatch('/(?:if|when|subject to).{0,60}(?:stock|availability|inventory)/is')
+        ->not->toMatch('/\byou\s+(?:already\s+)?(?:qualify|meet the.{0,40}(?:condition|requirement))\b/i');
+    expect(citedArticleSlugs($answer))->toContain('missing-parts', 'store-pickup')->not->toContain('shipping-times');
+});
+
 test('chat summarizes a named Harbor policy with sources', function () {
     $article = KnowledgeArticle::query()->where('slug', 'return-window')->whereNull('workspace_id')->firstOrFail();
     $answer = app(ChatService::class)->ask(evalDemoSession(), 'Summarize '.$article->title);

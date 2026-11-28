@@ -16,6 +16,8 @@
         scrollingDown: false,
         lastScrollTop: 0,
         liveHtml: '',
+        liveStopSnapshot: null,
+        pacedStopSnapshot: null,
         liveSources: [],
         pacedTarget: '',
         pacedSources: [],
@@ -78,6 +80,7 @@
             const total = this.textLength(target)
             if (this.revealedChars >= total) {
                 this.liveHtml = target
+                this.liveStopSnapshot = this.pacedStopSnapshot
                 if (this.streamDone) {
                     this.liveSources = this.pacedSources
                     this.stopReveal()
@@ -87,8 +90,9 @@
             }
             this.revealedChars = Math.min(total, this.revealedChars + this.revealStep)
             this.liveHtml = this.htmlPrefix(target, this.revealedChars)
+            this.liveStopSnapshot = this.pacedStopSnapshot
         },
-        async finishStream(stoppedCharacters = null) {
+        async finishStream(stoppedCharacters = null, stopSnapshot = null) {
             if (this.finishStarted) {
                 return
             }
@@ -98,10 +102,12 @@
                 if (stoppedCharacters === null) {
                     await this.$wire.finishTurn()
                 } else {
-                    await this.$wire.stopGenerating(this.completedId, stoppedCharacters)
+                    await this.$wire.stopGenerating(this.completedId, stoppedCharacters, stopSnapshot)
                 }
             } finally {
                 this.liveHtml = ''
+                this.liveStopSnapshot = null
+                this.pacedStopSnapshot = null
                 this.liveSources = []
                 this.pacedTarget = ''
                 this.pacedSources = []
@@ -317,6 +323,8 @@
             return this.withStall(reader.read())
         },
         async startChatStream() {
+            this.liveStopSnapshot = null
+            this.pacedStopSnapshot = null
             const question = this.$wire.pendingQuestion
             if (! question || ! this.$wire.streaming) {
                 return
@@ -420,6 +428,7 @@
                         }
                         if (item.event === 'delta' && typeof payload.html === 'string') {
                             this.pacedTarget = payload.html
+                            this.pacedStopSnapshot = typeof payload.stopSnapshot === 'string' ? payload.stopSnapshot : null
                             this.startReveal()
                         } else if (item.event === 'error' && payload.message) {
                             this.stopReveal()
@@ -502,13 +511,18 @@
             if (finishStarted) return;
             abortReason = 'stop';
             stopReveal();
+            const visible = document.createElement('template');
+            visible.innerHTML = liveHtml;
+            const visibleCharacters = Array.from(visible.content.textContent).length;
             if (streamDone) {
-                const visible = document.createElement('template');
-                visible.innerHTML = liveHtml;
-                await finishStream(Array.from(visible.content.textContent).length);
+                await finishStream(visibleCharacters);
                 return;
             }
             abortController?.abort();
+            if (liveStopSnapshot !== null) {
+                await finishStream(visibleCharacters, liveStopSnapshot);
+                return;
+            }
             $wire.stopGenerating();
         };
         const focusChatQuestion = () => {

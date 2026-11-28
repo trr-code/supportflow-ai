@@ -13,6 +13,7 @@ use App\Services\HarborChatHandoff;
 use App\Services\HarborReturns;
 use App\Services\TicketService;
 use App\Support\ChatInlineCitations;
+use App\Support\CitedChunkIds;
 use App\Support\DemoGuide;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -24,7 +25,7 @@ test('a stated higher priced return submits from chat with collected details and
     $session = app(DemoSessionService::class)->current(request());
     $chat = app(ChatService::class);
     $request = 'I want to return my $249 tent. It arrived 10 days ago, is unused, and still has its tags.';
-    expect($chat->ask($session, $request)->body)->toBe(HarborChatHandoff::ASK_ORDER);
+    expect($chat->ask($session, $request)->body)->toBe('What’s your order number? To try this with the sample tent, reply with HB-51003.');
     expect($chat->ask($session, $order)->body)->toBe(HarborChatHandoff::REVIEW);
     expect(Ticket::count())->toBe(0);
     Livewire::withCookies([DemoSessionService::COOKIE => $session->id])->test(Widget::class, ['inline' => true])
@@ -153,6 +154,30 @@ test('the 30-day answer prefers the direct return rule and keeps the chat approv
     expect(array_column(ChatInlineCitations::placements($windowAnswer, [$chat, $window]), 'chunk_id'))->toBe([$window->id])
         ->and(array_column(ChatInlineCitations::placements($paraphrase, [$chat, $window]), 'chunk_id'))->toBe([$window->id])
         ->and(array_column(ChatInlineCitations::placements($windowAnswer.' '.$chat->body, [$chat, $window]), 'chunk_id'))->toContain($chat->id);
+});
+
+test('the chat return citation follows the full group of paraphrased conditions', function () {
+    seedHarborKnowledgeCatalog();
+    $policy = KnowledgeChunk::query()->with('article')->where('heading', 'Start a return in chat')->firstOrFail();
+    $answer = 'Final-sale items are excluded. Items costing more than $100 may require support review.';
+
+    $html = ChatInlineCitations::render($answer, [$policy]);
+
+    expect($html)->toContain($answer)
+        ->and(substr_count($html, 'data-cite-excerpt'))->toBe(1)
+        ->and(strpos($html, 'data-cite-excerpt'))->toBeGreaterThan(strpos($html, 'support review.'));
+});
+
+test('a paraphrased Trail Pack size answer visibly cites its retrieved size policy', function () {
+    seedHarborKnowledgeCatalog();
+    $policy = KnowledgeChunk::query()->with('article')
+        ->whereHas('article', fn ($query) => $query->where('slug', 'trail-pack-sizes'))->firstOrFail();
+    $answer = 'Yes. Harbor Trail Packs come in both 28L and 36L sizes.';
+    $citations = CitedChunkIds::usedInBody($answer, collect([['chunk' => $policy, 'similarity' => 1.0]]), []);
+
+    expect($citations)->toBe([$policy->id])
+        ->and(array_column(ChatInlineCitations::placements($answer, [$policy]), 'title'))->toBe(['Trail pack sizes'])
+        ->and(ChatInlineCitations::placements('The 28L and 36L Trail Packs are free.', [$policy]))->toBe([]);
 });
 
 test('a packaging question with a return request cites the box rule and asks for the order', function () {

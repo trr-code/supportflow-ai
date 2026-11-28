@@ -10,9 +10,12 @@ use App\Services\ChatService;
 use App\Services\HarborChatHandoff;
 use App\Services\HarborReturns;
 use App\Services\TicketService;
+use App\Support\ChatAnswerHtml;
 use App\Support\CitedSources;
 use App\Support\DemoGuide;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Async;
 use Livewire\Attributes\On;
@@ -288,12 +291,30 @@ class Widget extends Component
     }
 
     #[Async]
-    public function stopGenerating(ChatService $chat, ?int $completedId = null, int $revealedCharacters = 0): void
+    public function stopGenerating(ChatService $chat, ?int $completedId = null, int $revealedCharacters = 0, ?string $stopSnapshot = null): void
     {
         if ($completedId !== null) {
             $chat->conversationFor($this->demoSession())->messages()->where('role', 'assistant')
                 ->whereKey($completedId)->first()?->keepRevealedPrefix($revealedCharacters);
             $this->finishTurn();
+
+            return;
+        }
+
+        if ($stopSnapshot !== null) {
+            abort_if(strlen($stopSnapshot) > 131072, 422);
+            try {
+                $snapshot = Crypt::decrypt($stopSnapshot);
+            } catch (DecryptException) {
+                abort(422);
+            }
+
+            $session = $this->demoSession();
+            abort_unless(is_array($snapshot) && ($snapshot['harborSession'] ?? null) === $session->id
+                && is_int($snapshot['userMessageId'] ?? null) && is_string($snapshot['text'] ?? null), 422);
+            if ($chat->stopVisibleTurn($session, $snapshot['userMessageId'], ChatAnswerHtml::revealedText($snapshot['text'], max(0, $revealedCharacters)))) {
+                $this->finishTurn();
+            }
 
             return;
         }

@@ -10,6 +10,7 @@ use App\Support\ChatAnswerHtml;
 use App\Support\CitedSources;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -74,9 +75,16 @@ class StreamChatController extends Controller
                     $message = $chat->ask(
                         $session,
                         $validated['question'],
-                        function (string $visible) use ($emit): void {
+                        function (string $visible, int $userMessageId) use ($emit, $session): void {
                             $html = $visible === '' ? '' : ChatAnswerHtml::render($visible);
-                            $emit('delta', ['html' => $html]);
+                            $emit('delta', [
+                                'html' => $html,
+                                'stopSnapshot' => $html === '' ? null : Crypt::encrypt([
+                                    'harborSession' => $session->id,
+                                    'userMessageId' => $userMessageId,
+                                    'text' => $visible,
+                                ]),
+                            ]);
                         },
                     );
 
@@ -118,8 +126,13 @@ class StreamChatController extends Controller
         $payload['sources'] = $citedIds === []
             ? []
             : CitedSources::streamLabels(
-                KnowledgeChunk::query()->with('article')->whereIn('id', $citedIds)->get(),
+                KnowledgeChunk::query()
+                    ->select(['id', 'knowledge_article_id', 'heading'])
+                    ->withAggregate('article as citation_article_title', 'title')
+                    ->whereIn('id', $citedIds)
+                    ->get(),
                 $citedIds,
+                fn (KnowledgeChunk $chunk): string => (string) $chunk->getAttribute('citation_article_title'),
             );
 
         if ($message->body !== '') {

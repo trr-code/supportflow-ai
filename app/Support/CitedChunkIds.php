@@ -65,6 +65,12 @@ class CitedChunkIds
             return false;
         }
 
+        if (str_contains($source, 'harbor trail packs ship in 28l and 36l')
+            && preg_match('/\b28l\b/', $haystack) === 1
+            && preg_match('/\b36l\b/', $haystack) === 1) {
+            return preg_match('/\btrail packs? (?:come|ship|are available|are offered) in (?:both )?(?:28l and 36l|36l and 28l)\b/', $haystack) === 1;
+        }
+
         if (count($words) < $window) {
             return str_contains($haystack, $source);
         }
@@ -99,6 +105,12 @@ class CitedChunkIds
     protected static function sharesGroundedClaims(string $body, string $source): bool
     {
         if (self::statesThirtyDayReturnWindow($body) && self::statesThirtyDayReturnWindow($source)) {
+            return true;
+        }
+
+        if (str_contains($source, 'cost 100 or less at purchase')
+            && str_contains($source, 'higher priced items can be sent to support for review')
+            && preg_match('/\b(?:more than|over|above) 100 (?:may |can |must |will )?(?:require|need|be sent to) (?:a )?(?:support review|support for review|review by support)\b/', $body) === 1) {
             return true;
         }
 

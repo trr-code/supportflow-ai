@@ -1,16 +1,40 @@
 <?php
 
+use App\Enums\AiRunStatus;
+use App\Http\Middleware\ThrottleChatRequests;
 use App\Livewire\Chat\Widget;
+use App\Models\AiRun;
 use App\Models\ChatMessage;
 use App\Models\DemoSession;
 use App\Models\KnowledgeArticle;
 use App\Services\ChatService;
 use App\Services\KnowledgeIndexService;
 use App\Services\RetrievalService;
+use App\Support\ChatInjectionGate;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
+
+test('a Harbor stop snapshot cannot edit another visitor or a superseded turn', function () {
+    $component = Livewire::test(Widget::class);
+    $session = DemoSession::query()->findOrFail($component->get('demoSessionId'));
+    $chat = app(ChatService::class);
+    $prior = $chat->recordUser($session, 'How do I return a pack?');
+    $latest = $chat->recordUser($session, 'Where is the nearest store?');
+
+    $stale = Crypt::encrypt(['harborSession' => $session->id, 'userMessageId' => $prior->id, 'text' => 'Earlier answer']);
+    $component->call('stopGenerating', null, 7, $stale)->assertStatus(200);
+
+    $foreign = Crypt::encrypt(['harborSession' => (string) Str::uuid(), 'userMessageId' => $latest->id, 'text' => 'Other answer']);
+    $component->call('stopGenerating', null, 5, $foreign)->assertStatus(422);
+    expect($chat->stopWasRequested($session))->toBeFalse()
+        ->and($latest->conversation->messages()->where('role', 'assistant')->exists())->toBeFalse();
+});
 
 test('the chat stream route records one user message without a livewire send', function () {
     fakeSupportAi();
@@ -119,6 +143,93 @@ test('an interrupted in-flight answer does not write after the conversation is r
 
     expect(ChatMessage::query()->count())->toBe(0);
 });
+
+test('an interrupted Harbor stream cannot leave a full answer in the transcript', function (string $action, bool $limiterUnavailable, bool $refusal = false, ?string $boundary = null) {
+    config(['supportflow.retrieval.min_similarity' => 0.05]);
+    fakeMatchingKnowledgeEmbeddings();
+    $article = KnowledgeArticle::query()->create([
+        'title' => 'Return window',
+        'slug' => 'interrupted-stream-policy',
+        'category' => 'returns',
+        'body' => "## Window\nUnused items can be returned within 30 days.",
+        'is_published' => true,
+        'is_seeded' => true,
+    ]);
+    app(KnowledgeIndexService::class)->syncArticle($article);
+    fakeMatchingKnowledgeEmbeddings();
+    fakeSupportAi(chat: [
+        'body' => $refusal ? ChatInjectionGate::REFUSAL : 'Unused items can be returned within 30 days.',
+        'cited_chunk_ids' => [$article->chunks()->firstOrFail()->id],
+        'grounded' => true,
+    ]);
+
+    $session = DemoSession::query()->create([
+        'id' => (string) Str::uuid(),
+        'last_activity_at' => now(),
+    ]);
+    $chat = app(ChatService::class);
+    $interrupted = false;
+    $emitted = false;
+    $interrupt = function () use ($chat, $session, $action, $limiterUnavailable, $boundary, &$interrupted): void {
+        if ($interrupted) {
+            return;
+        }
+
+        $interrupted = true;
+        if ($limiterUnavailable) {
+            config(['supportflow.rate_limits.chat_store' => 'unavailable-harbor-limiter']);
+
+            expect(fn () => app(ThrottleChatRequests::class))->toThrow(InvalidArgumentException::class);
+        }
+
+        if ($action === 'stop' && $boundary !== null) {
+            $user = $chat->conversationFor($session)->messages()->where('role', 'user')->sole();
+            expect($chat->stopVisibleTurn($session, $user->id, 'Unused items'))->toBeTrue();
+        } elseif ($action === 'stop') {
+            $chat->requestStop($session);
+        } else {
+            $chat->startNewConversation($session);
+        }
+    };
+
+    if ($boundary === 'before save') {
+        DB::listen(function (QueryExecuted $query) use (&$emitted, $interrupt): void {
+            if ($emitted && str_contains($query->sql, '"chat_conversations"') && str_contains($query->sql, 'for update')) {
+                $interrupt();
+            }
+        });
+    } elseif ($boundary === 'after save') {
+        Event::listen('eloquent.updated: '.AiRun::class, function (AiRun $run) use (&$emitted, $interrupt): void {
+            if ($emitted && $run->status === AiRunStatus::Completed && ($run->payload['grounded'] ?? false)) {
+                $interrupt();
+            }
+        });
+    }
+
+    $chat->ask($session, 'How long do I have to return an unused pack with tags?', function (string $text) use ($boundary, &$emitted, $interrupt): void {
+        if ($text !== '') {
+            $emitted = true;
+            if ($boundary === null) {
+                $interrupt();
+            }
+        }
+    });
+
+    expect($interrupted)->toBeTrue();
+    expect($chat->conversationFor($session)->messages()->where('role', 'assistant')->pluck('body')->all())
+        ->toBe($action === 'stop' ? [$boundary === null ? 'Stopped.' : 'Unused items'] : []);
+})->with([
+    'stop' => ['stop', false],
+    'reset' => ['reset', false],
+    'stop with unavailable limiter' => ['stop', true],
+    'reset with unavailable limiter' => ['reset', true],
+    'stop a refusal' => ['stop', false, true],
+    'reset a refusal' => ['reset', false, true],
+    'stop wins before save' => ['stop', false, false, 'before save'],
+    'reset wins before save' => ['reset', false, false, 'before save'],
+    'stop follows save' => ['stop', false, false, 'after save'],
+    'reset follows save' => ['reset', false, false, 'after save'],
+]);
 
 test('chat stream deltas hide citation trailers', function () {
     config(['supportflow.retrieval.min_similarity' => 0.05]);

@@ -87,19 +87,24 @@ class HarborReturns
         return $body === $expected || ($this->asksAboutPackagingAndReturn($question) && str_ends_with($body, "\n\n".$expected));
     }
 
+    public function orderPrompt(string $question): string
+    {
+        $hint = match (true) {
+            preg_match('/\btrail pack\b/i', $question) === 1 => ' To try this with the sample Trail Pack, reply with HB-51001.',
+            preg_match('/\b(?:ridgeline 2p tent|my tent|the tent)\b|\$249(?:\.00)?\s+tent\b/i', $question) === 1 => ' To try this with the sample tent, reply with HB-51003.',
+            default => '',
+        };
+
+        return self::CHOOSE_ORDER.$hint;
+    }
+
     /** @return array{status: string, message: string} */
     public function assess(DemoSession $session, string $number, string $question = ''): array
     {
         $order = $this->orders()[$number] ?? null;
 
         if ($order === null) {
-            $hint = match (true) {
-                preg_match('/\btrail pack\b/i', $question) === 1 => ' To try this with the sample Trail Pack, reply with HB-51001.',
-                preg_match('/\b(?:ridgeline 2p tent|my tent|the tent)\b/i', $question) === 1 => ' To try this with the sample tent, reply with HB-51003.',
-                default => '',
-            };
-
-            return ['status' => 'choose', 'message' => self::CHOOSE_ORDER.$hint];
+            return ['status' => 'choose', 'message' => $this->orderPrompt($question)];
         }
 
         $reference = $this->requests($session, $number)->value('reference');

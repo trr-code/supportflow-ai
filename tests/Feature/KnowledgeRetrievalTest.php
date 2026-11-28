@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\KnowledgeChunk;
 use App\Services\RetrievalService;
 use App\Support\ChatFollowUpQuery;
 use App\Support\KnowledgeCorpus;
+use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Embeddings;
 
 test('seeded catalog retrieval includes the required policy slugs', function (string $query, array $requiredSlugs) {
@@ -41,6 +43,48 @@ test('unused return retrieval keeps box and prepaid headings with the deadline',
         ->toContain('Box not required')
         ->toContain('Prepaid labels')
         ->and($bodies)->toContain('30 days');
+});
+
+test('a multi-part Harbor search batches vector and lexical candidates into one SQL statement', function () {
+    seedHarborKnowledgeCatalog();
+    $connection = DB::connection();
+    $connection->flushQueryLog();
+    $connection->enableQueryLog();
+
+    try {
+        $results = app(RetrievalService::class)->search(
+            'For an unused Trail Pack, explain the return deadline, original box and prepaid label.',
+            KnowledgeCorpus::harbor(),
+        );
+        $candidateStatements = collect($connection->getQueryLog())
+            ->filter(fn (array $entry): bool => str_contains($entry['query'], 'websearch_to_tsquery') || str_contains($entry['query'], '<=>'))
+            ->values();
+    } finally {
+        $connection->disableQueryLog();
+        $connection->flushQueryLog();
+    }
+
+    expect($candidateStatements)->toHaveCount(1);
+    $sql = $candidateStatements[0]['query'];
+    expect(substr_count($sql, 'websearch_to_tsquery'))->toBeGreaterThan(2);
+    expect(substr_count($sql, '<=>'))->toBeGreaterThan(3);
+    expect($results->map(fn (array $row): ?string => $row['chunk']->heading)->all())
+        ->toContain('Box not required', 'Prepaid labels');
+});
+
+test('Harbor keeps an exact vector match when the lexical input is empty', function () {
+    seedHarborKnowledgeCatalog();
+    $chunk = KnowledgeChunk::query()
+        ->whereHas('article', fn ($query) => $query->where('slug', 'return-window'))
+        ->orderBy('id')
+        ->firstOrFail();
+    $embedding = $chunk->embedding;
+    Embeddings::fake(fn (object $prompt): array => array_fill(0, count($prompt->inputs), $embedding));
+
+    $results = app(RetrievalService::class)->search('or', KnowledgeCorpus::harbor());
+
+    expect($results->map(fn (array $row): int => $row['chunk']->id)->all())->toBe([$chunk->id]);
+    expect($results->first()['similarity'])->toBe(1.0);
 });
 
 test('embroidery retrieval does not invent a thread color list', function () {

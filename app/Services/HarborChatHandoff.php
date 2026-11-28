@@ -8,8 +8,6 @@ use Illuminate\Support\Collection;
 
 class HarborChatHandoff
 {
-    public const ASK_ORDER = 'What’s your order number?';
-
     public const REVIEW = 'This return request needs staff review. Check the details below, then select Send support request. Your return has not been approved.';
 
     /**
@@ -35,8 +33,7 @@ class HarborChatHandoff
         $order = '';
         if (preg_match('/^\s*([A-Z0-9][A-Z0-9_-]{1,59})[.!]?\s*$/i', $request, $number) === 1) {
             $previous = $users->get($users->count() - 2);
-            $assistant = $messages->last(fn (ChatMessage $message): bool => $message->id < $last->id && $message->role === 'assistant');
-            if ($previous === null || $assistant?->body !== self::ASK_ORDER) {
+            if ($previous === null || ! in_array($previousAssistant?->body, [HarborReturns::CHOOSE_ORDER, $returns->orderPrompt($previous->body)], true)) {
                 return null;
             }
             $order = strtoupper($number[1]);

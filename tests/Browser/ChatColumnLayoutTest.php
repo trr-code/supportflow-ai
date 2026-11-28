@@ -2,17 +2,75 @@
 
 use App\Enums\MessageAuthorType;
 use App\Enums\MessageVisibility;
+use App\Models\DemoSession;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\ChatService;
+use App\Services\DemoSessionService;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceChatService;
 use App\Services\WorkspaceDocumentStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Embeddings;
 use Pest\Browser\Execution;
+
+test('Harbor Stop keeps exactly the visible answer across a refresh', function (int $width, bool $done) {
+    $session = DemoSession::query()->create(['id' => (string) str()->uuid(), 'last_activity_at' => now()]);
+    $this->withCookie(DemoSessionService::COOKIE, $session->id);
+    $page = visit(route('demo.harbor'), ['viewport' => ['width' => $width, 'height' => 900]]);
+    $chat = app(ChatService::class);
+    $question = 'How do I return a Trail Pack?';
+    $text = 'The pack can be returned. '.str_repeat('More policy details follow. ', 15);
+    $user = $chat->recordUser($session, $question);
+    $snapshot = Crypt::encrypt(['harborSession' => $session->id, 'userMessageId' => $user->id, 'text' => $text]);
+    $html = '<p>'.trim($text).'</p>';
+    $events = 'event: delta'."\n".'data: '.json_encode(['html' => $html, 'stopSnapshot' => $snapshot], JSON_THROW_ON_ERROR)."\n\n";
+    if ($done) {
+        $assistant = $user->conversation->messages()->create(['role' => 'assistant', 'body' => $text, 'cited_chunk_ids' => [123]]);
+        $events .= 'event: done'."\n".'data: '.json_encode(['id' => $assistant->id, 'html' => $html, 'sources' => []], JSON_THROW_ON_ERROR)."\n\n";
+    }
+
+    $payload = json_encode($events, JSON_THROW_ON_ERROR);
+    $page->script(<<<JS
+        (() => {
+            const originalFetch = window.fetch;
+            window.fetch = (url, options) => {
+                if (!String(url).includes('/chat/stream')) return originalFetch(url, options);
+                return Promise.resolve(new Response(new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new TextEncoder().encode({$payload}));
+                        options.signal.addEventListener('abort', () => controller.error(new DOMException('Stopped', 'AbortError')));
+                    }
+                }), {headers: {'Content-Type': 'text/event-stream'}}));
+            };
+        })()
+    JS);
+    $page->fill('#chat-question', $question)->click('button[aria-label="Send"]');
+    Execution::instance()->waitForExpectation(fn () => expect($page->script(
+        'document.querySelector(\'[x-html*="Thinking"]\')?.textContent ?? ""',
+    ))->toContain('The pack'));
+    $visible = $page->script(<<<'JS'
+        (() => {
+            const stop = document.querySelector('[aria-label="Stop"]');
+            const visible = document.querySelector('[x-html*="Thinking"]');
+            const text = visible.textContent.trim();
+            stop.click();
+            return text;
+        })()
+    JS);
+    $page->assertSee('You stopped this answer')->assertSee($visible);
+    $saved = $user->conversation->messages()->where('role', 'assistant')->sole();
+    expect($saved->body)->toBe($visible)->not->toBe(trim($text))
+        ->and($saved->is_stopped)->toBeTrue()->and($saved->cited_chunk_ids)->toBe([]);
+    $page->refresh()->assertSee($visible)->assertSee('You stopped this answer')->assertNoJavaScriptErrors();
+})->with([
+    'desktop, receiving' => [1440, false],
+    'phone, revealing' => [390, true],
+]);
 
 test('document Stop preserves a visible partial answer before the stream completes', function (int $width) {
     $access = app(WorkspaceAccess::class);

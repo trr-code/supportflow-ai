@@ -38,6 +38,8 @@ use Throwable;
 
 class ChatService
 {
+    private const int TEXT_STREAM_STATE_CHECK_INTERVAL_NS = 100_000_000;
+
     public function __construct(
         private readonly RetrievalService $retrieval,
         private readonly AiUsageRecorder $recorder,
@@ -54,7 +56,12 @@ class ChatService
 
     public function recordUser(DemoSession $session, string $question): ChatMessage
     {
-        return $this->conversationFor($session)->messages()->create([
+        return $this->recordUserMessage($this->conversationFor($session), $question);
+    }
+
+    private function recordUserMessage(ChatConversation $conversation, string $question): ChatMessage
+    {
+        return $conversation->messages()->create([
             'role' => 'user',
             'body' => $question,
         ]);
@@ -62,11 +69,19 @@ class ChatService
 
     public function startNewConversation(DemoSession $session): void
     {
-        $this->interruptStream($session);
-        $this->conversationFor($session)->messages()->delete();
+        $conversation = $this->conversationFor($session);
+        $this->withConversationLock($conversation, function () use ($session, $conversation): void {
+            $this->invalidateStream($session);
+            $conversation->messages()->delete();
+        });
     }
 
     public function interruptStream(DemoSession $session): void
+    {
+        $this->withConversationLock($this->conversationFor($session), fn () => $this->invalidateStream($session));
+    }
+
+    private function invalidateStream(DemoSession $session): void
     {
         $this->requestStop($session);
         Cache::put(
@@ -105,6 +120,72 @@ class ChatService
         return Cache::lock($this->streamLockKey($session), $seconds);
     }
 
+    public function stopVisibleTurn(DemoSession $session, int $userMessageId, string $prefix): bool
+    {
+        $conversation = $this->conversationFor($session);
+
+        return $this->withConversationLock($conversation, fn (): bool => $this->stopVisibleTurnInConversation($session, $conversation, $userMessageId, $prefix));
+    }
+
+    private function stopVisibleTurnInConversation(DemoSession $session, ChatConversation $conversation, int $userMessageId, string $prefix): bool
+    {
+        $latestUserId = $conversation->messages()->where('role', 'user')->latest('id')->value('id');
+        if ($latestUserId !== $userMessageId) {
+            return false;
+        }
+
+        $this->invalidateStream($session);
+        $assistant = $conversation->messages()->where('id', '>', $userMessageId)->where('role', 'assistant')->first();
+        if ($assistant?->is_stopped && $assistant->body !== 'Stopped.') {
+            return true;
+        }
+
+        $attributes = ['role' => 'assistant', 'body' => $prefix !== '' ? $prefix : 'Stopped.', 'is_stopped' => true, 'cited_chunk_ids' => []];
+        if ($assistant === null) {
+            $conversation->messages()->create($attributes);
+        } else {
+            $assistant->update($attributes);
+        }
+
+        return true;
+    }
+
+    /**
+     * @template Result
+     *
+     * @param  Closure(): Result  $operation
+     * @return Result
+     */
+    private function withConversationLock(ChatConversation $conversation, Closure $operation): mixed
+    {
+        return $conversation->getConnection()->transaction(function () use ($conversation, $operation): mixed {
+            $conversation->newQuery()->whereKey($conversation->id)->lockForUpdate()->firstOrFail();
+
+            return $operation();
+        });
+    }
+
+    /**
+     * @param  list<int>  $cited
+     * @param  (Closure(bool): void)|null  $recordCompletion
+     */
+    private function saveAssistant(DemoSession $session, ChatConversation $conversation, int $generation, string $body, array $cited = [], ?Closure $recordCompletion = null): ChatMessage
+    {
+        return $this->withConversationLock($conversation, function () use ($session, $conversation, $generation, $body, $cited, $recordCompletion): ChatMessage {
+            $abandoned = $this->abandonInFlightIfNeeded($session, $generation);
+            $message = $abandoned ?? $conversation->messages()->create([
+                'role' => 'assistant',
+                'body' => $body,
+                'cited_chunk_ids' => $cited,
+            ]);
+            if ($recordCompletion !== null) {
+                $recordCompletion($abandoned === null);
+            }
+
+            return $message;
+        });
+    }
+
     public function recordStoppedIfOrphaned(DemoSession $session): ?ChatMessage
     {
         $conversation = $this->conversationFor($session);
@@ -125,26 +206,39 @@ class ChatService
     public function ask(DemoSession $session, string $question, ?Closure $onDelta = null): ChatMessage
     {
         $generation = $this->currentStreamGeneration($session);
+        $conversation = $this->conversationFor($session);
 
-        $this->recordUser($session, $question);
+        $userMessage = $this->recordUserMessage($conversation, $question);
 
-        return $this->replyToLatest($session, $onDelta, $generation);
+        return $this->replyInConversation(
+            $session,
+            $conversation,
+            $generation,
+            $onDelta === null ? null : fn (string $visible) => $onDelta($visible, $userMessage->id),
+        );
     }
 
     public function replyToLatest(DemoSession $session, ?Closure $onDelta = null, ?int $generation = null): ChatMessage
     {
         $generation ??= $this->currentStreamGeneration($session);
-        $conversation = $this->conversationFor($session);
+
+        return $this->replyInConversation($session, $this->conversationFor($session), $generation, $onDelta);
+    }
+
+    private function replyInConversation(DemoSession $session, ChatConversation $conversation, int $generation, ?Closure $onDelta): ChatMessage
+    {
         $cap = (int) config('supportflow.demo.chat_turn_cap');
-        $userTurns = $conversation->messages()->where('role', 'user')->count();
-        $question = (string) $conversation->messages()->where('role', 'user')->latest('id')->value('body');
+        $latestUserTurn = $conversation->messages()
+            ->where('role', 'user')
+            ->select('body')
+            ->selectRaw('count(*) over () as user_turns')
+            ->latest('id')
+            ->first();
+        $userTurns = (int) ($latestUserTurn?->getAttribute('user_turns') ?? 0);
+        $question = (string) ($latestUserTurn->body ?? '');
 
         if ($userTurns > $cap) {
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => 'This demo chat is capped at '.$cap.' questions. Submit a support ticket if you still need help.',
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->saveAssistant($session, $conversation, $generation, 'This demo chat is capped at '.$cap.' questions. Submit a support ticket if you still need help.');
         }
 
         if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
@@ -156,11 +250,7 @@ class ChatService
                 $onDelta(ChatInjectionGate::REFUSAL);
             }
 
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => ChatInjectionGate::REFUSAL,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->saveAssistant($session, $conversation, $generation, ChatInjectionGate::REFUSAL);
         }
 
         if ($question === DemoGuide::prompt('return_window')['question']) {
@@ -173,26 +263,30 @@ class ChatService
             $label = $passages->firstWhere('heading', 'Prepaid labels');
 
             if ($window !== null && $box !== null && $label !== null) {
-                return $conversation->messages()->create([
-                    'role' => 'assistant',
-                    'body' => implode(' ', [$window->body, $box->body, $label->body]),
-                    'cited_chunk_ids' => [$window->id, $box->id, $label->id],
-                ]);
+                return $this->saveAssistant(
+                    $session,
+                    $conversation,
+                    $generation,
+                    implode(' ', [$window->body, $box->body, $label->body]),
+                    [$window->id, $box->id, $label->id],
+                );
             }
         }
 
-        $handoff = app(HarborChatHandoff::class)->proposal($conversation->messages()->orderBy('id')->get());
+        $history = $conversation->messages()->orderBy('id')->get();
+        $handoff = app(HarborChatHandoff::class)->proposal($history);
         if ($handoff !== null && ! $this->returns->mentionsSampleOrder($question)) {
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => $handoff['order'] === '' ? HarborChatHandoff::ASK_ORDER : HarborChatHandoff::REVIEW,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->saveAssistant(
+                $session,
+                $conversation,
+                $generation,
+                $handoff['order'] === '' ? $this->returns->orderPrompt($question) : HarborChatHandoff::REVIEW,
+            );
         }
 
         $returnOrder = $this->returns->requestedOrder(
             $question,
-            $conversation->messages()->where('role', 'assistant')->latest('id')->value('body'),
+            $history->last(fn (ChatMessage $message): bool => $message->role === 'assistant')?->body,
         );
 
         if ($returnOrder !== null) {
@@ -201,7 +295,7 @@ class ChatService
                 ? KnowledgeChunk::query()->where('heading', 'Start a return in chat')
                     ->whereHas('article', fn ($article) => $article->where('slug', 'return-window')
                         ->whereNull('workspace_id')->where('is_published', true)->where('is_seeded', true))
-                    ->pluck('id')->all()
+                    ->get(['id'])->map(fn (KnowledgeChunk $chunk): int => $chunk->id)->all()
                 : [];
 
             if ($this->returns->asksAboutPackagingAndReturn($question)) {
@@ -216,16 +310,13 @@ class ChatService
                 }
             }
 
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => $result['message'],
-                'cited_chunk_ids' => $policyIds,
-            ]);
+            return $this->saveAssistant($session, $conversation, $generation, $result['message'], array_values($policyIds));
         }
 
         $min = (float) config('supportflow.retrieval.min_similarity');
         $limit = (int) config('supportflow.retrieval.limit');
-        $previous = $this->previousSafeUserTurn($conversation);
+        $previous = $this->previousSafeUserTurn($history);
+        unset($history);
         $query = ChatFollowUpQuery::retrievalQuery($question, $previous);
         $corpus = KnowledgeCorpus::harbor();
         $matches = $this->retrieval->search($query, $corpus, $limit, $min);
@@ -286,19 +377,9 @@ class ChatService
         $refusal = 'I don’t have a documented answer in the Harbor Outfitters knowledge base. Select Create a support ticket to send your question to Agent Desk for review.';
 
         if ($matches->isEmpty() && $case === null) {
-            if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
-                $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: []);
-
-                return $abandoned;
-            }
-
-            $this->recorder->complete($run, payload: ['grounded' => false], retrievedChunkIds: []);
-
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => $refusal,
-                'cited_chunk_ids' => [],
-            ]);
+            return $this->saveAssistant($session, $conversation, $generation, $refusal, recordCompletion: function (bool $saved) use ($run): void {
+                $this->recorder->complete($run, payload: $saved ? ['grounded' => false] : ['grounded' => false, 'stopped' => true]);
+            });
         }
 
         $passages = $matches->map(function (array $row): string {
@@ -342,11 +423,19 @@ class ChatService
             model: (string) config('supportflow.models.chat'),
         );
 
-        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, &$usedOrderTool, &$heldProposal, $onDelta, $session, $generation, $case): bool {
-            if ($this->abandonInFlightIfNeeded($session, $generation) !== null) {
-                $cancelled = true;
+        $nextTextStateCheckAt = 0;
+        $stream->each(function (StreamEvent $event) use (&$raw, &$cancelled, &$usedOrderTool, &$heldProposal, &$nextTextStateCheckAt, $onDelta, $session, $generation, $case): bool {
+            $now = hrtime(true);
+            if ($case !== null || ! ($event instanceof TextDelta) || $now >= $nextTextStateCheckAt || connection_aborted() === 1) {
+                if ($this->abandonInFlightIfNeeded($session, $generation) !== null) {
+                    $cancelled = true;
 
-                return false;
+                    return false;
+                }
+
+                if ($event instanceof TextDelta) {
+                    $nextTextStateCheckAt = $now + self::TEXT_STREAM_STATE_CHECK_INTERVAL_NS;
+                }
             }
 
             if ($event instanceof ToolCall || $event instanceof ToolResult || $event instanceof ToolApprovalRequest) {
@@ -371,7 +460,9 @@ class ChatService
             return true;
         });
 
-        $abandoned = $this->abandonInFlightIfNeeded($session, $generation);
+        $abandoned = $cancelled || $case !== null
+            ? $this->abandonInFlightIfNeeded($session, $generation)
+            : null;
 
         if ($cancelled || $abandoned !== null) {
             $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: $chunkIds);
@@ -387,71 +478,60 @@ class ChatService
         $text = $streamed instanceof StreamedAgentResponse ? $streamed->text : $raw;
         [$body, $citedRaw] = ChatCitationTrailer::split($text);
         $body = ChatAnswerCopy::normalize($body);
-        $refusalPrefix = 'I don’t have a documented answer';
-
         if (ChatInjectionGate::isRefusal($body)) {
-            $this->recorder->complete($run, $streamed, ['grounded' => false], $chunkIds);
-
-            return $conversation->messages()->create([
-                'role' => 'assistant',
-                'body' => $body !== '' ? $body : ChatInjectionGate::REFUSAL,
-                'cited_chunk_ids' => [],
-            ]);
-        }
-
-        if ($heldProposal) {
-            $body = 'I’ve prepared a demo replacement request. Select Confirm to save it or Cancel to dismiss it. Nothing will be shipped.';
-        } elseif (! str_starts_with($body, $refusalPrefix)) {
-            $body = SupportingPassages::includeAskedFacets($body, $question, $matches);
-        }
-
-        $cited = $heldProposal || str_starts_with($body, $refusalPrefix)
-            ? []
-            : CitedChunkIds::usedInBody(
-                $body,
-                $matches,
-                CitedChunkIds::onlyAllowed($citedRaw, $chunkIds),
-            );
-        $grounded = $cited !== [] && $body !== '';
-        $orderTurn = $usedOrderTool || $heldProposal;
-
-        if (! $grounded && ! $orderTurn) {
-            $body = $refusal;
-            $cited = [];
-        }
-
-        if ($orderTurn && trim($body) === '') {
-            $body = 'Nothing was saved.';
-            $cited = [];
             $grounded = false;
+            $cited = [];
+        } else {
+            $refusalPrefix = 'I don’t have a documented answer';
+
+            if ($heldProposal) {
+                $body = 'I’ve prepared a demo replacement request. Select Confirm to save it or Cancel to dismiss it. Nothing will be shipped.';
+            } elseif (! str_starts_with($body, $refusalPrefix)) {
+                $body = SupportingPassages::includeAskedFacets($body, $question, $matches);
+            }
+
+            $cited = $heldProposal || str_starts_with($body, $refusalPrefix)
+                ? []
+                : CitedChunkIds::usedInBody(
+                    $body,
+                    $matches,
+                    CitedChunkIds::onlyAllowed($citedRaw, $chunkIds),
+                );
+            $grounded = $cited !== [] && $body !== '';
+            $orderTurn = $usedOrderTool || $heldProposal;
+
+            if (! $grounded && ! $orderTurn) {
+                $body = $refusal;
+                $cited = [];
+            }
+
+            if ($orderTurn && trim($body) === '') {
+                $body = 'Nothing was saved.';
+                $cited = [];
+                $grounded = false;
+            }
+
+            if ($grounded && ChatSummaryQuery::target($question) !== null && $this->retrieval->overviewIsPartial($question, KnowledgeCorpus::harbor(), $matches)) {
+                $body .= "\n\n".ChatSummaryQuery::PARTIAL_NOTICE;
+            }
         }
 
-        if ($abandoned = $this->abandonInFlightIfNeeded($session, $generation)) {
-            $this->recorder->complete($run, payload: ['grounded' => false, 'stopped' => true], retrievedChunkIds: $chunkIds);
-
-            return $abandoned;
-        }
-
-        if ($grounded && ChatSummaryQuery::target($question) !== null && $this->retrieval->overviewIsPartial($question, KnowledgeCorpus::harbor(), $matches)) {
-            $body .= "\n\n".ChatSummaryQuery::PARTIAL_NOTICE;
-        }
-
-        $this->recorder->complete($run, $streamed, ['grounded' => $grounded], $chunkIds);
-
-        return $conversation->messages()->create([
-            'role' => 'assistant',
-            'body' => $body,
-            'cited_chunk_ids' => $cited,
-        ]);
+        return $this->saveAssistant($session, $conversation, $generation, $body, $cited, function (bool $saved) use ($run, $streamed, $grounded, $chunkIds): void {
+            $this->recorder->complete(
+                $run,
+                $saved ? $streamed : null,
+                $saved ? ['grounded' => $grounded] : ['grounded' => false, 'stopped' => true],
+                $chunkIds,
+            );
+        });
     }
 
-    private function previousSafeUserTurn(ChatConversation $conversation): ?string
+    /**
+     * @param  Collection<int, ChatMessage>  $history
+     */
+    private function previousSafeUserTurn(Collection $history): ?string
     {
-        $priors = $conversation->messages()
-            ->where('role', 'user')
-            ->latest('id')
-            ->skip(1)
-            ->get();
+        $priors = $history->where('role', 'user')->reverse()->skip(1);
 
         foreach ($priors as $message) {
             if (! ChatInjectionGate::blocks($message->body)) {
@@ -465,14 +545,6 @@ class ChatService
     /**
      * @phpstan-impure
      */
-    private function generationWasStopped(DemoSession $session): bool
-    {
-        return $this->stopWasRequested($session) || connection_aborted() === 1;
-    }
-
-    /**
-     * @phpstan-impure
-     */
     private function currentStreamGeneration(DemoSession $session): int
     {
         return (int) Cache::get($this->streamGenerationKey($session), 0);
@@ -481,21 +553,17 @@ class ChatService
     /**
      * @phpstan-impure
      */
-    private function streamIsStale(DemoSession $session, int $generation): bool
-    {
-        return $this->currentStreamGeneration($session) !== $generation;
-    }
-
-    /**
-     * @phpstan-impure
-     */
     private function abandonInFlightIfNeeded(DemoSession $session, int $generation): ?ChatMessage
     {
-        if ($this->streamIsStale($session, $generation)) {
+        $generationKey = $this->streamGenerationKey($session);
+        $stopKey = $this->stopCacheKey($session);
+        $state = Cache::many([$generationKey, $stopKey]);
+
+        if ((int) ($state[$generationKey] ?? 0) !== $generation) {
             return $this->abandonedStreamMessage($session);
         }
 
-        if ($this->generationWasStopped($session)) {
+        if (($state[$stopKey] ?? null) === true || connection_aborted() === 1) {
             return $this->stoppedAssistantMessage($session);
         }
 

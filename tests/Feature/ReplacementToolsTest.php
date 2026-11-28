@@ -7,6 +7,7 @@ use App\Ai\Tools\LookupOrder;
 use App\Enums\AiRunFeature;
 use App\Enums\AiRunStatus;
 use App\Enums\ReplacementProposalStatus;
+use App\Http\Middleware\ThrottleChatRequests;
 use App\Jobs\RunReplacementAgent;
 use App\Livewire\Pages\DemoWorkspace;
 use App\Models\AiRun;
@@ -462,7 +463,8 @@ test('prune and reset leave tickets knowledge and workspaces in place', function
 });
 
 test('the Harbor replacement flow uses the chat rate limiter', function () {
-    expect(collect(app(Router::class)->getRoutes()->getByName('chat.stream')->gatherMiddleware()))->toContain('throttle:chat');
+    expect(collect(app(Router::class)->getRoutes()->getByName('chat.stream')->gatherMiddleware()))
+        ->toContain(ThrottleChatRequests::using('chat'));
 });
 
 test('the old tools address opens the Harbor replacement example', function () {

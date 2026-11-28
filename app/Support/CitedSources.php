@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\KnowledgeChunk;
+use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -12,15 +13,16 @@ class CitedSources
      * Group cited chunks under their article, preserving supporting headings.
      *
      * @param  iterable<int, KnowledgeChunk>  $chunks
+     * @param  (Closure(KnowledgeChunk): ?string)|null  $articleTitle
      * @return list<array{article_id: int|string, title: string, headings: list<string>, includes_intro: bool, chunks: list<KnowledgeChunk>}>
      */
-    public static function groupByArticle(iterable $chunks): array
+    public static function groupByArticle(iterable $chunks, ?Closure $articleTitle = null): array
     {
         $groups = [];
 
         foreach ($chunks as $chunk) {
             $articleId = $chunk->knowledge_article_id ?: 'unknown-'.$chunk->id;
-            $title = $chunk->article?->title ?: 'Knowledge article';
+            $title = ($articleTitle === null ? $chunk->article?->title : $articleTitle($chunk)) ?: 'Knowledge article';
 
             $groups[$articleId] ??= [
                 'article_id' => $articleId,
@@ -51,9 +53,10 @@ class CitedSources
     /**
      * @param  iterable<int, KnowledgeChunk>  $chunks
      * @param  list<int>  $citedIds
+     * @param  (Closure(KnowledgeChunk): ?string)|null  $articleTitle
      * @return list<array{article_id: int|string, title: string, headings: list<string>, includes_intro: bool}>
      */
-    public static function streamLabels(iterable $chunks, array $citedIds): array
+    public static function streamLabels(iterable $chunks, array $citedIds, ?Closure $articleTitle = null): array
     {
         return array_map(
             fn (array $group): array => [
@@ -62,7 +65,7 @@ class CitedSources
                 'headings' => $group['headings'],
                 'includes_intro' => $group['includes_intro'],
             ],
-            self::groupByArticle(self::inCitationOrder($chunks, $citedIds)),
+            self::groupByArticle(self::inCitationOrder($chunks, $citedIds), $articleTitle),
         );
     }
 

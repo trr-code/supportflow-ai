@@ -38,72 +38,36 @@ class RetrievalService
 
         $topics = RetrievalTopics::matching($query);
         $facets = RetrievalFacets::queries($query);
-        $embedTexts = [$query];
-
-        if (count($topics) >= 2) {
-            foreach (array_slice($topics, 0, 3) as $topic) {
-                $embedTexts[] = $topic['embed'];
-            }
-        }
-
-        foreach ($facets as $facet) {
-            $embedTexts[] = $facet['embed'];
-        }
-
+        $dedicated = [...(count($topics) >= 2 ? array_slice($topics, 0, 3) : []), ...$facets];
+        $embedTexts = [$query, ...array_column($dedicated, 'embed')];
         $embeddings = $this->embeddingsFor($embedTexts);
-        $rankLists = [];
-        $similarities = [];
+        $rankInputs = [];
 
         $fullEmbedding = $embeddings[$query] ?? [];
 
         if ($fullEmbedding !== []) {
-            $vectorHits = $this->vectorSearch($fullEmbedding, $candidates, $minSimilarity, $corpus);
-            $rankLists[] = $this->ranksFromChunks($vectorHits->map(fn (array $row): KnowledgeChunk => $row['chunk']));
-            $similarities = $this->mergeSimilarities($similarities, $vectorHits);
+            $rankInputs[] = ['embedding' => $fullEmbedding];
         }
 
-        $lexicalHits = $this->lexicalSearch($this->neutralizeWebsearchOperators($query), $candidates, $corpus);
-        if ($lexicalHits->isNotEmpty()) {
-            $rankLists[] = $this->ranksFromChunks($lexicalHits);
-        }
-
+        $rankInputs[] = ['lexical' => $this->neutralizeWebsearchOperators($query)];
         $orQuery = $this->orExpandedQuery($query);
         if ($orQuery !== null && $orQuery !== $query) {
-            $orHits = $this->lexicalSearch($orQuery, $candidates, $corpus);
-            if ($orHits->isNotEmpty()) {
-                $rankLists[] = $this->ranksFromChunks($orHits);
+            $rankInputs[] = ['lexical' => $orQuery];
+        }
+
+        foreach ($dedicated as $input) {
+            $embedding = $embeddings[$input['embed']] ?? [];
+            if ($embedding === []) {
+                $embedding = $this->embed($input['embed']);
             }
-        }
 
-        if (count($topics) >= 2) {
-            foreach (array_slice($topics, 0, 3) as $topic) {
-                $this->addDedicatedRankLists(
-                    $topic['embed'],
-                    $topic['lexical'],
-                    $candidates,
-                    $minSimilarity,
-                    $corpus,
-                    $rankLists,
-                    $similarities,
-                    $embeddings[$topic['embed']] ?? [],
-                );
+            if ($embedding !== []) {
+                $rankInputs[] = ['embedding' => $embedding];
             }
+            $rankInputs[] = ['lexical' => $input['lexical']];
         }
 
-        foreach ($facets as $facet) {
-            $this->addDedicatedRankLists(
-                $facet['embed'],
-                $facet['lexical'],
-                $candidates,
-                $minSimilarity,
-                $corpus,
-                $rankLists,
-                $similarities,
-                $embeddings[$facet['embed']] ?? [],
-            );
-        }
-
-        $rankLists = array_values(array_filter($rankLists, fn (array $ranks): bool => $ranks !== []));
+        [$rankLists, $similarities] = $this->candidateRanks($rankInputs, $candidates, $minSimilarity, $corpus);
 
         if ($rankLists === []) {
             return collect();
@@ -218,91 +182,81 @@ class RetrievalService
     }
 
     /**
-     * @param  list<float>  $embedding
-     * @return Collection<int, array{chunk: KnowledgeChunk, similarity: float}>
-     */
-    protected function vectorSearch(array $embedding, int $candidates, float $minSimilarity, KnowledgeCorpus $corpus): Collection
-    {
-        $chunks = KnowledgeChunk::query()
-            ->with('article')
-            ->whereHas('article', fn ($query) => $corpus->apply($query))
-            ->whereNotNull('embedding')
-            ->select('*')
-            ->selectVectorDistance('embedding', $embedding, as: 'distance')
-            ->whereVectorSimilarTo('embedding', $embedding, minSimilarity: $minSimilarity)
-            ->limit($candidates)
-            ->get();
-
-        return $chunks->map(function (KnowledgeChunk $chunk) use ($minSimilarity): array {
-            $distance = $chunk->getAttribute('distance');
-            $similarity = is_numeric($distance) ? max(0, 1 - (float) $distance) : $minSimilarity;
-
-            return [
-                'chunk' => $chunk,
-                'similarity' => round($similarity, 4),
-            ];
-        });
-    }
-
-    /**
-     * Parameterized full-text search over article title, chunk heading, and chunk body.
-     * The visitor string is a PDO binding; SQL identifiers stay in this method.
+     * Keep every search's ordered LIMIT inside its subquery, including pgvector's nearest-neighbor ordering.
      *
-     * @return Collection<int, KnowledgeChunk>
+     * @param  list<array{embedding: list<float>}|array{lexical: string}>  $inputs
+     * @return array{list<array<int, int>>, array<int, float>}
      */
-    protected function lexicalSearch(string $lexicalQuery, int $candidates, KnowledgeCorpus $corpus): Collection
+    private function candidateRanks(array $inputs, int $candidates, float $minSimilarity, KnowledgeCorpus $corpus): array
     {
-        $lexicalQuery = trim($lexicalQuery);
+        $batch = (new KnowledgeChunk)->getConnection()->query();
+        $columns = [];
+        $lexicalColumns = [];
+        foreach ($inputs as $index => $input) {
+            $vector = isset($input['embedding']);
+            $ranked = KnowledgeChunk::query()->select('knowledge_chunks.id');
 
-        if ($lexicalQuery === '') {
-            return collect();
+            if ($vector) {
+                $ranked->whereHas('article', fn ($query) => $corpus->apply($query))
+                    ->whereNotNull('embedding')
+                    ->selectVectorDistance('embedding', $input['embedding'], as: 'distance')
+                    ->whereVectorSimilarTo('embedding', $input['embedding'], minSimilarity: $minSimilarity);
+                $aggregate = "coalesce(json_agg(json_build_array(ranked.id, ranked.distance) order by ranked.distance), '[]'::json)";
+            } else {
+                $query = trim($input['lexical']);
+                if ($query === '') {
+                    continue;
+                }
+
+                if (isset($lexicalColumns[$query])) {
+                    $columns[] = [$lexicalColumns[$query], false];
+
+                    continue;
+                }
+
+                $ranked->join('knowledge_articles', 'knowledge_articles.id', '=', 'knowledge_chunks.knowledge_article_id')
+                    ->tap(fn ($builder) => $corpus->apply($builder))
+                    ->whereRaw(self::LEXICAL_DOCUMENT.' @@ websearch_to_tsquery(\'english\', ?)', [$query])
+                    ->selectRaw('ts_rank('.self::LEXICAL_DOCUMENT.', websearch_to_tsquery(\'english\', ?)) as lexical_rank', [$query])
+                    ->orderByDesc('lexical_rank');
+                $aggregate = "coalesce(json_agg(json_build_array(ranked.id, null) order by ranked.lexical_rank desc), '[]'::json)";
+            }
+
+            $column = 'candidate_ranks_'.$index;
+            $columns[] = [$column, $vector];
+            if (! $vector) {
+                $lexicalColumns[$query] = $column;
+            }
+            $ids = $batch->newQuery()
+                ->fromSub($ranked->limit($candidates)->toBase(), 'ranked')
+                ->selectRaw($aggregate);
+            $batch->selectSub($ids, $column);
         }
 
-        return KnowledgeChunk::query()
-            ->join('knowledge_articles', 'knowledge_articles.id', '=', 'knowledge_chunks.knowledge_article_id')
-            ->tap(fn ($query) => $corpus->apply($query))
-            ->whereRaw(self::LEXICAL_DOCUMENT.' @@ websearch_to_tsquery(\'english\', ?)', [$lexicalQuery])
-            ->select('knowledge_chunks.*')
-            ->selectRaw('ts_rank('.self::LEXICAL_DOCUMENT.', websearch_to_tsquery(\'english\', ?)) as lexical_rank', [$lexicalQuery])
-            ->orderByDesc('lexical_rank')
-            ->limit($candidates)
-            ->with('article')
-            ->get();
-    }
-
-    /**
-     * @param  Collection<int, KnowledgeChunk>  $chunks
-     * @return array<int, int>
-     */
-    protected function ranksFromChunks(Collection $chunks): array
-    {
-        $ranks = [];
-        $position = 1;
-
-        foreach ($chunks as $chunk) {
-            $id = (int) $chunk->id;
-
-            $ranks[$id] ??= $position;
-
-            $position++;
+        if ($columns === []) {
+            return [[], []];
         }
 
-        return $ranks;
-    }
-
-    /**
-     * @param  array<int, float>  $similarities
-     * @param  Collection<int, array{chunk: KnowledgeChunk, similarity: float}>  $hits
-     * @return array<int, float>
-     */
-    protected function mergeSimilarities(array $similarities, Collection $hits): array
-    {
-        foreach ($hits as $hit) {
-            $id = (int) $hit['chunk']->id;
-            $similarities[$id] = max($similarities[$id] ?? 0.0, $hit['similarity']);
+        $row = $batch->first();
+        $rankLists = [];
+        $similarities = [];
+        foreach ($columns as [$column, $vector]) {
+            $ranks = [];
+            /** @var list<array{int, int|float|null}> $hits */
+            $hits = json_decode((string) $row->{$column}, true, flags: JSON_THROW_ON_ERROR);
+            foreach ($hits as $position => [$id, $distance]) {
+                $ranks[$id] = $position + 1;
+                if ($vector) {
+                    $similarity = $distance === null ? $minSimilarity : max(0, 1 - $distance);
+                    $similarities[$id] = max($similarities[$id] ?? 0.0, round($similarity, 4));
+                }
+            }
+            if ($ranks !== []) {
+                $rankLists[] = $ranks;
+            }
         }
 
-        return $similarities;
+        return [$rankLists, $similarities];
     }
 
     /**
@@ -385,41 +339,6 @@ class RetrievalService
         }
 
         return $mapped;
-    }
-
-    /**
-     * @param  list<array<int, int>>  $rankLists
-     * @param  array<int, float>  $similarities
-     * @param  list<float>  $embedding
-     */
-    protected function addDedicatedRankLists(
-        string $embedQuery,
-        string $lexicalQuery,
-        int $candidates,
-        float $minSimilarity,
-        KnowledgeCorpus $corpus,
-        array &$rankLists,
-        array &$similarities,
-        array $embedding = [],
-    ): void {
-        if ($embedding === []) {
-            $embedding = $this->embed($embedQuery);
-        }
-
-        if ($embedding !== []) {
-            $vectorHits = $this->vectorSearch($embedding, $candidates, $minSimilarity, $corpus);
-
-            if ($vectorHits->isNotEmpty()) {
-                $rankLists[] = $this->ranksFromChunks($vectorHits->map(fn (array $row): KnowledgeChunk => $row['chunk']));
-                $similarities = $this->mergeSimilarities($similarities, $vectorHits);
-            }
-        }
-
-        $lexicalHits = $this->lexicalSearch($lexicalQuery, $candidates, $corpus);
-
-        if ($lexicalHits->isNotEmpty()) {
-            $rankLists[] = $this->ranksFromChunks($lexicalHits);
-        }
     }
 
     /**
