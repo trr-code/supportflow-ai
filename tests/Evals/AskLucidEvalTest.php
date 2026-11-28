@@ -42,7 +42,8 @@ test('Ask Lucid interprets harmless dictation slips but clarifies a consequentia
     expect($answer)->toMatch('/number|source/iu')->toMatch('/passage/iu')->not->toMatch('/what do you mean|correct your spelling/iu');
 
     $ambiguous = liveAskLucid('I want to keep my uploaded files, delete them, and start over. Which reset should I use?', 'demo.documents');
-    expect($ambiguous)->toContain('?')->toMatch('/keep|retain/iu')->toMatch('/delet|remove/iu');
+    expect($ambiguous)->toContain('?')->toMatch('/keep|retain/iu')->toMatch('/delet|remove/iu')
+        ->not->toMatch('/\b(?:use|choose|click|select)\s+(?:\*\*)?(?:Start fresh|New chat)\b/iu');
 });
 
 test('Ask Lucid explains business uses without an unrelated support detour', function () {

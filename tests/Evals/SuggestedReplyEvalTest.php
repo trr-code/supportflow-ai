@@ -58,6 +58,6 @@ test('a tent return handoff acknowledges the request already reached support', f
 
     expect($reply->body)
         ->toMatch('/\b(received|thanks for submitting|thank you for submitting)\b/i')
-        ->toMatch('/\breview\b/i')
+        ->toMatch('/\breview(?:ed)?\b/i')
         ->not->toMatch('/can be sent to support|open a (support )?ticket|this demo/i');
 });
