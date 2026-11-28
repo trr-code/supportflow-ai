@@ -7,6 +7,7 @@ use App\Http\Controllers\StreamChatController;
 use App\Http\Controllers\StreamWorkspaceChatController;
 use App\Http\Controllers\SupplierInvoiceExportController;
 use App\Http\Controllers\SupplierInvoiceOriginalController;
+use App\Http\Middleware\ThrottleChatRequests;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DemoEnvironment;
 use App\Livewire\Pages\DemoSafety;
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', Welcome::class)->name('home');
 
 Route::get('/ask-lucid', [AskLucidController::class, 'index'])->name('ask-lucid.index');
-Route::post('/ask-lucid', [AskLucidController::class, 'store'])->middleware('throttle:chat')->name('ask-lucid.store');
+Route::post('/ask-lucid', [AskLucidController::class, 'store'])->middleware(ThrottleChatRequests::using('chat'))->name('ask-lucid.store');
 Route::patch('/ask-lucid', [AskLucidController::class, 'update'])->name('ask-lucid.stop');
 Route::delete('/ask-lucid', [AskLucidController::class, 'destroy'])->name('ask-lucid.destroy');
 
@@ -73,7 +74,7 @@ Route::post('/demo/dictation/session', StartDictationSessionController::class)
     ->name('demo.dictation.session');
 
 Route::post('/chat/stream', StreamChatController::class)
-    ->middleware('throttle:chat')
+    ->middleware(ThrottleChatRequests::using('chat'))
     ->name('chat.stream');
 
 Route::post('/preview/chat', StreamWorkspaceChatController::class)

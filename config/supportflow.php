@@ -62,6 +62,7 @@ return [
     ],
 
     'rate_limits' => [
+        'chat_store' => env('SUPPORTFLOW_CHAT_LIMITER_STORE'),
         'tickets_per_minute' => 15,
         'chat_per_minute' => 30,
         'workspace_chat_per_minute' => 30,

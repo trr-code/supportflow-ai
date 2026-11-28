@@ -10,6 +10,21 @@ beforeEach(function () {
     config(['supportflow.rate_limits.chat_per_minute' => 10]);
 });
 
+test('the dedicated chat store shares the Harbor and Ask Lucid quota without consuming the default store quota', function () {
+    config([
+        'cache.stores.chat-test' => ['driver' => 'array'],
+        'supportflow.rate_limits.chat_store' => 'chat-test',
+        'supportflow.rate_limits.chat_per_minute' => 1,
+    ]);
+
+    postChatStream('x')->assertUnprocessable();
+    $this->postJson(route('ask-lucid.store'))->assertTooManyRequests();
+
+    config(['supportflow.rate_limits.chat_store' => null]);
+
+    $this->postJson(route('ask-lucid.store'))->assertUnprocessable();
+});
+
 test('chat allows ten requests per minute then blocks the eleventh with a retry message', function () {
     config(['supportflow.demo.chat_turn_cap' => 20]);
     fakeSupportAi();

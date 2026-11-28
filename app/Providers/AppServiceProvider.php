@@ -69,15 +69,6 @@ class AppServiceProvider extends ServiceProvider
 
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('tickets', function (Request $request) {
-            $session = $request->cookie(DemoSessionService::COOKIE);
-
-            return [
-                Limit::perMinute((int) config('supportflow.rate_limits.tickets_per_minute'))->by($request->ip()),
-                Limit::perMinute((int) config('supportflow.rate_limits.tickets_per_minute'))->by($session ?: $request->ip()),
-            ];
-        });
-
         RateLimiter::for('chat', function (Request $request) {
             $ip = (string) $request->ip();
             $cookie = $request->cookie(DemoSessionService::COOKIE);
@@ -101,14 +92,6 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('regenerate', function (Request $request) {
-            $max = (int) config('supportflow.rate_limits.regenerate.max_attempts', 5);
-            $decay = (int) config('supportflow.rate_limits.regenerate.decay_seconds', 600);
-
-            return Limit::perMinutes(max(1, (int) ceil($decay / 60)), $max)
-                ->by((string) ($request->user()?->id ?: $request->ip()));
-        });
-
         RateLimiter::for('demo.enter-agent', fn (Request $request) => Limit::perMinute(10)->by((string) $request->ip()));
 
         RateLimiter::for('workspace.chat', function (Request $request) {
@@ -122,6 +105,5 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('demo.prune-stale', fn (Request $request) => Limit::perMinute(3)->by((string) ($request->user()?->id ?: $request->ip())));
     }
 }
