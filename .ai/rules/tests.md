@@ -16,3 +16,6 @@ Follow .ai/guidelines/testing-verification.md: focused tests/rendered checks for
 
 ## Installed browser tooling overrides stale generic skill assumptions
 This repository installs pestphp/pest-plugin-browser and Playwright and already has tests/Browser. Generic testing skill wording that says this project does not install browser tooling is stale; use the verified installed versions and project browser rules. Controlled browser events and fictional-audio real-provider tests are distinct from owner physical-microphone acceptance. Do not remove existing coverage or change dependencies to resolve this documentation mismatch.
+
+## Maintain tests when changing or removing behavior
+Review affected tests with every behavior change. Add or update assertions for the intended behavior and relevant failure cases. Remove tests that exclusively cover deliberately retired behavior once deletion is authorized, and preserve shared and still-valid coverage. Fix the behavior when a valid expectation fails; do not weaken assertions just to make the suite pass.

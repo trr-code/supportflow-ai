@@ -3,7 +3,8 @@ paths:
   - rector.php
   - composer.json
   - vite.config.js
-  - "**"
+  - '**'
+  - 'compose*.yaml'
 ---
 
 # Project-wide workflow
@@ -19,6 +20,8 @@ For Lucid audit/fix work, read docs/system-design-audit.md and its Herd verifica
 
 ## Verify answers against the official documentation relevant to the question
 The owner wants documentation checks by default, without repeating the request. Before substantive technical/product guidance or implementation, consult current official documentation for the subject: OpenAI/Codex for agent behavior/setup, Herd for local tooling, installed-version Laravel/Livewire/package docs for application work, and the relevant primary authority otherwise. Reuse sufficient verified sources already in context. Cite the supporting source concisely and distinguish documented behavior, observed local evidence, engineering judgment and unverified claims. Explicitly flag inaccessible documentation or missing coverage; never imply documentation established something it did not. Persistent instructions improve continuity but do not guarantee every future agent will comply.
+
+Before editing framework-dependent code, use Laravel Boost search-docs for the installed version and confirm the exact API against the installed package when needed. If applicable guidance cannot settle a proposed action, explain the gap and get Terry's decision before proceeding. Follow the change-cleanup guideline and record verified results, remaining gaps, and primary sources in the handoff.
 
 ## Use Conventional Commits for future commit messages
 The owner adopted Conventional Commits 1.0.0 for this project going forward. Use lowercase type and a short meaningful lowercase scope where useful. Common types: feat, fix, docs, refactor, perf, test, build, ci, chore. Keep descriptions concise, imperative and without a trailing period; use ! and a BREAKING CHANGE footer for actual breaking changes. Follow the official Git prefixed-subject casing rule below. Scope is optional under the specification; do not invent one for changes with no useful single area. Preserve published history unless its rewrite is separately approved. This message-format preference does not authorize commits, pushes or deployment; obtain the owner's approval as already required.
@@ -58,3 +61,6 @@ Owner 2026-11-21 explicitly chooses continued dictation while browsing policies,
 
 ## Follow official Git prefixed-subject casing
 Owner 2026-11-22 supersedes the capitalized-description preference: follow https://git-scm.com/docs/SubmittingPatches for prefixed subjects, e.g. fix(showroom): enable Ask Lucid preview. Keep type/scope lowercase and do not capitalize the description's first word merely because it begins the sentence; preserve proper nouns/acronyms. Use imperative wording and no final period. This adopts Git's own contribution convention for this project; Conventional Commits permits either case. Do not force-push published history for cosmetic corrections without separate approval.
+
+## Keep Docker parity isolated from Herd and Forge
+Owner approves a separate local Docker environment for Package 5 preparation, not a production runtime/dependency change. Always use --env-file .env.docker; preserve Herd .env, databases and deferred Package 6 artifacts. Build source into Linux images for measurement (no Windows source bind mount); default one worker/500 requests, development override one request/watch must not be benchmarked. Docker test database/volumes stay separate; never remove volumes or copy production data as routine cleanup. Versions/evidence/remaining work live in docs/performance.md and docs/release-readiness.md.

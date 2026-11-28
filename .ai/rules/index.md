@@ -4,7 +4,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 
 | Applies to | Rule file |
 | --- | --- |
-| rector.php, composer.json, vite.config.js, ** | .ai/rules/00-project.md |
+| rector.php, composer.json, vite.config.js, **, compose*.yaml | .ai/rules/00-project.md |
 | app/Ai/Agents/SuggestedReplyAgent.php, app/Ai/Agents/SupportChatStreamAgent.php, app/Ai/Agents/WorkspaceChatAgent.php | .ai/rules/agents.md |
 | app/Livewire/** | .ai/rules/app-livewire.md |
 | app/** | .ai/rules/app.md |
@@ -25,6 +25,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/livewire/pages/**, resources/views/livewire/pages/workspace-documents-embedded.blade.php | .ai/rules/livewire-pages.md |
 | resources/views/livewire/** | .ai/rules/livewire.md |
 | resources/views/components/lucid/** | .ai/rules/lucid.md |
+| app/Http/Middleware/ThrottleChatRequests.php | .ai/rules/middleware.md |
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/** | .ai/rules/models.md |
 | app/Livewire/Pages/TicketCreate.php, app/Livewire/Pages/TicketShow.php, app/Livewire/Pages/TicketStatus.php, app/Livewire/Pages/SupplierInvoicePage.php, app/Livewire/Pages/** | .ai/rules/pages.md |

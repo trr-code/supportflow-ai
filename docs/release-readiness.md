@@ -1,3 +1,69 @@
+## 2026-11-28 — Package 5 final local verification
+
+Terry completed all 12 walkthrough steps and the optional Invoice review visual check. The final Composer gate passed all stages with 1,132 tests passed, four optional skips and 11,420 assertions. The initial live evaluation run passed 72 of 75 cases. Ask Lucid now asks for clarification before recommending a reset when the request conflicts about keeping or deleting uploaded files. The tent review and document warranty assertions now accept equivalent wording while retaining their factual checks. Each of the three affected live cases passed individually after the correction (17 assertions total). The existing one-worker local performance measurements remain the baseline. The Forge capacity comparison remains separate from the CI-gated deploy.
+
+## 2026-11-28 — Current Forge scope and Package 5 worker plan
+
+Terry confirmed CareerForge is gone and SupportFlow AI (Lucid) is the only application on the Forge server in scope. SupportFlow AI and Lucid refer to the same application. Naming cleanup is deferred. Earlier references below describe historical observations and are superseded for current operations. There is no CareerForge dependency or pause/restore step.
+
+1. After local verification and authorization for hosted checks, record the one-worker baseline on Forge. Verify health, memory and swap activity, then run the off-peak smoke and progressively measure read-only page latency and overlapping Harbor replies.
+2. If the baseline shows enough headroom and the temporary change is authorized, compare two Octane workers with the same checks. Keep one Supervisor process. Watch page latency, memory, swap activity and errors.
+3. Restore one worker if the trial strains the server, then verify health. If two workers do not fit comfortably, assess a larger or separate server as a follow-up. The 10-query target remains tracked separately from release.
+
+## 2026-11-27 — Harbor walkthrough steps 1–5 correction
+
+Compared Terry’s screenshots with the linked Package 4 Harbor citation decisions and the seeded policies. Preserved steps 1–5. The shared return passage marker now follows the final-sale and over-$100 review claims when both are present. Harbor visibly cites the Trail Pack sizes for the standalone 28L/36L answer. The missing-poles answer keeps overnight replacement conditional on proof of departure within 48 hours and pickup conditional on stock. The overdue return still states the deadline without treating support review as an exception.
+
+Replayed all five scenarios on the rebuilt local Docker candidate and checked persisted source labels. The two new citation regressions and one new live overnight evaluation retain the prior coverage. All 13 live Harbor evaluations and final full Composer passed with 1,132 tests, four optional skips and 11,420 assertions. A mobile invoice browser timeout in the first full run passed on the focused retry and in the final full run. Terry’s retest of steps 1–5 comes before resuming at step 6. Nothing was pushed or deployed.
+
+## 2026-11-27 — Forge preflight and local manual review
+
+Read-only Forge checks confirmed clean live revision `8fa2a11`, five public HTTP 200 responses, Octane backend HTTP 200, PHP 8.5.13, running Octane and SupportFlow queue, current scheduler output, 21 applied migrations and zero pending, and 14 GB free disk. The failed systemd unit was the Ubuntu message of the day. The unrelated CareerForge worker was running. The backend socket appeared wildcard-bound in the process listing and did not accept an external TCP connection from this workstation. A follow-up resolved the enabled Nginx site's include and verified the loopback proxy on port 8001, buffering off and a 120-second read timeout. UFW is active with a stored incoming DROP policy and IPv6 filtering enabled. Its individual IPv4/IPv6 rules require privileged access. The exact allowlist evidence remains Terry's November 26 check.
+
+The local candidate was rebuilt and served the Harbor page plus fixed and live answers with sources. The mocked Forge deploy safety test passed all nine cases. Terry's manual review comes next. The candidate remains local. Pushing to main starts exact-commit CI and can trigger the Forge deployment when CI passes. No push, deployment, server change or hosted load test was performed.
+
+## 2026-11-27 — Package 5 local performance recheck
+
+The local [performance batch](performance.md#package-5-local-load-chat-and-memory-verification--2026-11-27) finished with 35,469 read-only GETs and zero failures. The three representative pages stayed within the 500 ms p95 budget through 24 concurrent visitors per route. All eight live Harbor streams completed with sources and met the warm and overlap gates. The worker and container samples showed no sustained growth during this bounded local run. The 52 focused chat and browser cases passed with 739 assertions, and all 12 live Harbor grounding evaluations passed with 58 assertions. No app, configuration or test source changed, so the previous full Composer pass still applies.
+
+The ten-query target remains open. No source reuse or session change was made in this batch. Forge operations and separate off-peak hosted capacity verification remain open.
+
+## 2026-11-27 — Harbor final-save cancellation fix
+
+Harbor assistant saves, visible-text Stop and New chat now coordinate on the same PostgreSQL conversation row. Four permanent regressions cover either action reaching the save boundary first or following the assistant insert. The earlier cancellation, refusal and browser prefix regressions remain. Full Composer passed with 1,130 tests, four optional skips and 11,414 assertions. The clean local image returned HTTP 200 and served cited fixed and live answers with the temporary counter removed.
+
+Fixed-guide samples used 16–17 logged PostgreSQL statements. Live samples used 29–31. The [performance checkpoint](performance.md#package-5-harbor-final-save-serialization--2026-11-27) explains the additional checks. Package 5 local query tuning, load, memory and Forge verification remain open.
+
+## 2026-11-27 — Harbor final-save cancellation issue
+
+Paused the Package 5 local batch after reproducing two failures at the final save boundary. A controlled Laravel model event invoked cancellation after the last generation check during AI usage recording and before the assistant insert. Stop saved the visible prefix, then the old stream appended the full answer. New chat cleared the conversation, then the old stream inserted its answer into the cleared thread. Both cases used fictional data. The temporary diagnostic was removed and no application behavior or query count changed in this pass. Coordinate the final assistant write with Stop and New chat, then add permanent regressions for both cases before resuming load and memory checks.
+
+## 2026-11-27 — Harbor Stop and fixed-guide query breakdown
+
+Harbor Stop keeps the visible answer text during receipt and post-receipt reveal. Before completion the browser sends a server-authenticated snapshot for the visible text and its character count; the server scopes it to the current visitor and turn. The snapshot adds stream payload bytes without a database write per delta. Desktop receiving and phone revealing browser tests verified the exact saved prefix after refresh. The feature test verified rejection of a foreign snapshot and that a superseded snapshot leaves the current turn alone. Full Composer passed with 1,126 tests, four optional skips and 11,404 assertions. The clean local app returned HTTP 200 and completed fixed and live cited replies. No deploy.
+
+The fixed-guide trace accounted for all 14 statements in the [performance notes](performance.md#package-5-harbor-fixed-guide-query-breakdown--2026-11-27). The ten-query target remains open.
+
+## 2026-11-27 — Package 5 local chat limiter outage checkpoint
+
+Local Docker uses the optional Redis store for Harbor and Ask Lucid sends only. The prior global limiter caused Stop and New chat to return 500 during a Redis outage because Livewire's checksum guard uses the default limiter. After isolation, both actions returned 200 while a Harbor stream was active and Redis was offline. Reloads verified the stopped or cleared thread. Cited follow-ups worked after recovery, and the local stack is healthy. Cancellation and its stream lock remain on PostgreSQL. See [the performance checkpoint](performance.md#package-5-harbor-controls-during-a-local-redis-outage--2026-11-27).
+
+Latest live Harbor samples used 29–31 PostgreSQL queries after consolidating the [final cancellation check](performance.md#package-5-harbor-final-cancellation-check--2026-11-27). Fixed-guide samples remain at 14. The ten-query target, safe cancellation-store alternatives, longer Octane memory testing, and Forge operations and capacity verification remain open. No Forge rollout or production Redis change is authorized by this local work.
+
+## 2026-11-26 — Package 5 local Docker setup validated; handoff ready
+
+Owner approves building/validating the isolated local Docker stack here, then handing actual Package 5 performance work to a fresh chat. Added digest-pinned production-version PHP/FrankenPHP, PostgreSQL/pgvector, Nginx, queue and scheduler; separate edit/watch override and Linux test profile. No production/dependency/app/CI changes or publishing authorized in this setup batch. Herd and the 150 deferred Package 6 artifacts remain untouched. Existing earlier local documentation edits are preserved.
+
+Current evidence/commands: README Docker section and docs/performance.md Package 5 Docker preparation section. Final exact Linux composer test passed config clearing, Pint/Blade, Rector, PHPStan and 1,114 tests/four optional skips/11,356 assertions. Earlier host invoice and Linux New chat click timeouts passed unchanged focused reruns; final full Linux gate also passed New chat. Images/startup/seeding, real cited chat, real queued ticket, scheduler, persistence, seven HTTP 200 routes, development-mode startup and restored default one-worker/500-request runtime verified. Initial tiny Stressless smoke had intermittent long stalls; subsequent idle 127.0.0.1 and localhost four-route smokes both passed with zero failed requests. Cause of the earlier transient remains unproven; keep it as a Package 5 baseline investigation if it recurs, not a capacity pass. Higher load and optimization have not begun. Compose Watch edit-trigger rebuild remains unexercised optional tooling. Test DB stopped, data preserved, runtime healthy; no commit/push/deploy made. Ready to begin Package 5 testing in a fresh chat, not to claim performance acceptance.
+
+Separate completed maintenance in this chat: both Forge servers (books/careerforge) rebooted into kernel 6.8.0-151-generic; no failed services afterward and all four sites plus Lucid /up HTTP 200. Terry reset sudo passwords privately and supplied actual UFW status for both: active, default deny incoming, allow outgoing, only 22/80/443 allowed from any IPv4/IPv6 source; no IP migration entries needed for the Forge email. No firewall/security changes made. Environment-file target permissions were observed 0664 on the four apps and left for owner discussion; this is not an internet-exposure finding. Retain December 17 04:00–08:00 CST Forge deployment outage awareness.
+
+## 2026-11-25 — Homepage header button removal live
+
+Exact main/actual Forge source 8fa2a1178bf8c1c14a62cbf153b9e10d7bab248b (fix(showroom): remove redundant homepage demo button), server tracked tree clean. Local full Composer and CI 45735725150 passed all stages: 1,114 tests/four optional skips/11,356 assertions; dependent deploy hook succeeded. Initial served page retained the old button while Forge finished building/reloading; final served homepage returns 200 with no Explore demos header link, retained Lucid home, all three demo cards, approved guide copy and footer. Seven final sequential health/public GETs all returned 200. Desktop/phone local rendered review confirmed removal with preserved header geometry; no package/runtime/AI behavior changed.
+
+Removed the requested upper-right in-page anchor, empty nav wrapper and three styles solely used by that control. Existing tests use retained content as home arrival signal and assert the removed link is absent while cards work. No unrelated UI, hero/footer artwork or deferred artifacts changed. These final verification-only notes remain local for next authorized documentation/package commit; application/rules/tests are pushed and live. No extra documentation-only deployment is required. Package 5 work remains separate.
+
 ## 2026-11-25 — Remove only homepage Explore demos header action
 
 Terry explicitly approves removing only the upper-right Explore demos button and publishing after cleanup/validation. Source inspection confirms it was an in-page #demos link, not a separate workflow. Removed that link and its now-empty navigation wrapper from the home-only layout branch, plus three header-nav/button-only CSS declarations with no remaining consumers. Preserved logo/home link, header padding/height, hero, demo cards/section anchor, responsive copy, safeguards, footer/cloud artwork and Ask Lucid. Existing navigation/auth/focus/landing tests use the retained demo heading as their home arrival signal; existing homepage checks verify the removed link stays absent and cards remain reachable/open a demo. No test removed or new duplicate test added.

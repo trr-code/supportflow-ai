@@ -10,7 +10,7 @@ Do **not** publish deployment-hook tokens. Rotate a token in Forge if it was pas
 
 ## Status (2026-09-24)
 
-The non-ZDD SupportFlow site is **live**. Cutover is complete. CareerForge on the same server is unused (not deleted).
+The non-ZDD SupportFlow site is **live**. Cutover is complete. Terry confirmed CareerForge is gone. SupportFlow AI (Lucid) is the only application on this Forge server. Follow the current worker plan in release-readiness.md.
 
 Forge CLI is **2.0.3**. Organization `terry-lafferty`, server `careerforge` (`1228434`, `167.172.14.46`). Forge API `provider` is **`laravel`** (Laravel VPS, region New York 1 / `nyc1`, type `app`, Ubuntu 24.04). It is **not** a linked DigitalOcean (`ocean2`) server. Resize, if ever approved, is Forge Settings → Size (Laravel VPS upsize only).
 
@@ -24,7 +24,7 @@ CLI commands that shell out to SSH hang the same way. API commands (`site:list`,
 
 Official Forge: **do not use zero-downtime deployments with Laravel Octane**. This site has ZDD **off**. Deploy by fast-forwarding to the CI-tested commit in the site root, then `octane:reload` and `queue:restart`. Do **not** use `$CREATE_RELEASE()`, `$ACTIVATE_RELEASE()`, or `$RESTART_QUEUES()`.
 
-Do **not** copy the local 16-worker Octane count onto this 1 vCPU/961 MiB Laravel VPS. Octane’s default (one worker per CPU) is not a cap. A `--workers=2` trial on 2026-10-26 overlapped chat (n=2 1.46–1.54 s vs 1.44–3.07 s) but GET `/` conc 4 p95 rose 121→187 ms and GET load had **active swap-out** (`so` 4456 KB/s for 1 s). **Reverted to `--workers=1`.** CareerForge `worker-987181` stays **STOPPED**. Do not raise the Octane Supervisor process count.
+Do **not** copy the local 16-worker Octane count onto this 1 vCPU/961 MiB Laravel VPS. Octane’s default (one worker per CPU) is not a cap. A `--workers=2` trial on 2026-10-26 overlapped chat (n=2 1.46–1.54 s vs 1.44–3.07 s) but GET `/` conc 4 p95 rose 121→187 ms and GET load had **active swap-out** (`so` 4456 KB/s for 1 s). **Reverted to `--workers=1`.** Do not raise the Octane Supervisor process count.
 
 Rector `--dry-run` is in both `composer test` and GitHub Actions.
 
@@ -54,10 +54,6 @@ Manual deployment succeeded. `/up` passed. Chat streaming passed. A complete pro
 
 PHP-FPM 8.5 remains installed. This site does not use it for HTTPS. `index index.html` with official `try_files $uri $uri/ @octane` returns nginx 403 on `/`.
 
-### CareerForge (unused, not deleted)
-
-Same VM. Supervisor program is `worker-987181` (not `daemon-987181`). Command: `queue:work` `--timeout=600 --queue=default` under `careerforge-vec7voun.on-forge.com/current`. **Paused 2026-10-26 22:10Z** with `sudo -n supervisorctl stop worker-987181:*`. Status `STOPPED`. The Forge background-process record was not deleted. Restore with `sudo -n supervisorctl start worker-987181:*`. A server reboot will autostart it (Forge queue workers start on reboot). Do not delete CareerForge or shared Lucid/SupportFlow resources. Before stopping anything else, list Forge sites and treat unknown vhosts as keep-until-identified.
-
 ### Former ZDD site (deleted)
 
 Site `3362425`, hostname `supportflow-ai-ou1b5gvy.on-forge.com`, has been **deleted**. Its Octane process, queue worker, and scheduler have been **removed**. The shared PostgreSQL database `supportflow_ai` remains intact. Live SupportFlow is still site `3397748`/`supportflow-ai-lqojsjr5.on-forge.com`. Port **8001** stays the documented SupportFlow Octane port.
@@ -76,7 +72,7 @@ Update the deploy script via PUT `/orgs/{org}/servers/{server}/sites/{id}/deploy
 
 Do **not** run `db:seed --force` again on this database. Seeding duplicates `demo_agent` and Harbor data.
 
-Shared ~1 GB VM: queue storms and Stressless compete with CareerForge. Run progressive Pest Stressless **off-peak** against the **public** staging URL only. That is not permission to load-test an unknown production system.
+Shared ~1 GB VM: queue storms and Stressless compete for resources. Run progressive Pest Stressless **off-peak** against the **public** staging URL only. That is not permission to load-test an unknown production system.
 
 ## Octane/FrankenPHP
 
@@ -95,7 +91,7 @@ Set at least:
 
 - `APP_NAME=SupportFlow AI`
 - `APP_URL` (the public HTTPS origin above)
-- `DB_*` PostgreSQL (`supportflow_ai`, not CareerForge’s database)
+- `DB_*` PostgreSQL (`supportflow_ai`)
 - `QUEUE_CONNECTION=database`
 - `CACHE_STORE=database`
 - `OPENAI_API_KEY`
@@ -162,7 +158,7 @@ Before the first client document upload on this server:
 - Set Forge `OPENAI_STORE=false`. Leave model-feedback sharing, evaluation/fine-tuning sharing, and API input/output sharing Disabled in the OpenAI organization. This app has no switch that turns those on.
 - Livewire posts every file selected in one Preview batch as `files[]` on a single request. Eight 8 MiB files are one 64 MiB body plus multipart framing, so `10M`/`12M` cannot hold a full batch. Keep the app limits at 8 MB per file and 8 files per batch.
 - In `/etc/php/8.5/cli/php.ini` only, `upload_max_filesize = 12M` and `post_max_size = 68M`. `12M` matches Livewire's temporary rule `max:12288` (12 MiB), so a file between 8 MiB and 12 MiB reaches “Each file must be 8 MB or smaller.” `68M` is 64 MiB of file bytes plus about 4 MiB for multipart framing. `64M` is smaller than that body. Leave the FPM ini at `2M` / `8M`. Forge’s server max upload size stays `2`, because that control writes one number into every PHP version. PUT `/orgs/{org}/servers/{server}/php/versions/{phpVersion}/configs/cli` with `{config}` needs the `server:manage-php` scope.
-- The SupportFlow Octane process is the static `frankenphp` binary in the site root. It does not read `/etc/php/8.5/cli/php.ini`. It reads `php.ini` from that same site root. That file contains only the two lines above. Do not point FrankenPHP at the CLI ini: the CLI extension directory is not FrankenPHP's. After either ini changes, restart only daemon `daemon-1104270`. Do not restart CareerForge's worker `worker-987181`.
+- The SupportFlow Octane process is the static `frankenphp` binary in the site root. It does not read `/etc/php/8.5/cli/php.ini`. It reads `php.ini` from that same site root. That file contains only the two lines above. Do not point FrankenPHP at the CLI ini: the CLI extension directory is not FrankenPHP's. After either ini changes, restart only daemon `daemon-1104270`.
 - The site Nginx config sets `client_max_body_size 68m;` after `index index.php;`. Keep `68m`. A 13 MiB POST reaches Laravel. A 69 MiB POST is rejected by Nginx.
 - Stored client originals are capped at 2 GiB, and an upload is refused when free space on `/` would fall below 8 GiB.
 

@@ -85,7 +85,7 @@ Use a phone viewport (~390px) and an iPad viewport (~768–1024px), plus a real 
 
 ## Live Forge staging (off-peak)
 
-Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That hostname is the live non-ZDD site (Octane on 8001). Run this only after local `composer test` and `composer test:evals` pass. This checklist is verification, not a deploy. Do not run Stressless chat/ticket writes. Do not raise `throttle:chat`. CareerForge is unused: do not skip or shrink these checks; if `worker-987181` contends, stop that worker rather than reducing tests. Do not delete CareerForge or shared Lucid/SupportFlow resources.
+Target [https://supportflow-ai-lqojsjr5.on-forge.com](https://supportflow-ai-lqojsjr5.on-forge.com). That hostname is the live non-ZDD site (Octane on 8001). Run this only after local `composer test` and `composer test:evals` pass. This checklist is verification, not a deploy. Do not run Stressless chat/ticket writes. Do not raise `throttle:chat`. SupportFlow AI (Lucid) is the only application on this Forge server. Follow the current worker plan in release-readiness.md.
 
 - [x] `/`, `/knowledge`, `/knowledge/return-window`, Open Agent Dashboard. (2026-10-26 `d93755f`; dashboard still showed 1 AI unavailable.)
 - [x] SupportFlow Octane, scheduler, and queue worker `--queue=ai,default` are running. (`daemon-1104270`, crontab `scheduled-2143100.log` mtime 19:06Z, `worker-1104326` `--queue=ai,default`. Live command includes `--daemon` vs docs.)

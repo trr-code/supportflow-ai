@@ -88,3 +88,6 @@ For contextual detail requests following a document overview, retrieve the previ
 
 ## Eloquent workflow services are the default
 Keep workflow queries and persistence in the existing named services using Eloquent directly. Do not introduce a repository abstraction solely for consistency; a different structure requires a concrete documented need. This is a project default, not a Laravel prohibition on repositories.
+
+## Preserve Harbor cancellation when reducing stream reads
+Only ordinary text events on Harbor turns without replacement tools may coalesce shared cancellation checks. Keep fresh checks at non-text events, client abort, and persistence boundaries, and preserve generation mismatch precedence. Verify Stop and New chat after visible text, citation integrity, and whole-request PostgreSQL counts before accepting a change.

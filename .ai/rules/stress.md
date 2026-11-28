@@ -15,10 +15,10 @@ Stressless starts k6 via Symfony Process without setTimeout, so the process defa
 k6 resets the per-VU cookie jar after each iteration unless K6_NO_COOKIES_RESET=true. Stressless GET helpers and the Stress Pest beforeEach set that env so HTML routes measure returning visitors, not one demo_sessions insert per request. Ad-hoc `pest stress` must set the env itself. Do not disable Laravel cookie encryption to chase Stressless row growth.
 
 ## Keep Forge load tests separate
-GET Stressless against Forge is off-peak, smoke-first, and targets the SupportFlow public hostname only. Local Herd GET Stressless is the default capacity check before that. Never loop POST /chat/stream, ticket create, dictation, or regenerate in Stressless. Do not run Stressless against CareerForge.
+GET Stressless against Forge is off-peak, smoke-first, and targets the SupportFlow public hostname only. Local Herd GET Stressless is the default capacity check before that. Never loop POST /chat/stream, ticket create, dictation, or regenerate in Stressless.
 
 ## Forge GET Stressless is the post-deploy GET check
-After deploy, Forge GET Stressless is the GET capacity check: smoke first, then load/stress/stability/capacity against the public hostname. Do not copy 16 Octane workers. Do not reduce the run because CareerForge is unused. GET Stressless does not close chat TTFB. See docs/performance.md.
+After deploy, Forge GET Stressless is the GET capacity check: smoke first, then load/stress/stability/capacity against the public hostname. Do not copy 16 Octane workers. GET Stressless does not close chat TTFB. See docs/performance.md.
 
 ## Stressless failed GETs need duration_max; site access_log is off
 k6 http_req_failed is a transport/error rate, not an HTTP status histogram. SupportFlow nginx has access_log off, so a single Stressless failure after a long GET ladder has no origin status. Report duration_max_ms and ttfb_max_ms. Do not raise Forge Octane workers or shrink the ladder. A cooldown rerun that is 0-failed is evidence of a transient, not a pass to ignore.

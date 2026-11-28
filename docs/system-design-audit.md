@@ -1,5 +1,13 @@
 # Lucid system-design audit
 
+## Package 5 Docker setup validated — 2026-11-26
+
+Owner-authorized local stack built/running with production-matched component versions, Linux image source storage and separate app/test data volumes; no app dependencies, production settings or CI changes. Final exact Linux composer test passes all stages, 1,114 tests/four optional skips/11,356 assertions. Real seeded embeddings, cited chat, queued ticket, scheduler, restart persistence, development startup and default restoration verified. Read readiness/performance for prior browser timeouts and passing reruns. Initial two-user smoke stalled; subsequent idle IP and original-hostname smokes passed all routes with zero failed requests. Root cause of that transient remains unknown and is retained for Package 5 baseline investigation if it recurs. Setup is ready for testing, not capacity/performance acceptance; no higher load, app optimization, commit/push/deploy in this batch. Optional Compose Watch edit-trigger rebuild not exercised. Earlier Package 4 live checkpoints valid; Package 6 artifacts preserved. Forge maintenance separately completed in readiness.
+
+## Homepage button removal verified live — 2026-11-25
+
+Main/actual Forge source 8fa2a11; server tracked tree clean. CI 45735725150 and local Composer passed 1,114/four optional skips/11,356 assertions; deploy hook succeeded. Actual served homepage has only the Lucid home header link with demo cards/copy/footer retained; seven final GETs returned 200. Local desktop/phone preview inspected. No unrelated UI/runtime changes; final verification notes stay local for next authorized documentation commit. Prior pending notes are historical.
+
 ## Homepage header button removal — 2026-11-25
 
 Owner approves removal only of upper-right Explore demos. Removed the in-page link, empty nav wrapper and three unused private styles; preserved header size/brand, demo cards, responsive copy and footer/artwork. Actual desktop/phone views inspected and existing assertions updated; no abandoned code remains from this change. Full Composer passed 1,114/four optional skips/11,356 assertions, with build/format/diff checks passed. CI-gated release/actual hosted verification pending. No dependency/runtime/performance changes; unrelated deferred artifacts preserved.
